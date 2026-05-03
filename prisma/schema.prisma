@@ -1,0 +1,279 @@
+// Society Management System — Prisma Schema
+// Multi-tenant SaaS: every tenant-scoped table has societyId
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────
+
+enum Role {
+  SUPER_ADMIN  // product team — cross-society access
+  ADMIN        // society admin
+  SECRETARY
+  TREASURER
+  OWNER
+  TENANT
+}
+
+enum FlatResidentType {
+  OWNER
+  TENANT
+}
+
+enum MaintenanceStatus {
+  PENDING
+  PAID
+  OVERDUE
+}
+
+// ─────────────────────────────────────────────
+// Multi-tenant root
+// ─────────────────────────────────────────────
+
+model Society {
+  id        String   @id @default(cuid())
+  name      String
+  address   String?
+  city      String?
+  state     String?
+  pincode   String?
+  upiId     String?  // society bank UPI ID for maintenance payments
+  logoUrl   String?
+  hasWings  Boolean  @default(true) // false = single-building, no wing concept
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  wings               Wing[]
+  users               User[]
+  maintenanceCharges  MaintenanceCharge[]
+  maintenancePayments MaintenancePayment[]
+  expenses            Expense[]
+
+  @@index([isActive])
+}
+
+// ─────────────────────────────────────────────
+// Building structure
+// ─────────────────────────────────────────────
+
+model Wing {
+  id        String   @id @default(cuid())
+  name      String   // e.g. "A", "B", "Wing 1"
+  societyId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  floors  Floor[]
+
+  @@unique([societyId, name])
+  @@index([societyId])
+}
+
+model Floor {
+  id        String   @id @default(cuid())
+  number    Int      // floor number
+  wingId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  wing  Wing   @relation(fields: [wingId], references: [id], onDelete: Cascade)
+  flats Flat[]
+
+  @@unique([wingId, number])
+  @@index([wingId])
+}
+
+model Flat {
+  id         String   @id @default(cuid())
+  number     String   // e.g. "101", "A-201"
+  floorId    String
+  societyId  String   // denormalized for fast filtering
+  isOccupied Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  floor               Floor              @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  residents           FlatResident[]
+  tenantRecords       TenantRecord[]
+  maintenanceCharges  MaintenanceCharge[]
+  maintenancePayments MaintenancePayment[]
+
+  @@unique([floorId, number])
+  @@index([societyId])
+  @@index([floorId])
+}
+
+// ─────────────────────────────────────────────
+// Users
+// ─────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  phone        String?
+  avatarUrl    String?
+  role         Role     @default(TENANT)
+  societyId    String?  // null only for SUPER_ADMIN
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  society       Society?       @relation(fields: [societyId], references: [id])
+  flatResidents FlatResident[]
+  tenantRecords TenantRecord[]
+  expenses      Expense[]
+  accounts      Account[]      // ready for future OAuth providers
+
+  @@index([societyId])
+  @@index([email])
+}
+
+// NextAuth Account model — ready for OAuth expansion
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+// ─────────────────────────────────────────────
+// Flat ↔ Resident mapping
+// ─────────────────────────────────────────────
+
+model FlatResident {
+  id        String           @id @default(cuid())
+  flatId    String
+  userId    String
+  type      FlatResidentType // OWNER | TENANT
+  isPrimary Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  flat Flat @relation(fields: [flatId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([flatId, userId])
+  @@index([flatId])
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────
+// Tenant occupancy history
+// ─────────────────────────────────────────────
+
+model TenantRecord {
+  id        String    @id @default(cuid())
+  flatId    String
+  userId    String
+  startDate DateTime
+  endDate   DateTime? // null = currently occupying
+  notes     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  flat Flat @relation(fields: [flatId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([flatId])
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────
+// Maintenance
+// ─────────────────────────────────────────────
+
+// Admin defines monthly charge per flat for a date range
+model MaintenanceCharge {
+  id          String   @id @default(cuid())
+  societyId   String
+  flatId      String
+  amount      Decimal  @db.Decimal(10, 2)
+  startMonth  Int      // 1–12
+  startYear   Int
+  endMonth    Int?     // null = open-ended (no expiry)
+  endYear     Int?
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  society  Society            @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  flat     Flat               @relation(fields: [flatId], references: [id], onDelete: Cascade)
+  payments MaintenancePayment[]
+
+  @@index([societyId])
+  @@index([flatId])
+}
+
+// One record per flat per month — generated by cron or created manually
+model MaintenancePayment {
+  id        String            @id @default(cuid())
+  societyId String
+  flatId    String
+  chargeId  String
+  month     Int               // 1–12
+  year      Int
+  amount    Decimal           @db.Decimal(10, 2)
+  status    MaintenanceStatus @default(PENDING)
+  paidAt    DateTime?
+  paidBy    String?           // userId
+  utrNumber String?           // UPI transaction reference
+  notes     String?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  society Society           @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  flat    Flat              @relation(fields: [flatId], references: [id], onDelete: Cascade)
+  charge  MaintenanceCharge @relation(fields: [chargeId], references: [id], onDelete: Cascade)
+
+  @@unique([flatId, month, year])
+  @@index([societyId, month, year])
+  @@index([flatId])
+  @@index([status])
+}
+
+// ─────────────────────────────────────────────
+// Society Expenses
+// ─────────────────────────────────────────────
+
+model Expense {
+  id          String   @id @default(cuid())
+  societyId   String
+  title       String
+  category    String   // e.g. "Electricity", "Repairs", "Security"
+  amount      Decimal  @db.Decimal(10, 2)
+  date        DateTime
+  description String?
+  receiptUrl  String?
+  addedById   String   // userId of TREASURER who added it
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  addedBy User    @relation(fields: [addedById], references: [id])
+
+  @@index([societyId])
+  @@index([societyId, date])
+}

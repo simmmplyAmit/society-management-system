@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(2>&1)",
+      "Bash(grep -n \"parsed.error.errors\" d:/Amit/side_projects/claude/SocietyManagementSystem/src/actions/*.ts)",
+      "Bash(sed -i 's/parsed\\\\.error\\\\.errors\\\\[0\\\\]\\\\.message/parsed.error.issues[0].message/g' d:/Amit/side_projects/claude/SocietyManagementSystem/src/actions/flats.ts d:/Amit/side_projects/claude/SocietyManagementSystem/src/actions/floors.ts d:/Amit/side_projects/claude/SocietyManagementSystem/src/actions/residents.ts d:/Amit/side_projects/claude/SocietyManagementSystem/src/actions/society.ts d:/Amit/side_projects/claude/SocietyManagementSystem/src/actions/users.ts d:/Amt/side_projects/claude/SocietyManagementSystem/src/actions/wings.ts)",
+      "Bash(sed -i 's/parsed\\\\.error\\\\.errors\\\\[0\\\\]\\\\.message/parsed.error.issues[0].message/g' \"d:/Amit/side_projects/claude/SocietyManagementSystem/src/actions/wings.ts\")",
+      "Bash(node -e \"const p = require\\('@prisma/client'\\); console.log\\(Object.keys\\(p\\)\\)\")",
+      "Bash(node -e \"require\\('dotenv'\\).config\\(\\); console.log\\('URL:', process.env.DATABASE_URL ? 'SET' : 'MISSING'\\)\")",
+      "Bash(node -e \"require\\('dotenv/config'\\); console.log\\('DB URL:', process.env.DATABASE_URL?.substring\\(0,30\\)\\)\")",
+      "Bash(npx tsx --env-file=.env -e ' *)",
+      "Bash(node -e \"const a = require\\('d:/Amit/side_projects/claude/SocietyManagementSystem/node_modules/@prisma/adapter-neon'\\); console.log\\(Object.keys\\(a\\)\\)\")",
+      "Bash(node -e \"const a = require\\('d:/Amit/side_projects/claude/SocietyManagementSystem/node_modules/@prisma/adapter-neon'\\); console.log\\(a.PrismaNeon.toString\\(\\).substring\\(0, 300\\)\\)\")",
+      "Bash(npm run *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/login)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/dashboard)",
+      "Bash(npx next *)",
+      "Bash(npx shadcn@latest add accordion --yes)"
+    ]
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//d/Amit/side_projects/claude/**)",
+      "Bash(npx create-next-app@latest society-management-system --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --no-git --yes)",
+      "Bash(cp -r d:/Amit/side_projects/claude/society-management-system/. d:/Amit/side_projects/claude/SocietyManagementSystem/)",
+      "Bash(rm -rf d:/Amit/side_projects/claude/society-management-system)",
+      "Bash(npm install *)",
+      "Bash(npm uninstall *)",
+      "Bash(npx shadcn@latest init --defaults)",
+      "Bash(npx shadcn@latest add card input label badge avatar dropdown-menu separator sheet toast sonner --yes)",
+      "Bash(npx shadcn@latest add card input label badge avatar dropdown-menu separator sheet sonner --yes)"
+    ]
+  }
+}
