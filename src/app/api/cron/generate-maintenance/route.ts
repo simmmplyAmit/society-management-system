@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateAllSocietiesCurrentMonth } from "@/actions/maintenance";
+import { generateAllSocietiesCurrentMonth } from "@/lib/queries/maintenance";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

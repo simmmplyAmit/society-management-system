@@ -3,6 +3,8 @@ import Credentials from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+import { refreshToken } from "@/lib/auth-token";
+import { isRateLimited, recordFailure, resetAttempts } from "@/lib/rate-limit";
 import type { Role } from "@prisma/client";
 
 const loginSchema = z.object({
@@ -26,6 +28,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (!parsed.success) return null;
 
         const { email, password } = parsed.data;
+        if (isRateLimited(email)) return null;
 
         const user = await prisma.user.findUnique({
           where: { email },
@@ -41,10 +44,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           },
         });
 
-        if (!user || !user.isActive) return null;
+        if (!user || !user.isActive) {
+          recordFailure(email);
+          return null;
+        }
 
         const isValid = await bcrypt.compare(password, user.passwordHash);
-        if (!isValid) return null;
+        if (!isValid) {
+          recordFailure(email);
+          return null;
+        }
+        resetAttempts(email);
 
         return {
           id: user.id,
@@ -63,8 +73,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.id = user.id;
         token.role = (user as { role: Role }).role;
         token.societyId = (user as { societyId: string | null }).societyId;
+        token.checkedAt = Date.now();
+        return token;
       }
-      return token;
+      // Periodically re-check the user: deactivated/deleted users lose their session
+      return refreshToken(token, Date.now(), (id) =>
+        prisma.user.findUnique({
+          where: { id },
+          select: { isActive: true, role: true, societyId: true },
+        })
+      );
     },
     async session({ session, token }) {
       if (token) {

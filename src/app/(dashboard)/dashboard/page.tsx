@@ -11,6 +11,7 @@ import {
   Clock,
 } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import type { Role } from "@prisma/client";
 
 const WELCOME: Record<Role, string> = {
@@ -27,6 +28,7 @@ export default async function DashboardPage() {
     "SUPER_ADMIN", "ADMIN", "SECRETARY", "TREASURER", "OWNER", "TENANT",
   ]);
   const { role, societyId, id: userId } = session.user;
+  if (role === "SUPER_ADMIN") redirect("/super-admin");
 
   const now = new Date();
   const month = now.getMonth() + 1;

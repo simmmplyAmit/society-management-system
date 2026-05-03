@@ -23,5 +23,6 @@ declare module "next-auth/jwt" {
     id: string;
     role: Role;
     societyId: string | null;
+    checkedAt?: number;
   }
 }

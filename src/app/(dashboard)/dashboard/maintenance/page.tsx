@@ -4,7 +4,7 @@ import {
   getMaintenanceCharges,
   getMonthlyPayments,
   getResidentPayments,
-} from "@/actions/maintenance";
+} from "@/lib/queries/maintenance";
 import { SetChargeForm } from "@/components/maintenance/set-charge-form";
 import { GeneratePaymentsForm } from "@/components/maintenance/generate-payments-form";
 import { DuesScheduler } from "@/components/maintenance/dues-scheduler";
@@ -37,7 +37,7 @@ export default async function MaintenancePage({
 
   const society = await prisma.society.findUnique({
     where: { id: societyId! },
-    select: { upiId: true, hasWings: true },
+    select: { upiId: true, hasWings: true, name: true },
   });
 
   // ─── Resident view ───────────────────────────────
@@ -47,7 +47,7 @@ export default async function MaintenancePage({
     return (
       <div className="space-y-4">
         <h2 className="text-lg font-semibold">My Maintenance</h2>
-        <ResidentDues payments={payments} societyUpiId={society?.upiId} hasWings={society?.hasWings ?? true} />
+        <ResidentDues payments={payments} societyUpiId={society?.upiId} societyName={society?.name} hasWings={society?.hasWings ?? true} />
       </div>
     );
   }

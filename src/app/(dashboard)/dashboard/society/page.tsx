@@ -1,6 +1,6 @@
 import { requireRole } from "@/lib/session";
-import { getSociety } from "@/actions/society";
-import { getWingsWithStructure } from "@/actions/wings";
+import { getSociety } from "@/lib/queries/society";
+import { getWingsWithStructure } from "@/lib/queries/wings";
 import { SocietySettingsForm } from "@/components/society/society-settings-form";
 import { AddWingForm } from "@/components/society/add-wing-form";
 import { AddFloorForm } from "@/components/society/add-floor-form";

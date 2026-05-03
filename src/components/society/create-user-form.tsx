@@ -56,7 +56,7 @@ export function CreateUserForm() {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="user-password">Temporary Password *</Label>
-            <Input id="user-password" name="password" type="password" placeholder="Min 6 characters" required />
+            <Input id="user-password" name="password" type="password" placeholder="Min 8 characters" required />
           </div>
           <div className="space-y-1.5">
             <Label>Role *</Label>

@@ -4,28 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-
-// ─────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────
-
-/** Convert month+year into a single integer for easy comparison */
-export function toIdx(month: number, year: number) {
-  return year * 12 + month;
-}
-
-/** Check whether two charge periods overlap.
- *  null endMonth/endYear means "open-ended" (ongoing). */
-export function periodsOverlap(
-  aStart: number, aEnd: number | null, // monthIdx
-  bStart: number, bEnd: number | null
-) {
-  // a ends before b starts → no overlap
-  if (aEnd !== null && aEnd < bStart) return false;
-  // b ends before a starts → no overlap
-  if (bEnd !== null && bEnd < aStart) return false;
-  return true;
-}
+import { toIdx, periodsOverlap } from "@/lib/utils/maintenance";
+import { generateForMonth } from "@/lib/queries/maintenance";
 
 // ─────────────────────────────────────────────
 // Schemas
@@ -34,7 +14,7 @@ export function periodsOverlap(
 const MIN_YEAR = 2000;
 
 const chargeSchema = z.object({
-  flatId: z.string().min(1, "Select a flat"),
+  flatIds: z.array(z.string().min(1)).min(1, "Select at least one flat"),
   amount: z.coerce.number().positive("Amount must be positive"),
   startMonth: z.coerce.number().int().min(1).max(12),
   startYear: z.coerce.number().int().min(MIN_YEAR),
@@ -83,7 +63,8 @@ export async function setMaintenanceCharge(formData: FormData) {
   const societyId = session.user.societyId!;
 
   const raw = {
-    flatId: formData.get("flatId"),
+    // One or more flats can be submitted at once; duplicates are ignored
+    flatIds: [...new Set(formData.getAll("flatId").map(String).filter(Boolean))],
     amount: formData.get("amount"),
     startMonth: formData.get("startMonth"),
     startYear: formData.get("startYear"),
@@ -95,14 +76,18 @@ export async function setMaintenanceCharge(formData: FormData) {
   const parsed = chargeSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
-  const { flatId, startMonth, startYear, endMonth, endYear } = parsed.data;
+  const { flatIds, startMonth, startYear, endMonth, endYear } = parsed.data;
 
-  const flat = await prisma.flat.findFirst({ where: { id: flatId, societyId } });
-  if (!flat) return { error: "Flat not found" };
+  // Every flat must belong to the caller's society
+  const flats = await prisma.flat.findMany({
+    where: { id: { in: flatIds }, societyId },
+    select: { id: true, number: true },
+  });
+  if (flats.length !== flatIds.length) return { error: "Flat not found" };
 
-  // ── Overlap check ──────────────────────────
+  // ── Overlap check (all-or-nothing across the selected flats) ──
   const existing = await prisma.maintenanceCharge.findMany({
-    where: { flatId, societyId },
+    where: { flatId: { in: flatIds }, societyId },
   });
 
   const newStart = toIdx(startMonth, startYear);
@@ -111,6 +96,7 @@ export async function setMaintenanceCharge(formData: FormData) {
     : null;
 
   for (const charge of existing) {
+    const flat = flats.find((f) => f.id === charge.flatId);
     const exStart = toIdx(charge.startMonth, charge.startYear);
     const exEnd = charge.endMonth !== null && charge.endYear !== null
       ? toIdx(charge.endMonth, charge.endYear)
@@ -121,14 +107,14 @@ export async function setMaintenanceCharge(formData: FormData) {
         ? `${charge.startMonth}/${charge.startYear}–${charge.endMonth}/${charge.endYear}`
         : `${charge.startMonth}/${charge.startYear} (ongoing)`;
       return {
-        error: `Overlaps with an existing charge (₹${charge.amount}/mo, ${label}). Close or delete it first.`,
+        error: `Overlaps with an existing charge${flat ? ` on flat ${flat.number}` : ""} (₹${charge.amount}/mo, ${label}). Close or delete it first — no charges were set.`,
       };
     }
   }
   // ──────────────────────────────────────────
 
-  await prisma.maintenanceCharge.create({
-    data: {
+  await prisma.maintenanceCharge.createMany({
+    data: flatIds.map((flatId) => ({
       societyId,
       flatId,
       amount: parsed.data.amount,
@@ -137,11 +123,11 @@ export async function setMaintenanceCharge(formData: FormData) {
       endMonth: endMonth ?? null,
       endYear: endYear ?? null,
       description: parsed.data.description,
-    },
+    })),
   });
 
   revalidatePath("/dashboard/maintenance");
-  return { success: true };
+  return { success: true as const, created: flatIds.length };
 }
 
 export async function deleteMaintenanceCharge(chargeId: string) {
@@ -154,68 +140,6 @@ export async function deleteMaintenanceCharge(chargeId: string) {
 
   revalidatePath("/dashboard/maintenance");
   return { success: true as const, error: undefined };
-}
-
-// ─────────────────────────────────────────────
-// Core generator — used by all generate actions
-// Returns { created, skipped } for one month
-// ─────────────────────────────────────────────
-
-async function generateForMonth(
-  societyId: string,
-  month: number,
-  year: number,
-  flatId?: string // undefined = all flats
-) {
-  const chargeWhere: Record<string, unknown> = {
-    societyId,
-    startYear: { lte: year },
-    OR: [
-      { endYear: null },
-      { endYear: { gt: year } },
-      { endYear: year, endMonth: { gte: month } },
-    ],
-  };
-
-  // Also filter by startMonth when startYear === year
-  // (handled post-fetch to keep query simple)
-  if (flatId) chargeWhere.flatId = flatId;
-
-  const charges = await prisma.maintenanceCharge.findMany({
-    where: chargeWhere,
-  });
-
-  // Filter out charges that haven't started yet in the same year
-  const activeCharges = charges.filter((c) => {
-    if (c.startYear === year && c.startMonth > month) return false;
-    return true;
-  });
-
-  let created = 0;
-  let skipped = 0;
-
-  for (const charge of activeCharges) {
-    const existing = await prisma.maintenancePayment.findUnique({
-      where: { flatId_month_year: { flatId: charge.flatId, month, year } },
-    });
-
-    if (existing) { skipped++; continue; }
-
-    await prisma.maintenancePayment.create({
-      data: {
-        societyId,
-        flatId: charge.flatId,
-        chargeId: charge.id,
-        month,
-        year,
-        amount: charge.amount,
-        status: "PENDING",
-      },
-    });
-    created++;
-  }
-
-  return { created, skipped };
 }
 
 // ─────────────────────────────────────────────
@@ -304,31 +228,6 @@ export async function generateDuesForRange(formData: FormData) {
 }
 
 // ─────────────────────────────────────────────
-// Cron-safe generator — no session required
-// Called by /api/cron/generate-maintenance
-// ─────────────────────────────────────────────
-
-export async function generateAllSocietiesCurrentMonth() {
-  const now = new Date();
-  const month = now.getMonth() + 1;
-  const year = now.getFullYear();
-
-  const societies = await prisma.society.findMany({
-    where: { isActive: true },
-    select: { id: true, name: true },
-  });
-
-  const results: { society: string; created: number; skipped: number }[] = [];
-
-  for (const society of societies) {
-    const result = await generateForMonth(society.id, month, year);
-    results.push({ society: society.name, ...result });
-  }
-
-  return { month, year, results };
-}
-
-// ─────────────────────────────────────────────
 // Mark paid / pending
 // ─────────────────────────────────────────────
 
@@ -370,74 +269,4 @@ export async function markPaymentPending(paymentId: string) {
 
   revalidatePath("/dashboard/maintenance");
   return { success: true as const, error: undefined };
-}
-
-// ─────────────────────────────────────────────
-// Queries
-// ─────────────────────────────────────────────
-
-export async function getMaintenanceCharges(societyId: string) {
-  return prisma.maintenanceCharge.findMany({
-    where: { societyId },
-    include: {
-      flat: {
-        include: {
-          floor: { include: { wing: { select: { name: true } } } },
-        },
-      },
-    },
-    orderBy: [
-      { flat: { floor: { wing: { name: "asc" } } } },
-      { flat: { floor: { number: "asc" } } },
-      { flat: { number: "asc" } },
-      { startYear: "desc" },
-      { startMonth: "desc" },
-    ],
-  });
-}
-
-export async function getMonthlyPayments(
-  societyId: string,
-  month: number,
-  year: number
-) {
-  return prisma.maintenancePayment.findMany({
-    where: { societyId, month, year },
-    include: {
-      flat: {
-        include: {
-          floor: { include: { wing: { select: { name: true } } } },
-          residents: {
-            where: { isPrimary: true },
-            include: { user: { select: { name: true, phone: true } } },
-          },
-        },
-      },
-    },
-    orderBy: [
-      { flat: { floor: { wing: { name: "asc" } } } },
-      { flat: { floor: { number: "asc" } } },
-      { flat: { number: "asc" } },
-    ],
-  });
-}
-
-export async function getResidentPayments(societyId: string, userId: string) {
-  const flatResidents = await prisma.flatResident.findMany({
-    where: { userId, flat: { societyId } },
-    select: { flatId: true },
-  });
-  const flatIds = flatResidents.map((fr) => fr.flatId);
-
-  return prisma.maintenancePayment.findMany({
-    where: { flatId: { in: flatIds } },
-    include: {
-      flat: {
-        include: {
-          floor: { include: { wing: { select: { name: true } } } },
-        },
-      },
-    },
-    orderBy: [{ year: "desc" }, { month: "desc" }],
-  });
 }

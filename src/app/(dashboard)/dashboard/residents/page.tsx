@@ -1,5 +1,5 @@
 import { requireRole } from "@/lib/session";
-import { getSocietyUsers } from "@/actions/users";
+import { getSocietyUsers } from "@/lib/queries/users";
 import { CreateUserForm } from "@/components/society/create-user-form";
 import { AssignResidentForm } from "@/components/society/assign-resident-form";
 import { UserList } from "@/components/society/user-list";
