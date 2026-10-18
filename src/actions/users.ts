@@ -12,7 +12,7 @@ const createUserSchema = z.object({
   email: z.string().email("Enter a valid email"),
   phone: z.string().optional(),
   role: z.enum(["ADMIN", "SECRETARY", "TREASURER", "OWNER", "TENANT"]),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
 export async function createUser(formData: FormData) {
@@ -54,6 +54,20 @@ export async function toggleUserActive(userId: string) {
   });
   if (!user) return { error: "User not found" };
 
+  if (user.isActive) {
+    if (user.id === session.user.id) {
+      return { error: "You cannot deactivate your own account" };
+    }
+    if (user.role === "ADMIN") {
+      const activeAdmins = await prisma.user.count({
+        where: { societyId: societyId!, role: "ADMIN", isActive: true },
+      });
+      if (activeAdmins <= 1) {
+        return { error: "Cannot deactivate the last active admin" };
+      }
+    }
+  }
+
   await prisma.user.update({
     where: { id: userId },
     data: { isActive: !user.isActive },
@@ -61,29 +75,4 @@ export async function toggleUserActive(userId: string) {
 
   revalidatePath("/dashboard/residents");
   return { success: true };
-}
-
-export async function getSocietyUsers(societyId: string) {
-  return prisma.user.findMany({
-    where: { societyId },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      phone: true,
-      role: true,
-      isActive: true,
-      createdAt: true,
-      flatResidents: {
-        include: {
-          flat: {
-            include: {
-              floor: { include: { wing: { select: { name: true } } } },
-            },
-          },
-        },
-      },
-    },
-    orderBy: { name: "asc" },
-  });
 }

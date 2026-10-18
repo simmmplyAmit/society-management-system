@@ -19,12 +19,12 @@ interface RoleGuideCardProps {
 
 export function RoleGuideCard({ guide, isCurrentRole, defaultOpen }: RoleGuideCardProps) {
   return (
-    <div className={`rounded-xl border p-4 space-y-3 ${guide.color}`}>
+    <div className={`rounded-xl bg-card ring-1 ring-border p-4 space-y-3`}>
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div>
           <div className="flex items-center gap-2">
-            <h3 className={`font-semibold text-base ${guide.textColor}`}>
+            <h3 className={`font-semibold text-base`}>
               {guide.label}
             </h3>
             {isCurrentRole && (
@@ -45,7 +45,7 @@ export function RoleGuideCard({ guide, isCurrentRole, defaultOpen }: RoleGuideCa
           <AccordionItem
             key={section.id}
             value={section.id}
-            className="bg-white/70 rounded-lg border-0 px-3 data-[state=open]:shadow-sm"
+            className="bg-muted/50 rounded-lg border-0 px-3"
           >
             <AccordionTrigger className="py-2.5 text-sm font-medium hover:no-underline">
               <span className="flex items-center gap-2">
@@ -58,7 +58,7 @@ export function RoleGuideCard({ guide, isCurrentRole, defaultOpen }: RoleGuideCa
               <ol className="space-y-3">
                 {section.steps.map((step) => (
                   <li key={step.step} className="flex gap-3">
-                    <span className="shrink-0 w-5 h-5 rounded-full bg-slate-800 text-white text-[10px] font-bold flex items-center justify-center mt-0.5">
+                    <span className="shrink-0 w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center mt-0.5">
                       {step.step}
                     </span>
                     <div className="flex-1 min-w-0">

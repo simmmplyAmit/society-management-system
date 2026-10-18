@@ -1,10 +1,11 @@
 import { requireRole } from "@/lib/session";
-import { getExpenses, getExpenseSummary } from "@/actions/expenses";
+import { getExpenses, getExpenseAnalytics } from "@/lib/queries/expenses";
 import { AddExpenseForm } from "@/components/expenses/add-expense-form";
 import { ExpensesList } from "@/components/expenses/expenses-list";
-import { ExpenseSummary } from "@/components/expenses/expense-summary";
+import { ExpenseAnalyticsView } from "@/components/expenses/expense-analytics";
 import { YearSelector } from "@/components/expenses/year-selector";
-import { Separator } from "@/components/ui/separator";
+import { ToolSection } from "@/components/ui/tool-section";
+import { Plus } from "lucide-react";
 
 interface SearchParams {
   year?: string;
@@ -25,44 +26,35 @@ export default async function ExpensesPage({
 
   const isTreasurer = role === "TREASURER" || role === "ADMIN";
 
-  const [rawExpenses, summary] = await Promise.all([
+  const [rawExpenses, analytics] = await Promise.all([
     getExpenses(societyId!, month, year),
-    getExpenseSummary(societyId!, year),
+    getExpenseAnalytics(societyId!),
   ]);
 
   const expenses = rawExpenses.map((e) => ({ ...e, amount: Number(e.amount) }));
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Expenses</h2>
-        <YearSelector year={year} />
-      </div>
+      <h2 className="text-2xl font-semibold">Expenses</h2>
 
-      {/* Year summary */}
-      <ExpenseSummary
-        monthly={summary.monthly}
-        byCategory={summary.byCategory}
-        grandTotal={summary.grandTotal}
-        year={year}
-      />
+      <ExpenseAnalyticsView data={analytics} />
 
       {isTreasurer && (
-        <>
-          <Separator />
+        <ToolSection title="Add expense" description="Record a new bill or payment" icon={Plus}>
           <AddExpenseForm />
-        </>
+        </ToolSection>
       )}
-
-      <Separator />
 
       {/* Expenses list */}
       <div>
-        <h3 className="text-sm font-semibold mb-3 text-muted-foreground">
-          {month
-            ? `${new Date(year, month - 1).toLocaleString("default", { month: "long" })} ${year}`
-            : `All expenses · ${year}`}
-        </h3>
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-muted-foreground">
+            {month
+              ? `${new Date(year, month - 1).toLocaleString("default", { month: "long" })} ${year}`
+              : `All expenses · ${year}`}
+          </h3>
+          <YearSelector year={year} />
+        </div>
         <ExpensesList expenses={expenses} canDelete={isTreasurer} />
       </div>
     </div>

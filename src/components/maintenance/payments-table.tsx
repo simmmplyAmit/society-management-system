@@ -1,25 +1,27 @@
 "use client";
 
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { MONTHS } from "@/lib/utils/month";
 import { MarkPaidForm } from "./mark-paid-form";
 import { formatCurrency, formatDate } from "@/lib/utils/month";
 import { flatLabel } from "@/lib/utils/flat";
-import { CheckCircle2, Clock, AlertCircle } from "lucide-react";
+
 
 type PaymentStatus = "PENDING" | "PAID" | "OVERDUE";
 
 const STATUS_CONFIG: Record<
   PaymentStatus,
-  { icon: React.ElementType; label: string; badge: string }
+  { label: string; variant: "success" | "warning" | "danger" }
 > = {
-  PAID: { icon: CheckCircle2, label: "Paid", badge: "bg-green-100 text-green-700" },
-  PENDING: { icon: Clock, label: "Pending", badge: "bg-amber-100 text-amber-700" },
-  OVERDUE: { icon: AlertCircle, label: "Overdue", badge: "bg-red-100 text-red-700" },
+  PAID: { label: "Paid", variant: "success" },
+  PENDING: { label: "Pending", variant: "warning" },
+  OVERDUE: { label: "Overdue", variant: "danger" },
 };
 
 interface Payment {
   id: string;
+  month: number;
+  year: number;
   amount: string | number;
   status: PaymentStatus;
   paidAt: Date | null;
@@ -39,84 +41,83 @@ interface PaymentsTableProps {
   canManage: boolean;
   societyUpiId?: string | null;
   hasWings: boolean;
+  limit?: number;
 }
 
-export function PaymentsTable({ payments, canManage, societyUpiId, hasWings }: PaymentsTableProps) {
+export function PaymentsTable({ payments, canManage, societyUpiId, hasWings, limit }: PaymentsTableProps) {
   if (payments.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground text-center py-6">
-        No payment records for this month. Generate records above.
-      </p>
+      <div className="rounded-xl border border-dashed border-border bg-card px-4 py-10 text-center">
+        <p className="text-sm font-medium">No dues match these filters</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Try another month or flat, or generate dues from the &ldquo;Generate dues&rdquo; tab.
+        </p>
+      </div>
     );
   }
 
-  const paid = payments.filter((p) => p.status === "PAID").length;
+  const total = payments.reduce((t, p) => t + Number(p.amount), 0);
+  const flatCount = new Set(payments.map((p) => `${p.flat.floor.wing.name}-${p.flat.floor.number}-${p.flat.number}`)).size;
 
   return (
-    <div className="space-y-3">
-      {/* Summary bar */}
-      <div className="flex items-center gap-3 text-sm">
-        <span className="text-muted-foreground">{payments.length} flats total</span>
-        <span className="text-green-600 font-medium">{paid} paid</span>
-        <span className="text-amber-600 font-medium">{payments.length - paid} pending</span>
+    <div className="space-y-4">
+      <div className="rounded-xl bg-card p-4 ring-1 ring-border shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+        <p className="text-xs font-medium text-muted-foreground">Total shown</p>
+        <p className="text-2xl font-semibold">{formatCurrency(total)}</p>
+        <p className="text-xs text-muted-foreground">
+          {payments.length} due{payments.length !== 1 ? "s" : ""} · {flatCount} flat{flatCount !== 1 ? "s" : ""}
+        </p>
+        {societyUpiId && (
+          <p className="mt-3 text-xs text-muted-foreground">
+            Pay to UPI: <span className="font-semibold text-foreground">{societyUpiId}</span>
+          </p>
+        )}
       </div>
 
-      {societyUpiId && (
-        <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-blue-700">
-          Society UPI: <span className="font-semibold">{societyUpiId}</span>
-        </div>
-      )}
-
-      {payments.map((payment) => {
-        const config = STATUS_CONFIG[payment.status];
-        const Icon = config.icon;
-        const primaryResident = payment.flat.residents[0];
-
-        return (
-          <Card key={payment.id}>
-            <CardContent className="p-3">
-              <div className="flex items-start gap-2">
-                <Icon className={`h-4 w-4 mt-0.5 shrink-0 ${
-                  payment.status === "PAID" ? "text-green-500" :
-                  payment.status === "OVERDUE" ? "text-red-500" : "text-amber-500"
-                }`} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <span className="font-medium text-sm">
-                        {flatLabel(payment.flat, hasWings)}
-                      </span>
-                      {primaryResident && (
-                        <p className="text-xs text-muted-foreground">
-                          {primaryResident.user.name}
-                          {primaryResident.user.phone && ` · ${primaryResident.user.phone}`}
-                        </p>
-                      )}
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="font-semibold text-sm">{formatCurrency(payment.amount)}</p>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${config.badge}`}>
-                        {config.label}
-                      </span>
-                    </div>
-                  </div>
-
-                  {payment.status === "PAID" && (
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      {formatDate(payment.paidAt)}
-                      {payment.utrNumber && ` · UTR: ${payment.utrNumber}`}
-                    </div>
-                  )}
-
-                  {canManage && (
-                    <MarkPaidForm paymentId={payment.id} status={payment.status} />
-                  )}
+      <div className="divide-y divide-border overflow-hidden rounded-xl bg-card ring-1 ring-border shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+        {payments.map((payment) => {
+          const config = STATUS_CONFIG[payment.status];
+          const resident = payment.flat.residents[0];
+          return (
+            <div key={payment.id} className="p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">
+                    {flatLabel(payment.flat, hasWings)}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground/70">
+                      {MONTHS[payment.month - 1].slice(0, 3)} {payment.year}
+                    </span>
+                    {" · "}
+                    {resident
+                      ? `${resident.user.name}${resident.user.phone ? ` · ${resident.user.phone}` : ""}`
+                      : "No resident assigned"}
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-sm font-semibold">{formatCurrency(payment.amount)}</p>
+                  <Badge variant={config.variant} className="mt-1">
+                    {config.label}
+                  </Badge>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        );
-      })}
+              {payment.status === "PAID" && (
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  {formatDate(payment.paidAt)}
+                  {payment.utrNumber && ` · UTR ${payment.utrNumber}`}
+                </p>
+              )}
+              {canManage && <MarkPaidForm paymentId={payment.id} status={payment.status} />}
+            </div>
+          );
+        })}
+      </div>
+      {limit && payments.length >= limit && (
+        <p className="text-center text-xs text-muted-foreground">
+          Showing the latest {limit} dues. Narrow by month or flat to see the rest.
+        </p>
+      )}
     </div>
   );
 }

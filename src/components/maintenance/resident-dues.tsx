@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency, formatDate, monthLabel } from "@/lib/utils/month";
 import { flatLabel } from "@/lib/utils/flat";
 import { CheckCircle2, Clock } from "lucide-react";
+import { buildUpiLink } from "@/lib/utils/upi";
 
 type PaymentStatus = "PENDING" | "PAID" | "OVERDUE";
 
@@ -22,14 +23,21 @@ interface Payment {
 interface ResidentDuesProps {
   payments: Payment[];
   societyUpiId?: string | null;
+  societyName?: string | null;
   hasWings?: boolean;
 }
 
-export function ResidentDues({ payments, societyUpiId, hasWings = true }: ResidentDuesProps) {
+export function ResidentDues({ payments, societyUpiId, societyName, hasWings = true }: ResidentDuesProps) {
   const pending = payments.filter((p) => p.status !== "PAID");
   const paid = payments.filter((p) => p.status === "PAID");
 
   const totalDue = pending.reduce((sum, p) => sum + Number(p.amount), 0);
+  const upiLink = buildUpiLink({
+    upiId: societyUpiId,
+    payeeName: societyName,
+    amount: totalDue,
+    note: "Maintenance dues",
+  });
 
   return (
     <div className="space-y-4">
@@ -42,6 +50,14 @@ export function ResidentDues({ payments, societyUpiId, hasWings = true }: Reside
               <p className="text-xs text-amber-600 mt-1">
                 Pay to: <span className="font-semibold">{societyUpiId}</span>
               </p>
+            )}
+            {upiLink && (
+              <a
+                href={upiLink}
+                className="mt-3 inline-block rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700"
+              >
+                Pay {formatCurrency(totalDue)} via UPI
+              </a>
             )}
           </CardContent>
         </Card>

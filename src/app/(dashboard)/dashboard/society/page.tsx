@@ -1,6 +1,6 @@
 import { requireRole } from "@/lib/session";
-import { getSociety } from "@/actions/society";
-import { getWingsWithStructure } from "@/actions/wings";
+import { getSociety } from "@/lib/queries/society";
+import { getWingsWithStructure } from "@/lib/queries/wings";
 import { SocietySettingsForm } from "@/components/society/society-settings-form";
 import { AddWingForm } from "@/components/society/add-wing-form";
 import { AddFloorForm } from "@/components/society/add-floor-form";
@@ -48,7 +48,7 @@ export default async function SocietyPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-lg font-semibold">{society.name}</h2>
+        <h2 className="text-2xl font-semibold">{society.name}</h2>
         <p className="text-xs text-muted-foreground">
           {[society.city, society.state].filter(Boolean).join(", ")}
         </p>

@@ -11,12 +11,12 @@ import { toast } from "sonner";
 import type { Role } from "@prisma/client";
 
 const ROLE_COLORS: Record<Role, string> = {
-  SUPER_ADMIN: "bg-purple-100 text-purple-700",
-  ADMIN: "bg-red-100 text-red-700",
-  SECRETARY: "bg-blue-100 text-blue-700",
-  TREASURER: "bg-amber-100 text-amber-700",
-  OWNER: "bg-green-100 text-green-700",
-  TENANT: "bg-slate-100 text-slate-700",
+  SUPER_ADMIN: "bg-violet-50 text-violet-700 ring-violet-600/20",
+  ADMIN: "bg-indigo-50 text-indigo-700 ring-indigo-600/20",
+  SECRETARY: "bg-sky-50 text-sky-700 ring-sky-600/20",
+  TREASURER: "bg-amber-50 text-amber-700 ring-amber-600/20",
+  OWNER: "bg-emerald-50 text-emerald-700 ring-emerald-600/15",
+  TENANT: "bg-slate-100 text-slate-700 ring-slate-600/15",
 };
 
 interface FlatResident {
@@ -110,15 +110,15 @@ export function UserList({ users, isAdmin }: UserListProps) {
             <CardContent className="p-3">
               <div className="flex items-start gap-3">
                 <Avatar className="h-9 w-9 shrink-0">
-                  <AvatarFallback className="text-xs bg-slate-200">{initials}</AvatarFallback>
+                  <AvatarFallback className="text-xs font-semibold bg-primary/10 text-primary">{initials}</AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium text-sm truncate">{user.name}</span>
                     <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${ROLE_COLORS[user.role]}`}
+                      className={`text-[10px] px-2 py-0.5 rounded-full font-semibold capitalize ring-1 ring-inset ${ROLE_COLORS[user.role]}`}
                     >
-                      {user.role}
+                      {user.role.toLowerCase()}
                     </span>
                     {!user.isActive && (
                       <Badge variant="outline" className="text-[10px] h-4">
@@ -135,7 +135,7 @@ export function UserList({ users, isAdmin }: UserListProps) {
                   {user.flatResidents.length > 0 && (
                     <div className="mt-1.5 flex flex-wrap gap-1">
                       {user.flatResidents.map((fr) => (
-                        <span key={fr.id} className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded">
+                        <span key={fr.id} className="text-[10px] bg-muted px-2 py-0.5 rounded-md">
                           Wing {fr.flat.floor.wing.name} · F{fr.flat.floor.number} · {fr.flat.number}
                           <span className="text-muted-foreground"> ({fr.type.toLowerCase()})</span>
                           {isAdmin && <RemoveResidentButton id={fr.id} />}

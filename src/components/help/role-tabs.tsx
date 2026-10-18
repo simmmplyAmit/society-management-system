@@ -27,8 +27,8 @@ export function RoleTabs({ guides, currentRole }: RoleTabsProps) {
               onClick={() => setActiveRole(guide.role)}
               className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
                 isActive
-                  ? "bg-slate-900 text-white border-slate-900"
-                  : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-card text-muted-foreground border-border hover:text-foreground"
               }`}
             >
               {guide.label}

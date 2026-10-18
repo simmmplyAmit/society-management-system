@@ -2,22 +2,28 @@ import { requireRole } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import {
   getMaintenanceCharges,
-  getMonthlyPayments,
+  getPayments,
+  PAYMENTS_LIMIT,
+  type PaymentStatusFilter,
   getResidentPayments,
-} from "@/actions/maintenance";
+} from "@/lib/queries/maintenance";
 import { SetChargeForm } from "@/components/maintenance/set-charge-form";
 import { GeneratePaymentsForm } from "@/components/maintenance/generate-payments-form";
 import { DuesScheduler } from "@/components/maintenance/dues-scheduler";
 import { ChargesList } from "@/components/maintenance/charges-list";
 import { PaymentsTable } from "@/components/maintenance/payments-table";
 import { ResidentDues } from "@/components/maintenance/resident-dues";
-import { MonthSelector } from "@/components/maintenance/month-selector";
-import { Separator } from "@/components/ui/separator";
+import { DuesTabs, type DuesTab } from "@/components/maintenance/dues-tabs";
+import { PaymentFilters } from "@/components/maintenance/payment-filters";
 
 interface SearchParams {
-  month?: string;
-  year?: string;
+  tab?: string;
+  ym?: string; // YYYY-MM
+  flat?: string;
+  status?: string;
 }
+
+const STATUS_VALUES: PaymentStatusFilter[] = ["unpaid", "overdue", "paid", "all"];
 
 export default async function MaintenancePage({
   searchParams,
@@ -28,16 +34,12 @@ export default async function MaintenancePage({
   const { role, societyId, id: userId } = session.user;
   const sp = await searchParams;
 
-  const now = new Date();
-  const month = parseInt(sp.month ?? String(now.getMonth() + 1), 10);
-  const year = parseInt(sp.year ?? String(now.getFullYear()), 10);
-
   const isManager = role === "ADMIN" || role === "TREASURER";
   const isAdmin = role === "ADMIN";
 
   const society = await prisma.society.findUnique({
     where: { id: societyId! },
-    select: { upiId: true, hasWings: true },
+    select: { upiId: true, hasWings: true, name: true },
   });
 
   // ─── Resident view ───────────────────────────────
@@ -46,90 +48,93 @@ export default async function MaintenancePage({
     const payments = rawPayments.map((p) => ({ ...p, amount: Number(p.amount) }));
     return (
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold">My Maintenance</h2>
-        <ResidentDues payments={payments} societyUpiId={society?.upiId} hasWings={society?.hasWings ?? true} />
+        <h2 className="text-2xl font-semibold">My maintenance</h2>
+        <ResidentDues payments={payments} societyUpiId={society?.upiId} societyName={society?.name} hasWings={society?.hasWings ?? true} />
       </div>
     );
   }
 
   // ─── Manager view ────────────────────────────────
-  const [rawCharges, rawPayments, flats] = await Promise.all([
-    getMaintenanceCharges(societyId!),
-    getMonthlyPayments(societyId!, month, year),
-    isManager
-      ? prisma.flat.findMany({
-          where: { societyId: societyId! },
-          include: {
-            floor: { include: { wing: { select: { name: true } } } },
-          },
-          orderBy: [
-            { floor: { wing: { name: "asc" } } },
-            { floor: { number: "asc" } },
-            { number: "asc" },
-          ],
+  const tabs: DuesTab[] = ["pending", ...(isManager ? (["generate"] as const) : []), ...(isAdmin ? (["charges"] as const) : [])];
+  const tab: DuesTab = tabs.includes(sp.tab as DuesTab) ? (sp.tab as DuesTab) : "pending";
+
+  const ymMatch = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(sp.ym ?? "");
+  const ym = ymMatch ? sp.ym! : "";
+  const status = STATUS_VALUES.includes(sp.status as PaymentStatusFilter)
+    ? (sp.status as PaymentStatusFilter)
+    : "unpaid";
+  const flatId = sp.flat ?? "";
+
+  const hasWings = society?.hasWings ?? true;
+  const flats = await prisma.flat.findMany({
+    where: { societyId: societyId! },
+    include: { floor: { include: { wing: { select: { name: true } } } } },
+    orderBy: [
+      { floor: { wing: { name: "asc" } } },
+      { floor: { number: "asc" } },
+      { number: "asc" },
+    ],
+  });
+  const flatOptions = flats.flatMap((f) =>
+    f.floor?.wing
+      ? [{
+          id: f.id,
+          number: f.number,
+          floor: { number: f.floor.number, wing: { name: f.floor.wing.name } },
+        }]
+      : []
+  );
+
+  const rawPayments =
+    tab === "pending"
+      ? await getPayments(societyId!, {
+          month: ymMatch ? Number(ymMatch[2]) : undefined,
+          year: ymMatch ? Number(ymMatch[1]) : undefined,
+          flatId: flatId || undefined,
+          status,
         })
-      : Promise.resolve([]),
-  ]);
+      : [];
+  const rawCharges = tab === "charges" ? await getMaintenanceCharges(societyId!) : [];
 
   return (
     <div className="space-y-5">
-      <h2 className="text-lg font-semibold">Maintenance</h2>
+      <h2 className="text-2xl font-semibold">Maintenance</h2>
+      <DuesTabs tabs={tabs} active={tab} />
 
-      {/* Month navigator + generate */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <MonthSelector month={month} year={year} />
-        </div>
-        {isManager && <GeneratePaymentsForm />}
-      </div>
-
-      {/* Bulk scheduler — manager only */}
-      {isManager && (
-        <DuesScheduler
-          flats={flats.flatMap((f) =>
-            f.floor?.wing ? [{
-              id: f.id,
-              number: f.number,
-              floor: { number: f.floor.number, wing: { name: f.floor.wing.name } },
-            }] : []
-          )}
-          hasWings={society?.hasWings ?? true}
-        />
+      {tab === "pending" && (
+        <>
+          <PaymentFilters
+            flats={flatOptions}
+            hasWings={hasWings}
+            ym={ym}
+            flatId={flatId}
+            status={status}
+          />
+          <PaymentsTable
+            payments={rawPayments.map((p) => ({ ...p, amount: Number(p.amount) }))}
+            canManage={isManager}
+            societyUpiId={society?.upiId}
+            hasWings={hasWings}
+            limit={PAYMENTS_LIMIT}
+          />
+        </>
       )}
 
-      {/* Payments overview */}
-      <PaymentsTable
-        payments={rawPayments.map((p) => ({ ...p, amount: Number(p.amount) }))}
-        canManage={isManager}
-        societyUpiId={society?.upiId}
-        hasWings={society?.hasWings ?? true}
-      />
-
-      {isAdmin && (
+      {tab === "generate" && isManager && (
         <>
-          <Separator />
+          <GeneratePaymentsForm />
+          <DuesScheduler flats={flatOptions} hasWings={hasWings} />
+        </>
+      )}
 
-          {/* Charges management */}
-          <div>
-            <h3 className="text-base font-semibold mb-3">Maintenance Charges</h3>
-            <SetChargeForm
-              flats={flats.flatMap((f) =>
-                f.floor?.wing ? [{
-                  id: f.id,
-                  number: f.number,
-                  floor: { number: f.floor.number, wing: { name: f.floor.wing.name } },
-                }] : []
-              )}
-              hasWings={society?.hasWings ?? true}
-            />
-            <div className="mt-3">
-              <ChargesList
-                charges={rawCharges.map((c) => ({ ...c, amount: Number(c.amount) }))}
-                isAdmin={isAdmin}
-                hasWings={society?.hasWings ?? true}
-              />
-            </div>
-          </div>
+      {tab === "charges" && isAdmin && (
+        <>
+          <SetChargeForm flats={flatOptions} hasWings={hasWings} />
+          <ChargesList
+            charges={rawCharges.map((c) => ({ ...c, amount: Number(c.amount) }))}
+            isAdmin={isAdmin}
+            hasWings={hasWings}
+          />
         </>
       )}
     </div>

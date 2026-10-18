@@ -1,9 +1,11 @@
 import { requireRole } from "@/lib/session";
-import { getSocietyUsers } from "@/actions/users";
+import { getSocietyUsers } from "@/lib/queries/users";
 import { CreateUserForm } from "@/components/society/create-user-form";
 import { AssignResidentForm } from "@/components/society/assign-resident-form";
 import { UserList } from "@/components/society/user-list";
 import { prisma } from "@/lib/prisma";
+import { ToolSection } from "@/components/ui/tool-section";
+import { UserPlus, Link2 } from "lucide-react";
 
 export default async function ResidentsPage() {
   const session = await requireRole(["ADMIN", "SECRETARY"]);
@@ -26,14 +28,19 @@ export default async function ResidentsPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-lg font-semibold">Residents</h2>
-        <p className="text-xs text-muted-foreground">{users.length} users in this society</p>
+        <h2 className="text-2xl font-semibold">Residents</h2>
+        <p className="text-sm text-muted-foreground">{users.length} users in this society</p>
       </div>
+
+      <UserList users={users} isAdmin={isAdmin} />
 
       {isAdmin && (
         <>
-          <CreateUserForm />
+          <ToolSection title="Add a user" description="Create an account for a resident or committee member" icon={UserPlus}>
+            <CreateUserForm />
+          </ToolSection>
           {flats.length > 0 && users.length > 0 && (
+            <ToolSection title="Assign resident to flat" description="Link an owner or tenant to a flat" icon={Link2}>
             <AssignResidentForm
               flats={flats.flatMap((f) =>
                 f.floor?.wing ? [{
@@ -45,11 +52,11 @@ export default async function ResidentsPage() {
               users={users.map((u) => ({ id: u.id, name: u.name, role: u.role }))}
               hasWings={society?.hasWings ?? true}
             />
+            </ToolSection>
           )}
         </>
       )}
 
-      <UserList users={users} isAdmin={isAdmin} />
     </div>
   );
 }
