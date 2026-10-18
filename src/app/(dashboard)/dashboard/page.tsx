@@ -1,6 +1,6 @@
 import { requireRole } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { Card, CardContent } from "@/components/ui/card";
+import { StatTile, ActionRow } from "@/components/dashboard/stat-tile";
 import { formatCurrency, monthLabel } from "@/lib/utils/month";
 import {
   Building2,
@@ -9,6 +9,8 @@ import {
   TrendingDown,
   CheckCircle2,
   Clock,
+  Home,
+  ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -54,53 +56,59 @@ export default async function DashboardPage() {
     const totalDue = pendingPayments.reduce((s, p) => s + Number(p.amount), 0);
 
     return (
-      <div className="space-y-4">
-        <div>
-          <h2 className="text-lg font-semibold">
-            Hello, {session.user.name.split(" ")[0]}
-          </h2>
-          <p className="text-sm text-slate-500">{WELCOME[role]}</p>
-        </div>
+      <div className="space-y-5">
+        <Greeting name={session.user.name} sub={WELCOME[role]} />
 
-        {/* Flat assignments */}
+        <Link
+          href="/dashboard/maintenance"
+          className={`block rounded-3xl p-5 text-white shadow-lg ${
+            totalDue > 0
+              ? "bg-gradient-to-br from-indigo-600 to-violet-700 shadow-indigo-500/20"
+              : "bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-500/20"
+          }`}
+        >
+          <div className="flex items-center gap-2 text-sm text-white/80">
+            {totalDue > 0 ? <Clock className="size-4" /> : <CheckCircle2 className="size-4" />}
+            {totalDue > 0 ? "Maintenance due" : "You're all caught up"}
+          </div>
+          <p className="mt-2 text-4xl font-semibold tracking-tight">
+            {totalDue > 0 ? formatCurrency(totalDue) : "No dues"}
+          </p>
+          <div className="mt-4 flex items-center justify-between text-sm text-white/85">
+            <span>
+              {pendingPayments.length} pending payment{pendingPayments.length !== 1 ? "s" : ""}
+            </span>
+            <span className="inline-flex items-center gap-1 font-medium">
+              {totalDue > 0 ? "Pay now" : "View history"} <ArrowRight className="size-4" />
+            </span>
+          </div>
+        </Link>
+
         {flatResidents.length > 0 && (
-          <div className="space-y-2">
-            {flatResidents.map((fr) => (
-              <Card key={fr.id}>
-                <CardContent className="p-3 flex items-center gap-3">
-                  <Building2 className="h-4 w-4 text-slate-400 shrink-0" />
+          <div>
+            <h3 className="mb-2 text-sm font-semibold">Your homes</h3>
+            <div className="space-y-2">
+              {flatResidents.map((fr) => (
+                <div
+                  key={fr.id}
+                  className="flex items-center gap-3 rounded-xl bg-card p-4 ring-1 ring-border"
+                >
+                  <span className="flex size-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                    <Home className="size-5" />
+                  </span>
                   <div>
-                    <p className="text-sm font-medium">
-                      Wing {fr.flat.floor.wing.name} · Floor {fr.flat.floor.number} · Flat {fr.flat.number}
+                    <p className="text-sm font-semibold">
+                      Wing {fr.flat.floor.wing.name} · Flat {fr.flat.number}
                     </p>
-                    <p className="text-xs text-muted-foreground capitalize">{fr.type.toLowerCase()}</p>
+                    <p className="text-xs capitalize text-muted-foreground">
+                      Floor {fr.flat.floor.number} · {fr.type.toLowerCase()}
+                    </p>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
+                </div>
+              ))}
+            </div>
           </div>
         )}
-
-        {/* Dues card */}
-        <Link href="/dashboard/maintenance">
-          <Card className={`${totalDue > 0 ? "border-amber-200 bg-amber-50" : "border-green-200 bg-green-50"} cursor-pointer`}>
-            <CardContent className="p-4 flex items-center gap-3">
-              {totalDue > 0 ? (
-                <Clock className="h-5 w-5 text-amber-500 shrink-0" />
-              ) : (
-                <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
-              )}
-              <div>
-                <p className="text-sm font-medium">
-                  {totalDue > 0 ? `${formatCurrency(totalDue)} due` : "All dues cleared"}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {pendingPayments.length} pending payment{pendingPayments.length !== 1 ? "s" : ""}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
       </div>
     );
   }
@@ -137,100 +145,89 @@ export default async function DashboardPage() {
     .reduce((s, p) => s + Number(p.amount), 0);
   const monthExpenses = Number(thisMonthExpenses._sum.amount ?? 0);
 
-  const stats = [
-    {
-      label: "Total Flats",
-      value: flatsCount,
-      sub: `${occupiedCount} occupied`,
-      icon: Building2,
-      href: "/dashboard/society",
-      color: "text-slate-600",
-    },
-    {
-      label: "Collected",
-      value: formatCurrency(totalCollected),
-      sub: monthLabel(month, year),
-      icon: CheckCircle2,
-      href: "/dashboard/maintenance",
-      color: "text-green-600",
-    },
-    {
-      label: "Pending Dues",
-      value: pendingCount > 0 ? formatCurrency(totalDue) : "All paid",
-      sub: `${pendingCount} flat${pendingCount !== 1 ? "s" : ""}`,
-      icon: Clock,
-      href: "/dashboard/maintenance",
-      color: pendingCount > 0 ? "text-amber-600" : "text-green-600",
-    },
-    {
-      label: "Expenses",
-      value: formatCurrency(monthExpenses),
-      sub: monthLabel(month, year),
-      icon: TrendingDown,
-      href: "/dashboard/expenses",
-      color: "text-red-500",
-    },
-  ];
-
+  const billed = totalCollected + totalDue;
+  const pct = billed > 0 ? Math.round((totalCollected / billed) * 100) : 0;
+  const paidCount = thisMonthPayments.filter((p) => p.status === "PAID").length;
   const usersCount = await prisma.user.count({ where: { societyId: societyId! } });
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold">
-          Hello, {session.user.name.split(" ")[0]}
-        </h2>
-        <p className="text-sm text-slate-500">{WELCOME[role]}</p>
+    <div className="space-y-5">
+      <Greeting name={session.user.name} sub={WELCOME[role]} />
+
+      <div className="rounded-3xl bg-gradient-to-br from-indigo-600 to-violet-700 p-5 text-white shadow-lg shadow-indigo-500/20 lg:p-7">
+        <p className="text-sm text-white/80">Collected in {monthLabel(month, year)}</p>
+        <p className="mt-1 text-4xl font-semibold tracking-tight lg:text-5xl">
+          {formatCurrency(totalCollected)}
+        </p>
+        <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/20">
+          <div className="h-full rounded-full bg-white" style={{ width: `${pct}%` }} />
+        </div>
+        <div className="mt-2 flex justify-between text-xs text-white/80">
+          <span>
+            {paidCount} of {thisMonthPayments.length} flats paid
+          </span>
+          <span>{pct}% of {formatCurrency(billed)}</span>
+        </div>
       </div>
 
-      {/* Stats grid */}
-      <div className="grid grid-cols-2 gap-3">
-        {stats.map((s) => {
-          const Icon = s.icon;
-          return (
-            <Link key={s.label} href={s.href}>
-              <Card className="cursor-pointer hover:shadow-sm transition-shadow h-full">
-                <CardContent className="p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Icon className={`h-3.5 w-3.5 ${s.color}`} />
-                    <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">
-                      {s.label}
-                    </span>
-                  </div>
-                  <p className="font-bold text-base leading-tight">{s.value}</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">{s.sub}</p>
-                </CardContent>
-              </Card>
-            </Link>
-          );
-        })}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatTile
+          href="/dashboard/maintenance"
+          label="Pending dues"
+          value={pendingCount > 0 ? formatCurrency(totalDue) : "All paid"}
+          sub={`${pendingCount} flat${pendingCount !== 1 ? "s" : ""}`}
+          icon={pendingCount > 0 ? Clock : CheckCircle2}
+          tone={pendingCount > 0 ? "amber" : "emerald"}
+        />
+        <StatTile
+          href="/dashboard/expenses"
+          label="Expenses"
+          value={formatCurrency(monthExpenses)}
+          sub={monthLabel(month, year)}
+          icon={TrendingDown}
+          tone="rose"
+        />
+        <StatTile
+          href="/dashboard/society"
+          label="Flats"
+          value={flatsCount}
+          sub={`${occupiedCount} occupied`}
+          icon={Building2}
+          tone="indigo"
+        />
+        <StatTile
+          href="/dashboard/residents"
+          label="Residents"
+          value={usersCount}
+          sub="Manage users"
+          icon={Users}
+          tone="slate"
+        />
       </div>
 
-      {/* Quick links */}
-      <div className="grid grid-cols-2 gap-3">
-        <Link href="/dashboard/residents">
-          <Card className="cursor-pointer hover:shadow-sm transition-shadow">
-            <CardContent className="p-3 flex items-center gap-2">
-              <Users className="h-4 w-4 text-slate-400" />
-              <div>
-                <p className="text-sm font-medium">{usersCount} Users</p>
-                <p className="text-xs text-muted-foreground">Manage residents</p>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href="/dashboard/maintenance">
-          <Card className="cursor-pointer hover:shadow-sm transition-shadow">
-            <CardContent className="p-3 flex items-center gap-2">
-              <Receipt className="h-4 w-4 text-slate-400" />
-              <div>
-                <p className="text-sm font-medium">Maintenance</p>
-                <p className="text-xs text-muted-foreground">{monthLabel(month, year)}</p>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
+      <div className="grid gap-3 lg:grid-cols-2">
+        <ActionRow
+          href="/dashboard/maintenance"
+          title="Maintenance dues"
+          sub={`Collect and track · ${monthLabel(month, year)}`}
+          icon={Receipt}
+        />
+        <ActionRow
+          href="/dashboard/expenses"
+          title="Expense analytics"
+          sub="All-time, yearly, monthly and by type"
+          icon={TrendingDown}
+        />
       </div>
+    </div>
+  );
+}
+
+function Greeting({ name, sub }: { name: string; sub: string }) {
+  return (
+    <div>
+      <h2 className="text-2xl font-semibold">Hello, {name.split(" ")[0]} 👋</h2>
+      <p className="text-sm text-muted-foreground">{sub}</p>
     </div>
   );
 }

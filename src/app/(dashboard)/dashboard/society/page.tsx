@@ -48,7 +48,7 @@ export default async function SocietyPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-lg font-semibold">{society.name}</h2>
+        <h2 className="text-2xl font-semibold">{society.name}</h2>
         <p className="text-xs text-muted-foreground">
           {[society.city, society.state].filter(Boolean).join(", ")}
         </p>

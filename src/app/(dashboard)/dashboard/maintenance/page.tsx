@@ -12,7 +12,8 @@ import { ChargesList } from "@/components/maintenance/charges-list";
 import { PaymentsTable } from "@/components/maintenance/payments-table";
 import { ResidentDues } from "@/components/maintenance/resident-dues";
 import { MonthSelector } from "@/components/maintenance/month-selector";
-import { Separator } from "@/components/ui/separator";
+import { ToolSection } from "@/components/ui/tool-section";
+import { CalendarPlus, IndianRupee } from "lucide-react";
 
 interface SearchParams {
   month?: string;
@@ -46,7 +47,7 @@ export default async function MaintenancePage({
     const payments = rawPayments.map((p) => ({ ...p, amount: Number(p.amount) }));
     return (
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold">My Maintenance</h2>
+        <h2 className="text-2xl font-semibold">My maintenance</h2>
         <ResidentDues payments={payments} societyUpiId={society?.upiId} societyName={society?.name} hasWings={society?.hasWings ?? true} />
       </div>
     );
@@ -71,66 +72,55 @@ export default async function MaintenancePage({
       : Promise.resolve([]),
   ]);
 
+  const flatOptions = flats.flatMap((f) =>
+    f.floor?.wing
+      ? [{
+          id: f.id,
+          number: f.number,
+          floor: { number: f.floor.number, wing: { name: f.floor.wing.name } },
+        }]
+      : []
+  );
+  const hasWings = society?.hasWings ?? true;
+
   return (
     <div className="space-y-5">
-      <h2 className="text-lg font-semibold">Maintenance</h2>
-
-      {/* Month navigator + generate */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <MonthSelector month={month} year={year} />
-        </div>
-        {isManager && <GeneratePaymentsForm />}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-2xl font-semibold">Maintenance</h2>
+        <MonthSelector month={month} year={year} />
       </div>
 
-      {/* Bulk scheduler — manager only */}
-      {isManager && (
-        <DuesScheduler
-          flats={flats.flatMap((f) =>
-            f.floor?.wing ? [{
-              id: f.id,
-              number: f.number,
-              floor: { number: f.floor.number, wing: { name: f.floor.wing.name } },
-            }] : []
-          )}
-          hasWings={society?.hasWings ?? true}
-        />
-      )}
-
-      {/* Payments overview */}
       <PaymentsTable
         payments={rawPayments.map((p) => ({ ...p, amount: Number(p.amount) }))}
         canManage={isManager}
         societyUpiId={society?.upiId}
-        hasWings={society?.hasWings ?? true}
+        hasWings={hasWings}
       />
 
-      {isAdmin && (
-        <>
-          <Separator />
+      {isManager && (
+        <ToolSection
+          title="Generate dues"
+          description="Create this month's records, or schedule a date range"
+          icon={CalendarPlus}
+        >
+          <GeneratePaymentsForm />
+          <DuesScheduler flats={flatOptions} hasWings={hasWings} />
+        </ToolSection>
+      )}
 
-          {/* Charges management */}
-          <div>
-            <h3 className="text-base font-semibold mb-3">Maintenance Charges</h3>
-            <SetChargeForm
-              flats={flats.flatMap((f) =>
-                f.floor?.wing ? [{
-                  id: f.id,
-                  number: f.number,
-                  floor: { number: f.floor.number, wing: { name: f.floor.wing.name } },
-                }] : []
-              )}
-              hasWings={society?.hasWings ?? true}
-            />
-            <div className="mt-3">
-              <ChargesList
-                charges={rawCharges.map((c) => ({ ...c, amount: Number(c.amount) }))}
-                isAdmin={isAdmin}
-                hasWings={society?.hasWings ?? true}
-              />
-            </div>
-          </div>
-        </>
+      {isAdmin && (
+        <ToolSection
+          title="Maintenance charges"
+          description={`${rawCharges.length} active · set the amount per flat`}
+          icon={IndianRupee}
+        >
+          <SetChargeForm flats={flatOptions} hasWings={hasWings} />
+          <ChargesList
+            charges={rawCharges.map((c) => ({ ...c, amount: Number(c.amount) }))}
+            isAdmin={isAdmin}
+            hasWings={hasWings}
+          />
+        </ToolSection>
       )}
     </div>
   );

@@ -2,99 +2,37 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Home,
-  Building2,
-  Users,
-  Receipt,
-  TrendingDown,
-  HelpCircle,
-} from "lucide-react";
 import { cn } from "@/lib/utils";
+import { NAV_ITEMS, isNavActive } from "./nav-items";
 import type { Role } from "@prisma/client";
 
-interface NavItem {
-  href: string;
-  label: string;
-  icon: React.ElementType;
-  roles: Role[];
-}
-
-const NAV_ITEMS: NavItem[] = [
-  {
-    href: "/dashboard",
-    label: "Home",
-    icon: Home,
-    roles: ["SUPER_ADMIN", "ADMIN", "SECRETARY", "TREASURER", "OWNER", "TENANT"],
-  },
-  {
-    href: "/dashboard/society",
-    label: "Society",
-    icon: Building2,
-    roles: ["ADMIN", "SECRETARY"],
-  },
-  {
-    href: "/dashboard/residents",
-    label: "Residents",
-    icon: Users,
-    roles: ["ADMIN", "SECRETARY"],
-  },
-  {
-    href: "/dashboard/maintenance",
-    label: "Maintenance",
-    icon: Receipt,
-    roles: ["ADMIN", "TREASURER", "OWNER", "TENANT"],
-  },
-  {
-    href: "/dashboard/expenses",
-    label: "Expenses",
-    icon: TrendingDown,
-    roles: ["ADMIN", "SECRETARY", "TREASURER"],
-  },
-  {
-    href: "/dashboard/help",
-    label: "Help",
-    icon: HelpCircle,
-    roles: ["SUPER_ADMIN", "ADMIN", "SECRETARY", "TREASURER", "OWNER", "TENANT"],
-  },
-];
-
-interface BottomNavProps {
-  role: Role;
-}
-
-export function BottomNav({ role }: BottomNavProps) {
+export function BottomNav({ role }: { role: Role }) {
   const pathname = usePathname();
-  const visibleItems = NAV_ITEMS.filter((item) => item.roles.includes(role));
+  const items = NAV_ITEMS.filter((i) => i.roles.includes(role));
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 safe-area-pb">
-      <div className="flex items-center justify-around max-w-2xl mx-auto">
-        {visibleItems.map((item) => {
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-white/90 backdrop-blur lg:hidden safe-area-pb">
+      <div className="mx-auto flex max-w-2xl items-center justify-around px-2 py-1.5">
+        {items.map((item) => {
           const Icon = item.icon;
-          const isActive =
-            item.href === "/dashboard"
-              ? pathname === "/dashboard"
-              : pathname.startsWith(item.href);
-
+          const active = isNavActive(item.href, pathname);
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={cn(
-                "flex flex-col items-center gap-0.5 py-2 px-3 min-w-[52px] transition-colors",
-                isActive
-                  ? "text-slate-900"
-                  : "text-slate-400 hover:text-slate-600"
-              )}
+              className="flex min-w-[56px] flex-col items-center gap-0.5 text-[10px] font-medium"
             >
-              <Icon
+              <span
                 className={cn(
-                  "h-5 w-5",
-                  isActive && "stroke-[2.5]"
+                  "flex h-7 w-12 items-center justify-center rounded-full transition-colors",
+                  active ? "bg-primary/10 text-primary" : "text-muted-foreground"
                 )}
-              />
-              <span className="text-[10px] font-medium">{item.label}</span>
+              >
+                <Icon className="size-[18px]" strokeWidth={active ? 2.4 : 2} />
+              </span>
+              <span className={active ? "text-primary" : "text-muted-foreground"}>
+                {item.label}
+              </span>
             </Link>
           );
         })}

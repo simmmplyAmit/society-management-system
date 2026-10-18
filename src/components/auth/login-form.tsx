@@ -50,8 +50,8 @@ export function LoginForm() {
   }
 
   return (
-    <Card>
-      <CardContent className="pt-6">
+    <Card className="shadow-lg shadow-indigo-900/5">
+      <CardContent className="p-5 sm:p-6">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="email">Email</Label>
@@ -81,7 +81,7 @@ export function LoginForm() {
             )}
           </div>
 
-          <Button type="submit" className="w-full" disabled={isLoading}>
+          <Button type="submit" size="lg" className="h-11 w-full" disabled={isLoading}>
             {isLoading ? "Signing in…" : "Sign in"}
           </Button>
         </form>

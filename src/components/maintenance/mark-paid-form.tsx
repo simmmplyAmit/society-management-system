@@ -1,10 +1,9 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { markPaymentPaid, markPaymentPending } from "@/actions/maintenance";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { CheckCircle, XCircle } from "lucide-react";
 
@@ -15,13 +14,14 @@ interface MarkPaidFormProps {
 
 export function MarkPaidForm({ paymentId, status }: MarkPaidFormProps) {
   const [isPending, startTransition] = useTransition();
+  const [open, setOpen] = useState(false);
 
   if (status === "PAID") {
     return (
       <Button
         size="sm"
         variant="ghost"
-        className="h-7 text-xs text-amber-600 px-2"
+        className="mt-1 h-7 -ml-2 px-2 text-xs text-muted-foreground hover:text-amber-700"
         disabled={isPending}
         onClick={() =>
           startTransition(async () => {
@@ -42,29 +42,50 @@ export function MarkPaidForm({ paymentId, status }: MarkPaidFormProps) {
     startTransition(async () => {
       const result = await markPaymentPaid(formData);
       if (result?.error) toast.error(result.error);
-      else toast.success("Payment recorded");
+      else {
+        toast.success("Payment recorded");
+        setOpen(false);
+      }
     });
   }
 
+  if (!open) {
+    return (
+      <Button
+        size="sm"
+        variant="outline"
+        className="mt-2 h-8 text-xs"
+        onClick={() => setOpen(true)}
+      >
+        <CheckCircle className="mr-1 h-3.5 w-3.5" />
+        Mark paid
+      </Button>
+    );
+  }
+
   return (
-    <form action={handleSubmit} className="flex flex-col gap-1.5 mt-1">
+    <form action={handleSubmit} className="mt-2 flex flex-col gap-2">
       <div className="flex gap-1.5">
         <Input
           name="utrNumber"
           placeholder="UTR / Ref no."
-          className="h-7 text-xs"
+          className="h-9 text-sm"
         />
         <Input
           name="paidAt"
           type="date"
-          className="h-7 text-xs w-32"
+          className="h-9 w-36 text-sm"
           defaultValue={new Date().toISOString().split("T")[0]}
         />
       </div>
-      <Button type="submit" size="sm" disabled={isPending} className="h-7 text-xs">
-        <CheckCircle className="h-3.5 w-3.5 mr-1" />
-        {isPending ? "Saving…" : "Mark paid"}
-      </Button>
+      <div className="flex gap-2">
+        <Button type="submit" size="sm" disabled={isPending} className="h-8 text-xs">
+          {isPending ? "Saving…" : "Confirm"}
+        </Button>
+        <Button type="button" size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setOpen(false)}>
+          Cancel
+        </Button>
+      </div>
     </form>
   );
 }

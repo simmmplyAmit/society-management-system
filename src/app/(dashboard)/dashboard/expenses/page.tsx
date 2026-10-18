@@ -4,7 +4,8 @@ import { AddExpenseForm } from "@/components/expenses/add-expense-form";
 import { ExpensesList } from "@/components/expenses/expenses-list";
 import { ExpenseAnalyticsView } from "@/components/expenses/expense-analytics";
 import { YearSelector } from "@/components/expenses/year-selector";
-import { Separator } from "@/components/ui/separator";
+import { ToolSection } from "@/components/ui/tool-section";
+import { Plus } from "lucide-react";
 
 interface SearchParams {
   year?: string;
@@ -34,18 +35,15 @@ export default async function ExpensesPage({
 
   return (
     <div className="space-y-5">
-      <h2 className="text-lg font-semibold">Expenses</h2>
+      <h2 className="text-2xl font-semibold">Expenses</h2>
 
       <ExpenseAnalyticsView data={analytics} />
 
       {isTreasurer && (
-        <>
-          <Separator />
+        <ToolSection title="Add expense" description="Record a new bill or payment" icon={Plus}>
           <AddExpenseForm />
-        </>
+        </ToolSection>
       )}
-
-      <Separator />
 
       {/* Expenses list */}
       <div>

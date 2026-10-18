@@ -9,7 +9,7 @@ export default async function SuperAdminLayout({
   const session = await requireRole(["SUPER_ADMIN"]);
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50">
+    <div className="flex min-h-screen flex-col bg-background">
       <TopBar user={session.user} />
       {children}
     </div>

@@ -27,10 +27,10 @@ const VIEWS: { key: View; label: string }[] = [
   { key: "type", label: "By type" },
 ];
 
-const BAR = "#334155";
+const BAR = "#4f46e5";
 const PALETTE = [
-  "#334155", "#2563eb", "#059669", "#d97706",
-  "#dc2626", "#7c3aed", "#0891b2", "#be185d",
+  "#4f46e5", "#0ea5e9", "#10b981", "#f59e0b",
+  "#f43f5e", "#8b5cf6", "#14b8a6", "#ec4899",
 ];
 const OTHER = "#94a3b8";
 const MAX_SLICES = 7;
@@ -69,7 +69,7 @@ function SimpleBarChart({ data }: { data: { label: string; total: number }[] }) 
           <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
           <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={tickFormatter} width={44} />
           <Tooltip formatter={tooltipFormatter} cursor={{ fill: "#f1f5f9" }} />
-          <Bar dataKey="total" name="Spent" fill={BAR} radius={[3, 3, 0, 0]} />
+          <Bar dataKey="total" name="Spent" fill={BAR} radius={[6, 6, 0, 0]} maxBarSize={48} />
         </BarChart>
       </ResponsiveContainer>
     </div>

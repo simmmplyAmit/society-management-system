@@ -5,7 +5,6 @@ import { addExpense } from "@/actions/expenses";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 
 export const EXPENSE_CATEGORIES = [
@@ -42,11 +41,7 @@ export function AddExpenseForm() {
   const today = new Date().toISOString().split("T")[0];
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base">Add Expense</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <div>
         <form id="expense-form" action={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="title">Title *</Label>
@@ -58,7 +53,7 @@ export function AddExpenseForm() {
               <Label>Category *</Label>
               <select
                 name="category"
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                className="h-10 w-full rounded-lg border border-input bg-white px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                 required
               >
                 <option value="">— Select —</option>
@@ -87,7 +82,6 @@ export function AddExpenseForm() {
             {isPending ? "Adding…" : "Add expense"}
           </Button>
         </form>
-      </CardContent>
-    </Card>
+    </div>
   );
 }

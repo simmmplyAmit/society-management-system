@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { BrandMark } from "@/components/layout/brand-mark";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import type { Role } from "@prisma/client";
 
@@ -22,6 +23,7 @@ const ROLE_LABELS: Record<Role, string> = {
 };
 
 interface TopBarProps {
+  societyName?: string;
   user: {
     name: string;
     email: string;
@@ -30,7 +32,7 @@ interface TopBarProps {
   };
 }
 
-export function TopBar({ user }: TopBarProps) {
+export function TopBar({ user, societyName }: TopBarProps) {
   const initials = user.name
     .split(" ")
     .map((n) => n[0])
@@ -39,16 +41,18 @@ export function TopBar({ user }: TopBarProps) {
     .slice(0, 2);
 
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between max-w-2xl mx-auto w-full">
-      <div>
-        <h1 className="text-sm font-semibold text-slate-900">Society MS</h1>
+    <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-white/90 px-4 py-2.5 backdrop-blur lg:px-8">
+      <div className="flex items-center gap-2.5 lg:hidden">
+        <BrandMark className="size-8" />
+        <h1 className="text-sm font-semibold">{societyName ?? "Society MS"}</h1>
       </div>
+      <div className="hidden lg:block" />
       <DropdownMenu>
         <DropdownMenuTrigger className="flex items-center gap-2 outline-none">
           <span className="flex items-center gap-2">
-            <Avatar className="h-8 w-8">
+            <Avatar className="h-9 w-9 ring-2 ring-primary/15">
               <AvatarImage src={user.image ?? undefined} alt={user.name} />
-              <AvatarFallback className="text-xs bg-slate-800 text-white">
+              <AvatarFallback className="text-xs bg-primary/10 font-semibold text-primary">
                 {initials}
               </AvatarFallback>
             </Avatar>

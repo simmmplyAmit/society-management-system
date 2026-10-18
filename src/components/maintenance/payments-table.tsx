@@ -1,22 +1,25 @@
 "use client";
 
-import { Card, CardContent } from "@/components/ui/card";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { MarkPaidForm } from "./mark-paid-form";
 import { formatCurrency, formatDate } from "@/lib/utils/month";
 import { flatLabel } from "@/lib/utils/flat";
-import { CheckCircle2, Clock, AlertCircle } from "lucide-react";
+
 
 type PaymentStatus = "PENDING" | "PAID" | "OVERDUE";
 
 const STATUS_CONFIG: Record<
   PaymentStatus,
-  { icon: React.ElementType; label: string; badge: string }
+  { label: string; variant: "success" | "warning" | "danger" }
 > = {
-  PAID: { icon: CheckCircle2, label: "Paid", badge: "bg-green-100 text-green-700" },
-  PENDING: { icon: Clock, label: "Pending", badge: "bg-amber-100 text-amber-700" },
-  OVERDUE: { icon: AlertCircle, label: "Overdue", badge: "bg-red-100 text-red-700" },
+  PAID: { label: "Paid", variant: "success" },
+  PENDING: { label: "Pending", variant: "warning" },
+  OVERDUE: { label: "Overdue", variant: "danger" },
 };
+
+type Filter = "ALL" | PaymentStatus;
 
 interface Payment {
   id: string;
@@ -42,81 +45,115 @@ interface PaymentsTableProps {
 }
 
 export function PaymentsTable({ payments, canManage, societyUpiId, hasWings }: PaymentsTableProps) {
+  const [filter, setFilter] = useState<Filter>("ALL");
+
   if (payments.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground text-center py-6">
-        No payment records for this month. Generate records above.
-      </p>
+      <div className="rounded-xl border border-dashed border-border bg-card px-4 py-10 text-center">
+        <p className="text-sm font-medium">No records for this month</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Open &ldquo;Generate dues&rdquo; below to create them.
+        </p>
+      </div>
     );
   }
 
-  const paid = payments.filter((p) => p.status === "PAID").length;
+  const sum = (s: PaymentStatus | "ALL") =>
+    payments
+      .filter((p) => s === "ALL" || p.status === s)
+      .reduce((t, p) => t + Number(p.amount), 0);
+  const count = (s: PaymentStatus) => payments.filter((p) => p.status === s).length;
+  const collected = sum("PAID");
+  const billed = sum("ALL");
+  const pct = billed > 0 ? Math.round((collected / billed) * 100) : 0;
+
+  const FILTERS: { key: Filter; label: string; n: number }[] = [
+    { key: "ALL", label: "All", n: payments.length },
+    { key: "PENDING", label: "Pending", n: count("PENDING") },
+    { key: "OVERDUE", label: "Overdue", n: count("OVERDUE") },
+    { key: "PAID", label: "Paid", n: count("PAID") },
+  ];
+  const visible = payments.filter((p) => filter === "ALL" || p.status === filter);
 
   return (
-    <div className="space-y-3">
-      {/* Summary bar */}
-      <div className="flex items-center gap-3 text-sm">
-        <span className="text-muted-foreground">{payments.length} flats total</span>
-        <span className="text-green-600 font-medium">{paid} paid</span>
-        <span className="text-amber-600 font-medium">{payments.length - paid} pending</span>
+    <div className="space-y-4">
+      <div className="rounded-xl bg-card p-4 ring-1 ring-border shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+        <div className="flex items-end justify-between">
+          <div>
+            <p className="text-xs font-medium text-muted-foreground">Collected</p>
+            <p className="text-2xl font-semibold">{formatCurrency(collected)}</p>
+          </div>
+          <p className="text-right text-xs text-muted-foreground">
+            of {formatCurrency(billed)}
+            <br />
+            {pct}%
+          </p>
+        </div>
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
+          <div className="h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
+        </div>
+        {societyUpiId && (
+          <p className="mt-3 text-xs text-muted-foreground">
+            Pay to UPI: <span className="font-semibold text-foreground">{societyUpiId}</span>
+          </p>
+        )}
       </div>
 
-      {societyUpiId && (
-        <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-blue-700">
-          Society UPI: <span className="font-semibold">{societyUpiId}</span>
-        </div>
-      )}
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {FILTERS.map((f) => (
+          <button
+            key={f.key}
+            onClick={() => setFilter(f.key)}
+            className={cn(
+              "shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors",
+              filter === f.key
+                ? "bg-primary text-primary-foreground"
+                : "bg-card text-muted-foreground ring-1 ring-border hover:text-foreground"
+            )}
+          >
+            {f.label} <span className="opacity-70">{f.n}</span>
+          </button>
+        ))}
+      </div>
 
-      {payments.map((payment) => {
-        const config = STATUS_CONFIG[payment.status];
-        const Icon = config.icon;
-        const primaryResident = payment.flat.residents[0];
-
-        return (
-          <Card key={payment.id}>
-            <CardContent className="p-3">
-              <div className="flex items-start gap-2">
-                <Icon className={`h-4 w-4 mt-0.5 shrink-0 ${
-                  payment.status === "PAID" ? "text-green-500" :
-                  payment.status === "OVERDUE" ? "text-red-500" : "text-amber-500"
-                }`} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <span className="font-medium text-sm">
-                        {flatLabel(payment.flat, hasWings)}
-                      </span>
-                      {primaryResident && (
-                        <p className="text-xs text-muted-foreground">
-                          {primaryResident.user.name}
-                          {primaryResident.user.phone && ` · ${primaryResident.user.phone}`}
-                        </p>
-                      )}
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="font-semibold text-sm">{formatCurrency(payment.amount)}</p>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${config.badge}`}>
-                        {config.label}
-                      </span>
-                    </div>
-                  </div>
-
-                  {payment.status === "PAID" && (
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      {formatDate(payment.paidAt)}
-                      {payment.utrNumber && ` · UTR: ${payment.utrNumber}`}
-                    </div>
-                  )}
-
-                  {canManage && (
-                    <MarkPaidForm paymentId={payment.id} status={payment.status} />
-                  )}
+      <div className="divide-y divide-border overflow-hidden rounded-xl bg-card ring-1 ring-border shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+        {visible.length === 0 && (
+          <p className="p-6 text-center text-sm text-muted-foreground">Nothing here.</p>
+        )}
+        {visible.map((payment) => {
+          const config = STATUS_CONFIG[payment.status];
+          const resident = payment.flat.residents[0];
+          return (
+            <div key={payment.id} className="p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">
+                    {flatLabel(payment.flat, hasWings)}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {resident
+                      ? `${resident.user.name}${resident.user.phone ? ` · ${resident.user.phone}` : ""}`
+                      : "No resident assigned"}
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-sm font-semibold">{formatCurrency(payment.amount)}</p>
+                  <Badge variant={config.variant} className="mt-1">
+                    {config.label}
+                  </Badge>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        );
-      })}
+              {payment.status === "PAID" && (
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  {formatDate(payment.paidAt)}
+                  {payment.utrNumber && ` · UTR ${payment.utrNumber}`}
+                </p>
+              )}
+              {canManage && <MarkPaidForm paymentId={payment.id} status={payment.status} />}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
