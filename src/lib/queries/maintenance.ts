@@ -2,6 +2,7 @@
 // exports here must never become client-callable endpoints. Callers must pass a
 // societyId taken from the authenticated session (or, for the cron, loop all societies).
 import { prisma } from "@/lib/prisma";
+import type { MaintenanceStatus } from "@prisma/client";
 import { previousMonth } from "@/lib/utils/maintenance";
 
 // ─────────────────────────────────────────────
@@ -136,13 +137,35 @@ export async function getMaintenanceCharges(societyId: string) {
   });
 }
 
-export async function getMonthlyPayments(
-  societyId: string,
-  month: number,
-  year: number
-) {
+export type PaymentStatusFilter = "unpaid" | "overdue" | "paid" | "all";
+
+const STATUS_WHERE: Record<PaymentStatusFilter, MaintenanceStatus[] | undefined> = {
+  unpaid: ["PENDING", "OVERDUE"],
+  overdue: ["OVERDUE"],
+  paid: ["PAID"],
+  all: undefined,
+};
+
+export const PAYMENTS_LIMIT = 500;
+
+export interface PaymentFilters {
+  month?: number;
+  year?: number;
+  flatId?: string;
+  status?: PaymentStatusFilter;
+}
+
+/** Dues for a society, newest period first. `flatId` can only narrow the society-scoped result. */
+export async function getPayments(societyId: string, filters: PaymentFilters = {}) {
+  const { month, year, flatId, status = "unpaid" } = filters;
+  const statuses = STATUS_WHERE[status];
   return prisma.maintenancePayment.findMany({
-    where: { societyId, month, year },
+    where: {
+      societyId,
+      ...(month && year ? { month, year } : {}),
+      ...(flatId ? { flatId } : {}),
+      ...(statuses ? { status: { in: statuses } } : {}),
+    },
     include: {
       flat: {
         include: {
@@ -155,10 +178,13 @@ export async function getMonthlyPayments(
       },
     },
     orderBy: [
+      { year: "desc" },
+      { month: "desc" },
       { flat: { floor: { wing: { name: "asc" } } } },
       { flat: { floor: { number: "asc" } } },
       { flat: { number: "asc" } },
     ],
+    take: PAYMENTS_LIMIT,
   });
 }
 

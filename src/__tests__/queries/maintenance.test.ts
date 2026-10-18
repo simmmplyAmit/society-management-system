@@ -11,7 +11,7 @@ vi.mock("@/lib/prisma", () => ({
 
 import { prisma } from "@/lib/prisma";
 import {
-  generateForMonth, generateAllSocietiesCurrentMonth, markOverduePayments, getResidentPayments,
+  generateForMonth, generateAllSocietiesCurrentMonth, markOverduePayments, getResidentPayments, getPayments,
 } from "@/lib/queries/maintenance";
 
 const charge = (over: Record<string, unknown> = {}) => ({
@@ -104,5 +104,32 @@ describe("getResidentPayments", () => {
     expect(prisma.maintenancePayment.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { flatId: { in: ["f1", "f2"] } } })
     );
+  });
+});
+
+describe("getPayments", () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  it("scopes to the society and defaults to unpaid dues", async () => {
+    vi.mocked(prisma.maintenancePayment.findMany).mockResolvedValue([]);
+    await getPayments("s1");
+    const arg = vi.mocked(prisma.maintenancePayment.findMany).mock.calls[0][0]!;
+    expect(arg.where).toEqual({ societyId: "s1", status: { in: ["PENDING", "OVERDUE"] } });
+  });
+
+  it("applies month-year and flat filters", async () => {
+    vi.mocked(prisma.maintenancePayment.findMany).mockResolvedValue([]);
+    await getPayments("s1", { month: 3, year: 2026, flatId: "f9", status: "paid" });
+    const arg = vi.mocked(prisma.maintenancePayment.findMany).mock.calls[0][0]!;
+    expect(arg.where).toEqual({
+      societyId: "s1", month: 3, year: 2026, flatId: "f9", status: { in: ["PAID"] },
+    });
+  });
+
+  it("does not filter status for 'all' and ignores a lone month", async () => {
+    vi.mocked(prisma.maintenancePayment.findMany).mockResolvedValue([]);
+    await getPayments("s1", { month: 3, status: "all" });
+    const arg = vi.mocked(prisma.maintenancePayment.findMany).mock.calls[0][0]!;
+    expect(arg.where).toEqual({ societyId: "s1" });
   });
 });

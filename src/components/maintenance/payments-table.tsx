@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { MONTHS } from "@/lib/utils/month";
 import { MarkPaidForm } from "./mark-paid-form";
 import { formatCurrency, formatDate } from "@/lib/utils/month";
 import { flatLabel } from "@/lib/utils/flat";
@@ -19,10 +18,10 @@ const STATUS_CONFIG: Record<
   OVERDUE: { label: "Overdue", variant: "danger" },
 };
 
-type Filter = "ALL" | PaymentStatus;
-
 interface Payment {
   id: string;
+  month: number;
+  year: number;
   amount: string | number;
   status: PaymentStatus;
   paidAt: Date | null;
@@ -42,56 +41,32 @@ interface PaymentsTableProps {
   canManage: boolean;
   societyUpiId?: string | null;
   hasWings: boolean;
+  limit?: number;
 }
 
-export function PaymentsTable({ payments, canManage, societyUpiId, hasWings }: PaymentsTableProps) {
-  const [filter, setFilter] = useState<Filter>("ALL");
-
+export function PaymentsTable({ payments, canManage, societyUpiId, hasWings, limit }: PaymentsTableProps) {
   if (payments.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-border bg-card px-4 py-10 text-center">
-        <p className="text-sm font-medium">No records for this month</p>
+        <p className="text-sm font-medium">No dues match these filters</p>
         <p className="mt-1 text-xs text-muted-foreground">
-          Open &ldquo;Generate dues&rdquo; below to create them.
+          Try another month or flat, or generate dues from the &ldquo;Generate dues&rdquo; tab.
         </p>
       </div>
     );
   }
 
-  const sum = (s: PaymentStatus | "ALL") =>
-    payments
-      .filter((p) => s === "ALL" || p.status === s)
-      .reduce((t, p) => t + Number(p.amount), 0);
-  const count = (s: PaymentStatus) => payments.filter((p) => p.status === s).length;
-  const collected = sum("PAID");
-  const billed = sum("ALL");
-  const pct = billed > 0 ? Math.round((collected / billed) * 100) : 0;
-
-  const FILTERS: { key: Filter; label: string; n: number }[] = [
-    { key: "ALL", label: "All", n: payments.length },
-    { key: "PENDING", label: "Pending", n: count("PENDING") },
-    { key: "OVERDUE", label: "Overdue", n: count("OVERDUE") },
-    { key: "PAID", label: "Paid", n: count("PAID") },
-  ];
-  const visible = payments.filter((p) => filter === "ALL" || p.status === filter);
+  const total = payments.reduce((t, p) => t + Number(p.amount), 0);
+  const flatCount = new Set(payments.map((p) => `${p.flat.floor.wing.name}-${p.flat.floor.number}-${p.flat.number}`)).size;
 
   return (
     <div className="space-y-4">
       <div className="rounded-xl bg-card p-4 ring-1 ring-border shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-        <div className="flex items-end justify-between">
-          <div>
-            <p className="text-xs font-medium text-muted-foreground">Collected</p>
-            <p className="text-2xl font-semibold">{formatCurrency(collected)}</p>
-          </div>
-          <p className="text-right text-xs text-muted-foreground">
-            of {formatCurrency(billed)}
-            <br />
-            {pct}%
-          </p>
-        </div>
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
-          <div className="h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
-        </div>
+        <p className="text-xs font-medium text-muted-foreground">Total shown</p>
+        <p className="text-2xl font-semibold">{formatCurrency(total)}</p>
+        <p className="text-xs text-muted-foreground">
+          {payments.length} due{payments.length !== 1 ? "s" : ""} · {flatCount} flat{flatCount !== 1 ? "s" : ""}
+        </p>
         {societyUpiId && (
           <p className="mt-3 text-xs text-muted-foreground">
             Pay to UPI: <span className="font-semibold text-foreground">{societyUpiId}</span>
@@ -99,28 +74,8 @@ export function PaymentsTable({ payments, canManage, societyUpiId, hasWings }: P
         )}
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {FILTERS.map((f) => (
-          <button
-            key={f.key}
-            onClick={() => setFilter(f.key)}
-            className={cn(
-              "shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors",
-              filter === f.key
-                ? "bg-primary text-primary-foreground"
-                : "bg-card text-muted-foreground ring-1 ring-border hover:text-foreground"
-            )}
-          >
-            {f.label} <span className="opacity-70">{f.n}</span>
-          </button>
-        ))}
-      </div>
-
       <div className="divide-y divide-border overflow-hidden rounded-xl bg-card ring-1 ring-border shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-        {visible.length === 0 && (
-          <p className="p-6 text-center text-sm text-muted-foreground">Nothing here.</p>
-        )}
-        {visible.map((payment) => {
+        {payments.map((payment) => {
           const config = STATUS_CONFIG[payment.status];
           const resident = payment.flat.residents[0];
           return (
@@ -131,6 +86,10 @@ export function PaymentsTable({ payments, canManage, societyUpiId, hasWings }: P
                     {flatLabel(payment.flat, hasWings)}
                   </p>
                   <p className="truncate text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground/70">
+                      {MONTHS[payment.month - 1].slice(0, 3)} {payment.year}
+                    </span>
+                    {" · "}
                     {resident
                       ? `${resident.user.name}${resident.user.phone ? ` · ${resident.user.phone}` : ""}`
                       : "No resident assigned"}
@@ -154,6 +113,11 @@ export function PaymentsTable({ payments, canManage, societyUpiId, hasWings }: P
           );
         })}
       </div>
+      {limit && payments.length >= limit && (
+        <p className="text-center text-xs text-muted-foreground">
+          Showing the latest {limit} dues. Narrow by month or flat to see the rest.
+        </p>
+      )}
     </div>
   );
 }
