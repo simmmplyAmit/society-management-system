@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { toIdx, periodsOverlap } from "@/actions/maintenance";
+import { toIdx, periodsOverlap } from "@/lib/utils/maintenance";
 
 describe("toIdx", () => {
   it("converts month/year into a sortable integer", () => {

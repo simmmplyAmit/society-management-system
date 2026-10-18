@@ -47,25 +47,3 @@ export async function deleteWing(wingId: string) {
   revalidatePath("/dashboard/society");
   return { success: true };
 }
-
-export async function getWingsWithStructure(societyId: string) {
-  return prisma.wing.findMany({
-    where: { societyId },
-    include: {
-      floors: {
-        orderBy: { number: "asc" },
-        include: {
-          flats: {
-            orderBy: { number: "asc" },
-            include: {
-              residents: {
-                include: { user: { select: { id: true, name: true, role: true } } },
-              },
-            },
-          },
-        },
-      },
-    },
-    orderBy: { name: "asc" },
-  });
-}

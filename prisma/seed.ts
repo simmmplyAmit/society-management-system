@@ -29,6 +29,24 @@ async function main() {
 
     console.log("Created society:", society.name);
 
+    // Optional: bootstrap the platform super-admin (product team) from env
+    const superEmail = process.env.SUPER_ADMIN_EMAIL;
+    const superPassword = process.env.SUPER_ADMIN_PASSWORD;
+    if (superEmail && superPassword) {
+      await prisma.user.upsert({
+        where: { email: superEmail.toLowerCase() },
+        update: {},
+        create: {
+          email: superEmail.toLowerCase(),
+          passwordHash: await bcrypt.hash(superPassword, 12),
+          name: "Platform Admin",
+          role: "SUPER_ADMIN",
+          societyId: null,
+        },
+      });
+      console.log("Ensured super-admin:", superEmail);
+    }
+
     const passwordHash = await bcrypt.hash("admin123", 12);
 
     const admin = await prisma.user.upsert({

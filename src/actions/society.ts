@@ -47,9 +47,3 @@ export async function updateSociety(formData: FormData) {
   revalidatePath("/dashboard/society");
   return { success: true };
 }
-
-export async function getSociety(societyId: string) {
-  return prisma.society.findUnique({
-    where: { id: societyId },
-  });
-}

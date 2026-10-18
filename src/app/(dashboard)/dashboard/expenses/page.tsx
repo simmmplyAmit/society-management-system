@@ -1,5 +1,5 @@
 import { requireRole } from "@/lib/session";
-import { getExpenses, getExpenseSummary } from "@/actions/expenses";
+import { getExpenses, getExpenseSummary } from "@/lib/queries/expenses";
 import { AddExpenseForm } from "@/components/expenses/add-expense-form";
 import { ExpensesList } from "@/components/expenses/expenses-list";
 import { ExpenseSummary } from "@/components/expenses/expense-summary";

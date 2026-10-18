@@ -2,6 +2,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -54,6 +55,7 @@ export function TopBar({ user }: TopBarProps) {
           </span>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuGroup>
           <DropdownMenuLabel className="pb-1">
             <p className="font-medium truncate">{user.name}</p>
             <p className="text-xs text-muted-foreground font-normal truncate">
@@ -63,6 +65,7 @@ export function TopBar({ user }: TopBarProps) {
               {ROLE_LABELS[user.role]}
             </Badge>
           </DropdownMenuLabel>
+          </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuItem>
             <SignOutButton />
