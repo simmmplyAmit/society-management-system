@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ensureVerified } from "@/lib/session";
 import { redirect } from "next/navigation";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { Sidebar } from "@/components/layout/sidebar";
@@ -12,6 +13,7 @@ export default async function DashboardLayout({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
+  await ensureVerified(session);
 
   const society = session.user.societyId
     ? await prisma.society.findUnique({

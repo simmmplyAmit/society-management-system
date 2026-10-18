@@ -6,6 +6,9 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { toIdx, periodsOverlap } from "@/lib/utils/maintenance";
 import { generateForMonth } from "@/lib/queries/maintenance";
+import { notifyPayments } from "@/lib/notify/dispatch";
+import { sendNewDueNotices } from "@/lib/notify/schedule";
+import { previousMonth } from "@/lib/utils/maintenance";
 
 // ─────────────────────────────────────────────
 // Schemas
@@ -162,8 +165,26 @@ export async function generateMonthlyPayments(formData: FormData) {
     return { error: "No active maintenance charges found for this month" };
   }
 
+  // Announce the new dues, but only for the current/previous month (never a back-fill)
+  let notified: { sent: number; failed: number; skipped: number } | undefined;
+  if (formData.get("notify") === "on" && result.created > 0) {
+    const now = new Date();
+    const prev = previousMonth(now.getMonth() + 1, now.getFullYear());
+    const { month, year } = parsed.data;
+    const recent =
+      (month === now.getMonth() + 1 && year === now.getFullYear()) ||
+      (month === prev.month && year === prev.year);
+    if (recent) {
+      try {
+        notified = await sendNewDueNotices({ societyId });
+      } catch (err) {
+        console.error("[generateMonthlyPayments] notify failed:", err);
+      }
+    }
+  }
+
   revalidatePath("/dashboard/maintenance");
-  return { success: true, ...result };
+  return { success: true, ...result, notified };
 }
 
 // ─────────────────────────────────────────────
@@ -243,16 +264,28 @@ export async function markPaymentPaid(formData: FormData) {
   });
   if (!payment) return { error: "Payment not found" };
 
+  const paidAt = parsed.data.paidAt ? new Date(parsed.data.paidAt) : new Date();
   await prisma.maintenancePayment.update({
     where: { id: parsed.data.paymentId },
     data: {
       status: "PAID",
-      paidAt: parsed.data.paidAt ? new Date(parsed.data.paidAt) : new Date(),
+      paidAt,
       paidBy: session.user.id,
       utrNumber: parsed.data.utrNumber || null,
       notes: parsed.data.notes || null,
     },
   });
+
+  // Receipt to the residents; a messaging failure must not undo the payment
+  try {
+    await notifyPayments(
+      "PAYMENT_RECEIPT",
+      [{ paymentId: payment.id, keySuffix: String(paidAt.getTime()) }],
+      societyId
+    );
+  } catch (err) {
+    console.error("[markPaymentPaid] receipt failed:", err);
+  }
 
   revalidatePath("/dashboard/maintenance");
   return { success: true };

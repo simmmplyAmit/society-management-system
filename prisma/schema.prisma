@@ -56,6 +56,7 @@ model Society {
   maintenanceCharges  MaintenanceCharge[]
   maintenancePayments MaintenancePayment[]
   expenses            Expense[]
+  notificationLogs    NotificationLog[]
 
   @@index([isActive])
 }
@@ -126,6 +127,8 @@ model User {
   role         Role     @default(TENANT)
   societyId    String?  // null only for SUPER_ADMIN
   isActive     Boolean  @default(true)
+  emailVerifiedAt DateTime?
+  phoneVerifiedAt DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -134,6 +137,7 @@ model User {
   tenantRecords TenantRecord[]
   expenses      Expense[]
   accounts      Account[]      // ready for future OAuth providers
+  otpCodes      OtpCode[]
 
   @@index([societyId])
   @@index([email])
@@ -276,4 +280,73 @@ model Expense {
 
   @@index([societyId])
   @@index([societyId, date])
+}
+
+
+// ─────────────────────────────────────────────
+// Verification (OTP) and outbound notifications
+// ─────────────────────────────────────────────
+
+enum Channel {
+  EMAIL
+  SMS
+}
+
+enum OtpPurpose {
+  VERIFY_EMAIL
+  VERIFY_PHONE
+  RESET_PASSWORD
+}
+
+model OtpCode {
+  id         String     @id @default(cuid())
+  userId     String?    // null when the target is not (yet) a known user
+  purpose    OtpPurpose
+  channel    Channel
+  target     String     // normalized email or phone the code was sent to
+  codeHash   String     // HMAC of the code; the plain code is never stored
+  attempts   Int        @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime   @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([target, purpose, createdAt])
+  @@index([userId])
+}
+
+enum NotificationKind {
+  DUE_CREATED
+  DUE_REMINDER
+  MANUAL_REMINDER
+  PAYMENT_RECEIPT
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+// One row per message attempt. dedupeKey makes sends idempotent across cron reruns.
+model NotificationLog {
+  id        String             @id @default(cuid())
+  societyId String
+  userId    String?
+  paymentId String?
+  kind      NotificationKind
+  channel   Channel
+  to        String
+  status    NotificationStatus @default(PENDING)
+  error     String?
+  dedupeKey String             @unique
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+
+  @@index([societyId, createdAt])
+  @@index([paymentId])
 }

@@ -51,8 +51,15 @@ Roles and what each can do are listed in README.md. In short: ADMIN manages stru
 - `MaintenancePayment`: one row per flat per month (`@@unique([flatId, month, year])`), with status `PENDING` / `PAID` / `OVERDUE`. All dues generation goes through `generateForMonth` in `src/lib/queries/maintenance.ts`, which is idempotent.
 - Residents pay through a UPI deep link (`src/lib/utils/upi.ts`) built from `Society.upiId`. Admins mark payments paid by hand, optionally with a UTR number.
 
+### Verification, password reset and notifications
+- Users must verify **both** email and mobile (6-digit OTP) before using the app. The gate is `ensureVerified` in `src/lib/session.ts` (called by `getSession`/`requireRole` and the dashboard layout); `/verify` uses `getSessionUnverified`. `SUPER_ADMIN` is exempt, and `REQUIRE_VERIFICATION=false` switches the gate off. Logic lives in `src/lib/verification.ts`; the JWT carries a `verified` flag refreshed with the rest of the token.
+- OTPs (`src/lib/otp.ts`) are stored as HMACs in `OtpCode`, expire in 10 minutes, allow 5 guesses, and are throttled in the DB (60s cooldown, 5/hour per target) so limits hold across serverless instances. Forgot-password (`src/actions/password-reset.ts`) emails an OTP and never reveals whether an email exists.
+- Outbound messages: `src/lib/notify/` — `email.ts` (Resend), `sms.ts` (MSG91 flow templates), `templates.ts`, `dispatch.ts` (`notifyPayments`), `schedule.ts` (which payments to message). Every send first claims a unique `NotificationLog.dedupeKey`, so cron reruns and double clicks never message twice. Only verified channels are used, and only primary residents (everyone if none is primary).
+- When messages go out: new-due notices (cron, and the "notify" checkbox on Generate; never for back-filled old months), reminders at day 5/12/19 of the billing month while unpaid, a receipt on mark-paid, and manual "Remind" buttons on the Pending tab (`src/actions/notifications.ts`, once per person per day).
+- Without provider keys, non-production runs log messages to the console and show the OTP on the verify screen; production fails closed.
+
 ### Cron
-`GET /api/cron/generate-maintenance` requires `Authorization: Bearer $CRON_SECRET`. It runs daily on Vercel (`vercel.json`, 18:30 UTC = 00:00 IST). For every active society it generates the previous and current month's dues, then marks unpaid dues from earlier months `OVERDUE`.
+`GET /api/cron/generate-maintenance` requires `Authorization: Bearer $CRON_SECRET`. It runs daily on Vercel (`vercel.json`, 18:30 UTC = 00:00 IST). For every active society it generates the previous and current month's dues, marks unpaid dues from earlier months `OVERDUE`, then sends new-due notices and scheduled reminders.
 
 ## Testing
 
@@ -61,4 +68,4 @@ Roles and what each can do are listed in README.md. In short: ADMIN manages stru
 - Tests mirror the source layout: `__tests__/actions`, `__tests__/queries`, `__tests__/lib`, `__tests__/api`.
 
 ## Not yet implemented
-Outbound reminders (email/SMS/WhatsApp), automatic UPI payment verification, and tenant-occupancy UI beyond create/close.
+WhatsApp messages, automatic UPI payment verification, and tenant-occupancy UI beyond create/close.

@@ -10,10 +10,14 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/session", () => ({
   requireRole: vi.fn().mockResolvedValue({ user: { id: "a1", role: "ADMIN", societyId: "s1" } }),
 }));
+vi.mock("@/lib/notify/dispatch", () => ({ notifyPayments: vi.fn().mockResolvedValue({ sent: 2, failed: 0, skipped: 0 }) }));
+vi.mock("@/lib/notify/schedule", () => ({ sendNewDueNotices: vi.fn().mockResolvedValue({ sent: 3, failed: 0, skipped: 0 }) }));
 vi.mock("@/lib/queries/maintenance", () => ({ generateForMonth: vi.fn().mockResolvedValue({ created: 1, skipped: 0 }) }));
 
 import { setMaintenanceCharge, markPaymentPaid, markPaymentPending, generateMonthlyPayments, generateDuesForRange } from "@/actions/maintenance";
 import { generateForMonth } from "@/lib/queries/maintenance";
+import { notifyPayments } from "@/lib/notify/dispatch";
+import { sendNewDueNotices } from "@/lib/notify/schedule";
 import { requireRole } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 
@@ -172,5 +176,43 @@ describe("generate actions", () => {
     const r = await generateDuesForRange(fd({ fromMonth: "5", fromYear: "2026", toMonth: "1", toYear: "2026" }));
     expect(r.error).toBeDefined();
     expect(generateForMonth).not.toHaveBeenCalled();
+  });
+});
+
+describe("notifications from maintenance actions", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.maintenancePayment.findFirst).mockResolvedValue({ id: "p1", societyId: "s1" } as never);
+    vi.mocked(generateForMonth).mockResolvedValue({ created: 1, skipped: 0 });
+  });
+
+  it("sends a receipt, scoped to the society, when a payment is marked paid", async () => {
+    await markPaymentPaid(fd({ paymentId: "p1", paidAt: "2026-10-05" }));
+    expect(notifyPayments).toHaveBeenCalledWith(
+      "PAYMENT_RECEIPT",
+      [{ paymentId: "p1", keySuffix: String(new Date("2026-10-05").getTime()) }],
+      "s1"
+    );
+  });
+
+  it("still records the payment when messaging fails", async () => {
+    vi.mocked(notifyPayments).mockRejectedValueOnce(new Error("provider down"));
+    const r = await markPaymentPaid(fd({ paymentId: "p1" }));
+    expect(r.success).toBe(true);
+  });
+
+  it("announces new dues only when the box is ticked and the month is recent", async () => {
+    const now = new Date();
+    const cur = { month: String(now.getMonth() + 1), year: String(now.getFullYear()) };
+    const r = await generateMonthlyPayments(fd({ ...cur, notify: "on" }));
+    expect(sendNewDueNotices).toHaveBeenCalledWith({ societyId: "s1" });
+    expect(r).toMatchObject({ success: true, notified: { sent: 3 } });
+
+    vi.clearAllMocks();
+    await generateMonthlyPayments(fd(cur));
+    expect(sendNewDueNotices).not.toHaveBeenCalled();
+
+    await generateMonthlyPayments(fd({ month: "1", year: "2020", notify: "on" }));
+    expect(sendNewDueNotices).not.toHaveBeenCalled();
   });
 });

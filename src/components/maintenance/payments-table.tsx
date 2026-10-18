@@ -3,6 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { MONTHS } from "@/lib/utils/month";
 import { MarkPaidForm } from "./mark-paid-form";
+import { RemindButton } from "./remind-button";
 import { formatCurrency, formatDate } from "@/lib/utils/month";
 import { flatLabel } from "@/lib/utils/flat";
 
@@ -57,6 +58,7 @@ export function PaymentsTable({ payments, canManage, societyUpiId, hasWings, lim
   }
 
   const total = payments.reduce((t, p) => t + Number(p.amount), 0);
+  const unpaidIds = payments.filter((p) => p.status !== "PAID").map((p) => p.id);
   const flatCount = new Set(payments.map((p) => `${p.flat.floor.wing.name}-${p.flat.floor.number}-${p.flat.number}`)).size;
 
   return (
@@ -71,6 +73,15 @@ export function PaymentsTable({ payments, canManage, societyUpiId, hasWings, lim
           <p className="mt-3 text-xs text-muted-foreground">
             Pay to UPI: <span className="font-semibold text-foreground">{societyUpiId}</span>
           </p>
+        )}
+        {canManage && unpaidIds.length > 0 && (
+          <RemindButton
+            paymentIds={unpaidIds}
+            label={`Send reminders (${unpaidIds.length})`}
+            variant="outline"
+            className="mt-3 h-9"
+            confirmMessage={`Email and SMS ${unpaidIds.length} unpaid due${unpaidIds.length !== 1 ? "s" : ""} to their residents?`}
+          />
         )}
       </div>
 
@@ -108,7 +119,14 @@ export function PaymentsTable({ payments, canManage, societyUpiId, hasWings, lim
                   {payment.utrNumber && ` · UTR ${payment.utrNumber}`}
                 </p>
               )}
-              {canManage && <MarkPaidForm paymentId={payment.id} status={payment.status} />}
+              {canManage && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <MarkPaidForm paymentId={payment.id} status={payment.status} />
+                  {payment.status !== "PAID" && (
+                    <RemindButton paymentIds={[payment.id]} className="mt-2 h-8 text-xs text-muted-foreground" />
+                  )}
+                </div>
+              )}
             </div>
           );
         })}

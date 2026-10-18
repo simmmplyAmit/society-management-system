@@ -19,9 +19,15 @@ export function GeneratePaymentsForm() {
       if (result?.error) {
         toast.error(result.error);
       } else if ("success" in result && result.success) {
-        const r = result as { created: number; skipped: number };
+        const r = result as {
+          created: number;
+          skipped: number;
+          notified?: { sent: number; failed: number };
+        };
         toast.success(
-          `Generated ${r.created} records${r.skipped ? `, ${r.skipped} already existed` : ""}`
+          `Generated ${r.created} records${r.skipped ? `, ${r.skipped} already existed` : ""}` +
+            (r.notified ? `. Sent ${r.notified.sent} message${r.notified.sent !== 1 ? "s" : ""}` : "") +
+            (r.notified?.failed ? `, ${r.notified.failed} failed` : "")
         );
       }
     });
@@ -63,6 +69,10 @@ export function GeneratePaymentsForm() {
               ))}
             </select>
           </div>
+          <label className="flex w-full items-center gap-2 text-sm">
+            <input type="checkbox" name="notify" defaultChecked className="size-4 accent-primary" />
+            Email and SMS residents about the new dues
+          </label>
           <Button type="submit" disabled={isPending} className="shrink-0">
             {isPending ? "Generating…" : "Generate"}
           </Button>

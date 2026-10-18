@@ -58,6 +58,10 @@ async function main() {
         name: "Society Admin",
         role: "ADMIN",
         societyId: society.id,
+        phone: "+919999999999",
+        // Demo account: pre-verified so local development works without email/SMS providers
+        emailVerifiedAt: new Date(),
+        phoneVerifiedAt: new Date(),
       },
     });
 
