@@ -28,34 +28,52 @@ export async function getExpenses(
   });
 }
 
-export async function getExpenseSummary(societyId: string, year: number) {
-  const start = new Date(year, 0, 1);
-  const end = new Date(year, 11, 31, 23, 59, 59);
+export interface ExpenseAnalytics {
+  years: number[]; // ascending, only years that have expenses
+  total: number;
+  yearly: { year: number; total: number }[];
+  monthly: { year: number; month: number; total: number }[]; // month 1-12, non-zero only
+  byCategory: { year: number; category: string; total: number }[]; // non-zero only
+}
 
+// All-time aggregates, sliced client-side into the all-time / yearly / monthly / type views.
+export async function getExpenseAnalytics(
+  societyId: string
+): Promise<ExpenseAnalytics> {
   const expenses = await prisma.expense.findMany({
-    where: { societyId, date: { gte: start, lte: end } },
+    where: { societyId },
     select: { amount: true, category: true, date: true },
   });
 
-  // Monthly totals
-  const monthly = Array.from({ length: 12 }, (_, i) => ({
-    month: i + 1,
-    total: 0,
-  }));
-
-  // Category totals
-  const byCategory: Record<string, number> = {};
-
-  let grandTotal = 0;
+  const yearly = new Map<number, number>();
+  const monthly = new Map<string, number>();
+  const byCategory = new Map<string, number>();
+  let total = 0;
 
   for (const e of expenses) {
-    const m = new Date(e.date).getMonth(); // 0-indexed
-    monthly[m].total += Number(e.amount);
-    grandTotal += Number(e.amount);
-
-    const cat = e.category;
-    byCategory[cat] = (byCategory[cat] ?? 0) + Number(e.amount);
+    const d = new Date(e.date);
+    const year = d.getFullYear();
+    const amount = Number(e.amount);
+    total += amount;
+    yearly.set(year, (yearly.get(year) ?? 0) + amount);
+    const mk = `${year}-${d.getMonth() + 1}`;
+    monthly.set(mk, (monthly.get(mk) ?? 0) + amount);
+    const ck = `${year}\u0000${e.category}`;
+    byCategory.set(ck, (byCategory.get(ck) ?? 0) + amount);
   }
 
-  return { monthly, byCategory, grandTotal };
+  const years = [...yearly.keys()].sort((a, b) => a - b);
+  return {
+    years,
+    total,
+    yearly: years.map((year) => ({ year, total: yearly.get(year)! })),
+    monthly: [...monthly].map(([k, t]) => {
+      const [year, month] = k.split("-").map(Number);
+      return { year, month, total: t };
+    }),
+    byCategory: [...byCategory].map(([k, t]) => {
+      const [year, category] = k.split("\u0000");
+      return { year: Number(year), category, total: t };
+    }),
+  };
 }
