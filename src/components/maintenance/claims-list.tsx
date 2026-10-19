@@ -7,6 +7,7 @@ import { approveClaim, rejectClaim } from "@/actions/claims";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { flatLabel } from "@/lib/utils/flat";
+import { dueBalance } from "@/lib/utils/dues";
 import { formatCurrency, formatDate, MONTHS } from "@/lib/utils/month";
 
 interface Claim {
@@ -21,6 +22,7 @@ interface Claim {
     month: number;
     year: number;
     amount: string | number;
+    amountPaid?: string | number | null;
     flat: { number: string; floor: { number: number; wing: { name: string } } };
   }[];
 }
@@ -48,12 +50,20 @@ export function ClaimsList({ claims, hasWings }: { claims: Claim[]; hasWings: bo
 function ClaimCard({ claim, hasWings }: { claim: Claim; hasWings: boolean }) {
   const [pending, startTransition] = useTransition();
   const [rejecting, setRejecting] = useState(false);
+  const [received, setReceived] = useState(String(Number(claim.amount)));
+  const duesTotal = claim.payments.reduce((n, p) => n + dueBalance(p), 0);
 
   function approve() {
+    const amount = Number(received);
+    if (!(amount > 0)) return void toast.error("Enter the amount received");
     startTransition(async () => {
-      const r = await approveClaim(claim.id);
+      const r = await approveClaim(claim.id, amount);
       if ("error" in r && r.error) return void toast.error(r.error);
-      toast.success("Marked as paid");
+      const res = r as { applied: number; paidInFull: number; balance: number };
+      toast.success(
+        `Credited ${formatCurrency(amount)}: ${res.paidInFull} due${res.paidInFull !== 1 ? "s" : ""} cleared` +
+          (res.balance > 0 ? `, ${formatCurrency(res.balance)} kept as credit` : "")
+      );
     });
   }
 
@@ -91,13 +101,19 @@ function ClaimCard({ claim, hasWings }: { claim: Claim; hasWings: boolean }) {
         </div>
       </dl>
 
-      <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
+      <p className="mt-3 text-xs text-muted-foreground">
+        Reported {formatCurrency(claim.amount)} against {claim.payments.length} due{claim.payments.length !== 1 ? "s" : ""} totalling{" "}
+        {formatCurrency(duesTotal)}.
+        {Number(claim.amount) < duesTotal && " It will part-pay them, oldest first."}
+        {Number(claim.amount) > duesTotal && " The extra stays as the resident's credit."}
+      </p>
+      <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
         {claim.payments.map((p) => (
           <li key={p.id} className="flex justify-between gap-2">
             <span className="truncate">
               {MONTHS[p.month - 1].slice(0, 3)} {p.year} · {flatLabel(p.flat, hasWings)}
             </span>
-            <span className="shrink-0">{formatCurrency(p.amount)}</span>
+            <span className="shrink-0">{formatCurrency(dueBalance(p))}</span>
           </li>
         ))}
       </ul>
@@ -115,7 +131,22 @@ function ClaimCard({ claim, hasWings }: { claim: Claim; hasWings: boolean }) {
           </div>
         </form>
       ) : (
-        <div className="mt-3 flex gap-2">
+        <div className="mt-3 space-y-2">
+          <div className="space-y-1">
+            <label htmlFor={`received-${claim.id}`} className="text-xs font-medium text-muted-foreground">
+              Amount received in the bank
+            </label>
+            <Input
+              id={`received-${claim.id}`}
+              type="number"
+              inputMode="decimal"
+              min="1"
+              step="0.01"
+              value={received}
+              onChange={(e) => setReceived(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-2">
           <Button type="button" className="h-9 min-w-0 flex-1" disabled={pending} onClick={approve}>
             <Check className="mr-1 size-4" />
             {pending ? "Saving…" : "Approve"}
@@ -124,6 +155,7 @@ function ClaimCard({ claim, hasWings }: { claim: Claim; hasWings: boolean }) {
             <X className="mr-1 size-4" />
             Reject
           </Button>
+          </div>
         </div>
       )}
     </div>

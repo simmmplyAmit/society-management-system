@@ -59,6 +59,7 @@ model Society {
   expenses            Expense[]
   notificationLogs    NotificationLog[]
   paymentClaims       PaymentClaim[]
+  creditEntries       CreditEntry[]
   upiChangeRequests   UpiChangeRequest[]
 
   @@index([isActive])
@@ -142,6 +143,7 @@ model User {
   accounts      Account[]      // ready for future OAuth providers
   otpCodes      OtpCode[]
   paymentClaims PaymentClaim[]
+  creditEntries CreditEntry[]
   upiChangesRequested UpiChangeRequest[] @relation("UpiChangeRequester")
   upiChangesReviewed  UpiChangeRequest[] @relation("UpiChangeReviewer")
 
@@ -252,6 +254,7 @@ model MaintenancePayment {
   utrNumber String?           // UPI transaction reference
   notes     String?
   claimId   String?           // resident-reported payment awaiting/after review
+  amountPaid Decimal          @default(0) @db.Decimal(10, 2) // part-payments accumulate here; PAID once it reaches amount
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
 
@@ -425,4 +428,37 @@ model UpiChangeRequest {
 
   @@index([societyId, status])
   @@index([societyId, createdAt])
+}
+
+
+// ─────────────────────────────────────────────
+// Member credit: an append-only ledger. Balance = sum(amount) per (society, user).
+// Credit is only ever spent against that society's dues; entries are never edited.
+// ─────────────────────────────────────────────
+
+enum CreditEntryType {
+  DEPOSIT     // money received (approved report or recorded by the treasurer): +
+  APPLIED     // spent against a due: -
+  REVERSAL    // a spend that was undone: +
+}
+
+model CreditEntry {
+  id          String          @id @default(cuid())
+  societyId   String
+  userId      String
+  type        CreditEntryType
+  amount      Decimal         @db.Decimal(10, 2) // signed
+  paymentId   String?         // the due an APPLIED/REVERSAL entry relates to
+  claimId     String?         // the report a DEPOSIT came from
+  reference   String?         // UTR
+  note        String?
+  createdById String?
+  createdAt   DateTime        @default(now())
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([societyId, userId])
+  @@index([paymentId])
+  @@index([claimId])
 }

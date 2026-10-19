@@ -2,6 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { MONTHS } from "@/lib/utils/month";
+import { dueBalance } from "@/lib/utils/dues";
 import { MarkPaidForm } from "./mark-paid-form";
 import { RemindButton } from "./remind-button";
 import { formatCurrency, formatDate } from "@/lib/utils/month";
@@ -21,6 +22,7 @@ const STATUS_CONFIG: Record<
 
 interface Payment {
   id: string;
+  amountPaid?: string | number | null;
   month: number;
   year: number;
   amount: string | number;
@@ -58,14 +60,15 @@ export function PaymentsTable({ payments, canManage, societyUpiId, hasWings, lim
     );
   }
 
-  const total = payments.reduce((t, p) => t + Number(p.amount), 0);
+  // Money still owed on unpaid dues (part-payments already deducted); paid dues count in full
+  const total = payments.reduce((t, p) => t + (p.status === "PAID" ? Number(p.amount) : dueBalance(p)), 0);
   const unpaidIds = payments.filter((p) => p.status !== "PAID").map((p) => p.id);
   const flatCount = new Set(payments.map((p) => `${p.flat.floor.wing.name}-${p.flat.floor.number}-${p.flat.number}`)).size;
 
   return (
     <div className="space-y-4">
       <div className="rounded-xl bg-card p-4 ring-1 ring-border shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-        <p className="text-xs font-medium text-muted-foreground">Total shown</p>
+        <p className="text-xs font-medium text-muted-foreground">Total shown (still owed)</p>
         <p className="text-2xl font-semibold">{formatCurrency(total)}</p>
         <p className="text-xs text-muted-foreground">
           {payments.length} due{payments.length !== 1 ? "s" : ""} · {flatCount} flat{flatCount !== 1 ? "s" : ""}
@@ -108,9 +111,19 @@ export function PaymentsTable({ payments, canManage, societyUpiId, hasWings, lim
                   </p>
                 </div>
                 <div className="shrink-0 text-right">
-                  <p className="text-sm font-semibold">{formatCurrency(payment.amount)}</p>
-                  <Badge variant={config.variant} className="mt-1">
-                    {config.label}
+                  <p className="text-sm font-semibold">
+                    {formatCurrency(payment.status === "PAID" ? payment.amount : dueBalance(payment))}
+                  </p>
+                  {payment.status !== "PAID" && Number(payment.amountPaid ?? 0) > 0 && (
+                    <p className="text-[11px] text-muted-foreground">
+                      {formatCurrency(Number(payment.amountPaid))} of {formatCurrency(payment.amount)} paid
+                    </p>
+                  )}
+                  <Badge
+                    variant={payment.status !== "PAID" && Number(payment.amountPaid ?? 0) > 0 ? "info" : config.variant}
+                    className="mt-1"
+                  >
+                    {payment.status !== "PAID" && Number(payment.amountPaid ?? 0) > 0 ? "Part paid" : config.label}
                   </Badge>
                 </div>
               </div>

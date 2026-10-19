@@ -57,11 +57,27 @@ export function ReportPaymentForm({
       {open && (
         <form onSubmit={submit} className="space-y-3 border-t border-border p-4">
           <p className="text-xs text-muted-foreground">
-            Reporting <span className="font-semibold text-foreground">{formatCurrency(total)}</span> for{" "}
-            {paymentIds.length} due{paymentIds.length !== 1 ? "s" : ""}. Find the UTR / transaction ID in your UPI app&apos;s payment details.
+            The {paymentIds.length} selected due{paymentIds.length !== 1 ? "s" : ""} come to{" "}
+            <span className="font-semibold text-foreground">{formatCurrency(total)}</span>. You can report any amount you paid:
+            it clears the dues you selected first, then the oldest, and any extra stays as your credit.
           </p>
           <div className="space-y-1.5">
+            <Label htmlFor="amount">Amount you paid (₹)</Label>
+            <Input
+              id="amount"
+              name="amount"
+              type="number"
+              inputMode="decimal"
+              min="1"
+              step="0.01"
+              defaultValue={total > 0 ? total : undefined}
+              key={total}
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
             <Label htmlFor="utrNumber">UTR / transaction ID</Label>
+            <p className="text-[11px] text-muted-foreground">Find it in your UPI app&apos;s payment details.</p>
             <Input
               id="utrNumber"
               name="utrNumber"

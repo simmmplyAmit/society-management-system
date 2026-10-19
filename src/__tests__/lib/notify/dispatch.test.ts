@@ -19,12 +19,12 @@ const user = (over: Record<string, unknown> = {}) => ({
   emailVerifiedAt: new Date(), phoneVerifiedAt: new Date(), isActive: true, ...over,
 });
 const payment = (residents: unknown[], over: Record<string, unknown> = {}) => ({
-  id: "p1", societyId: "s1", month: 10, year: 2026, amount: 2500, paidAt: null, utrNumber: null,
+  id: "p1", societyId: "s1", month: 10, year: 2026, amount: 2500, amountPaid: 0, paidAt: null, utrNumber: null,
   society: { name: "Sunrise", upiId: "sun@upi", hasWings: true },
   flat: { number: "101", floor: { number: 1, wing: { name: "A" } }, residents },
   ...over,
 });
-const resident = (u: unknown, isPrimary = true) => ({ isPrimary, user: u });
+const resident = (u: unknown, isPrimary = true, type = "OWNER") => ({ isPrimary, type, user: u });
 
 const findPayments = vi.mocked(prisma.maintenancePayment.findMany);
 const log = vi.mocked(prisma.notificationLog);
@@ -141,5 +141,47 @@ describe("notifyPayments", () => {
   it("does nothing for an empty list", async () => {
     expect(await notifyPayments("DUE_CREATED", [])).toEqual({ sent: 0, failed: 0, skipped: 0 });
     expect(findPayments).not.toHaveBeenCalled();
+  });
+
+  it("messages the owner, not the tenant, since the owner is responsible for the dues", async () => {
+    findPayments.mockResolvedValue([
+      payment([
+        resident(user({ id: "tenant", email: "t@x.com" }), true, "TENANT"),
+        resident(user({ id: "owner", email: "o@x.com" }), false, "OWNER"),
+      ]),
+    ] as never);
+    await notifyPayments("DUE_CREATED", items);
+    expect(vi.mocked(sendEmail).mock.calls.map((c) => c[0].to)).toEqual(["o@x.com"]);
+  });
+
+  it("falls back to the tenant when no owner is linked to the flat", async () => {
+    findPayments.mockResolvedValue([
+      payment([resident(user({ id: "tenant", email: "t@x.com" }), true, "TENANT")]),
+    ] as never);
+    await notifyPayments("DUE_CREATED", items);
+    expect(vi.mocked(sendEmail).mock.calls.map((c) => c[0].to)).toEqual(["t@x.com"]);
+  });
+
+  it("asks for the remaining balance on a part-paid due, and mentions what was paid", async () => {
+    findPayments.mockResolvedValue([payment([resident(user())], { amount: 2500, amountPaid: 1000 })] as never);
+    await notifyPayments("DUE_REMINDER", items);
+    const sms = vi.mocked(sendSms).mock.calls[0][0];
+    expect(sms.vars.amount).toBe("₹1,500");
+    expect(sms.preview).toMatch(/₹1,000 already paid/);
+    expect(vi.mocked(sendEmail).mock.calls[0][0].subject).toMatch(/₹1,500/);
+  });
+
+  it("states what was paid and the balance in a receipt for a part-payment", async () => {
+    findPayments.mockResolvedValue([payment([resident(user())], { amount: 2500, amountPaid: 1000 })] as never);
+    await notifyPayments("PAYMENT_RECEIPT", items);
+    const sms = vi.mocked(sendSms).mock.calls[0][0];
+    expect(sms.vars.amount).toBe("₹1,000");
+    expect(sms.preview).toMatch(/Balance due: ₹1,500/);
+  });
+
+  it("gives a full receipt with no balance line when the due is cleared", async () => {
+    findPayments.mockResolvedValue([payment([resident(user())], { amount: 2500, amountPaid: 2500 })] as never);
+    await notifyPayments("PAYMENT_RECEIPT", items);
+    expect(vi.mocked(sendSms).mock.calls[0][0].preview).not.toMatch(/Balance due/);
   });
 });

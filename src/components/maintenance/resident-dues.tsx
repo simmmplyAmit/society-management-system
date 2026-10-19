@@ -8,7 +8,7 @@ import { formatCurrency, formatDate, monthLabel } from "@/lib/utils/month";
 import { flatLabel } from "@/lib/utils/flat";
 import { CheckCircle2 } from "lucide-react";
 import { buildUpiLink } from "@/lib/utils/upi";
-import { duesNote, selectedTotal } from "@/lib/utils/dues";
+import { dueBalance, duesNote, selectedTotal } from "@/lib/utils/dues";
 import { ReportPaymentForm } from "./report-payment-form";
 
 type PaymentStatus = "PENDING" | "PAID" | "OVERDUE";
@@ -17,6 +17,7 @@ interface Payment {
   id: string;
   flatId: string;
   amount: string | number;
+  amountPaid?: string | number | null;
   month: number;
   year: number;
   status: PaymentStatus;
@@ -45,7 +46,18 @@ export interface FlatChip {
   type: "OWNER" | "TENANT";
 }
 
+export interface CreditMove {
+  id: string;
+  type: "DEPOSIT" | "APPLIED" | "REVERSAL";
+  amount: string | number;
+  note: string | null;
+  createdAt: Date;
+}
+
 interface ResidentDuesProps {
+  /** Spare money the member holds with the society; it pays new dues automatically. */
+  creditBalance?: number;
+  creditActivity?: CreditMove[];
   payments: Payment[];
   /** Every flat the user is linked to. With more than one, a flat switcher appears. */
   flats?: FlatChip[];
@@ -58,6 +70,8 @@ interface ResidentDuesProps {
 
 export function ResidentDues({
   payments: allPayments,
+  creditBalance = 0,
+  creditActivity = [],
   flats = [],
   initialFlatId,
   claims = [],
@@ -114,13 +128,23 @@ export function ResidentDues({
 
   const unpaidByFlat = new Map<string, number>();
   for (const p of allPayments) {
-    if (p.status !== "PAID") unpaidByFlat.set(p.flatId, (unpaidByFlat.get(p.flatId) ?? 0) + Number(p.amount));
+    if (p.status !== "PAID") unpaidByFlat.set(p.flatId, (unpaidByFlat.get(p.flatId) ?? 0) + dueBalance(p));
   }
   const unpaidAll = [...unpaidByFlat.values()].reduce((a, b) => a + b, 0);
   const activeFlatInfo = flats.find((f) => f.id === activeFlat);
 
   return (
     <div className="space-y-4">
+      {(creditBalance > 0 || creditActivity.length > 0) && (
+        <div className="rounded-xl bg-emerald-50 p-4 ring-1 ring-emerald-600/15">
+          <p className="text-xs font-medium text-emerald-700">Your credit</p>
+          <p className="text-2xl font-semibold text-emerald-800">{formatCurrency(creditBalance)}</p>
+          <p className="mt-1 text-xs text-emerald-800/80">
+            Spare money you have paid in. It is applied to your dues automatically, oldest first, and can only be used for dues.
+          </p>
+        </div>
+      )}
+
       {multiFlat && (
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
           {[{ id: "all", label: "All flats", amount: unpaidAll, sub: `${flats.length} flats` }, ...flats.map((f) => ({
@@ -198,7 +222,7 @@ export function ResidentDues({
                   <p className="text-xs text-muted-foreground">{flatLabel(p.flat, hasWings)}</p>
                 </div>
                 <div className="shrink-0 text-right">
-                  <p className="text-sm font-semibold">{formatCurrency(p.amount)}</p>
+                  <p className="text-sm font-semibold">{formatCurrency(dueBalance(p))}</p>
                   <Badge variant="info" className="mt-0.5">Awaiting verification</Badge>
                 </div>
               </div>
@@ -250,9 +274,17 @@ export function ResidentDues({
                     <p className="text-xs text-muted-foreground">{flatLabel(p.flat, hasWings)}</p>
                   </div>
                   <div className="shrink-0 text-right">
-                    <p className="text-sm font-semibold">{formatCurrency(p.amount)}</p>
-                    <Badge variant={p.status === "OVERDUE" ? "danger" : "warning"} className="mt-0.5">
-                      {p.status === "OVERDUE" ? "Overdue" : "Pending"}
+                    <p className="text-sm font-semibold">{formatCurrency(dueBalance(p))}</p>
+                    {Number(p.amountPaid ?? 0) > 0 && (
+                      <p className="text-[11px] text-muted-foreground">
+                        {formatCurrency(Number(p.amountPaid))} of {formatCurrency(p.amount)} paid
+                      </p>
+                    )}
+                    <Badge
+                      variant={Number(p.amountPaid ?? 0) > 0 ? "info" : p.status === "OVERDUE" ? "danger" : "warning"}
+                      className="mt-0.5"
+                    >
+                      {Number(p.amountPaid ?? 0) > 0 ? "Part paid" : p.status === "OVERDUE" ? "Overdue" : "Pending"}
                     </Badge>
                   </div>
                 </label>
@@ -271,6 +303,33 @@ export function ResidentDues({
             {claims[0].reviewNote ? `Reason: ${claims[0].reviewNote}. ` : ""}The dues are open again. Check the
             reference and report it again.
           </p>
+        </div>
+      )}
+
+      {creditActivity.length > 0 && (
+        <div>
+          <h3 className="mb-2 text-sm font-semibold text-muted-foreground">Credit activity</h3>
+          <div className="divide-y divide-border overflow-hidden rounded-xl bg-card ring-1 ring-border">
+            {creditActivity.map((m) => {
+              const amt = Number(m.amount);
+              return (
+                <div key={m.id} className="flex items-center gap-3 px-4 py-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">
+                      {m.type === "DEPOSIT" ? "Payment received" : m.type === "APPLIED" ? "Applied to dues" : "Returned to credit"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatDate(m.createdAt)}
+                      {m.note ? ` · ${m.note}` : ""}
+                    </p>
+                  </div>
+                  <span className={cn("shrink-0 text-sm font-semibold", amt >= 0 ? "text-emerald-700" : "text-muted-foreground")}>
+                    {amt >= 0 ? "+" : "−"}{formatCurrency(Math.abs(amt))}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 

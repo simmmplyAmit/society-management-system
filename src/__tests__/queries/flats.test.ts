@@ -52,3 +52,21 @@ describe("getMyFlats", () => {
     expect((await getMyFlats("s1", "u1")).map((f) => f.number)).toEqual(["A-2", "A-10"]);
   });
 });
+
+describe("getMemberOptions", () => {
+  it("groups a member's flats into one option and scopes by society", async () => {
+    const { getMemberOptions } = await import("@/lib/queries/flats");
+    vi.mocked(prisma.flatResident.findMany).mockResolvedValue([
+      { user: { id: "u1", name: "Asha" }, flat: { number: "A-101" } },
+      { user: { id: "u1", name: "Asha" }, flat: { number: "B-202" } },
+      { user: { id: "u2", name: "Ravi" }, flat: { number: "A-102" } },
+    ] as never);
+    expect(await getMemberOptions("s1")).toEqual([
+      { id: "u1", label: "Asha · A-101, B-202" },
+      { id: "u2", label: "Ravi · A-102" },
+    ]);
+    expect(vi.mocked(prisma.flatResident.findMany).mock.calls[0][0]!.where).toEqual({
+      flat: { societyId: "s1" }, user: { isActive: true },
+    });
+  });
+});

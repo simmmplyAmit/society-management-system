@@ -8,7 +8,7 @@ export async function getPendingClaims(societyId: string) {
       user: { select: { name: true, phone: true } },
       payments: {
         select: {
-          id: true, month: true, year: true, amount: true,
+          id: true, month: true, year: true, amount: true, amountPaid: true,
           flat: {
             select: {
               number: true,
@@ -35,6 +35,16 @@ export async function getResidentClaims(societyId: string, userId: string, take 
       id: true, utrNumber: true, amount: true, status: true, reviewNote: true, createdAt: true,
       _count: { select: { payments: true } },
     },
+    orderBy: { createdAt: "desc" },
+    take,
+  });
+}
+
+/** A member's recent credit movements, newest first. */
+export async function getCreditActivity(societyId: string, userId: string, take = 10) {
+  return prisma.creditEntry.findMany({
+    where: { societyId, userId },
+    select: { id: true, type: true, amount: true, reference: true, note: true, createdAt: true, paymentId: true },
     orderBy: { createdAt: "desc" },
     take,
   });

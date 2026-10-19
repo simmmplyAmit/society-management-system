@@ -11,6 +11,8 @@ vi.mock("@/lib/session", () => ({
   requireRole: vi.fn().mockResolvedValue({ user: { id: "a1", role: "ADMIN", societyId: "s1" } }),
 }));
 vi.mock("@/lib/notify/dispatch", () => ({ notifyPayments: vi.fn().mockResolvedValue({ sent: 2, failed: 0, skipped: 0 }) }));
+vi.mock("@/lib/ledger", () => ({ hasCreditAllocations: vi.fn().mockResolvedValue(false) }));
+vi.mock("@/lib/credit-service", () => ({ applyCreditAndNotify: vi.fn().mockResolvedValue(0) }));
 vi.mock("@/lib/notify/schedule", () => ({ sendNewDueNotices: vi.fn().mockResolvedValue({ sent: 3, failed: 0, skipped: 0 }) }));
 vi.mock("@/lib/queries/maintenance", () => ({ generateForMonth: vi.fn().mockResolvedValue({ created: 1, skipped: 0 }) }));
 
@@ -18,6 +20,8 @@ import { setMaintenanceCharge, markPaymentPaid, markPaymentPending, generateMont
 import { generateForMonth } from "@/lib/queries/maintenance";
 import { notifyPayments } from "@/lib/notify/dispatch";
 import { sendNewDueNotices } from "@/lib/notify/schedule";
+import { hasCreditAllocations } from "@/lib/ledger";
+import { applyCreditAndNotify } from "@/lib/credit-service";
 import { requireRole } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 
@@ -152,8 +156,21 @@ describe("markPaymentPaid / markPaymentPending", () => {
     await markPaymentPending("p1");
     expect(prisma.maintenancePayment.updateMany).toHaveBeenCalledWith({
       where: { id: "p1", societyId: "s1" },
-      data: { status: "PENDING", paidAt: null, paidBy: null, utrNumber: null },
+      data: { status: "PENDING", amountPaid: 0, paidAt: null, paidBy: null, utrNumber: null },
     });
+  });
+
+  it("refuses to undo a due that was paid from the resident's credit", async () => {
+    vi.mocked(hasCreditAllocations).mockResolvedValueOnce(true);
+    const r = await markPaymentPending("p1");
+    expect(r.error).toMatch(/credit/);
+    expect(prisma.maintenancePayment.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("marks the due paid in full when recorded by hand", async () => {
+    vi.mocked(prisma.maintenancePayment.findFirst).mockResolvedValue({ id: "p1", amount: 2500 } as never);
+    await markPaymentPaid(fd({ paymentId: "p1" }));
+    expect(vi.mocked(prisma.maintenancePayment.update).mock.calls[0][0].data).toMatchObject({ status: "PAID", amountPaid: 2500 });
   });
 });
 
@@ -214,5 +231,21 @@ describe("notifications from maintenance actions", () => {
 
     await generateMonthlyPayments(fd({ month: "1", year: "2020", notify: "on" }));
     expect(sendNewDueNotices).not.toHaveBeenCalled();
+  });
+});
+
+describe("existing credit and new dues", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("applies members' credit right after dues are generated", async () => {
+    vi.mocked(generateForMonth).mockResolvedValue({ created: 3, skipped: 0 });
+    await generateMonthlyPayments(fd({ month: "10", year: "2026" }));
+    expect(applyCreditAndNotify).toHaveBeenCalledWith("s1");
+  });
+
+  it("does not bother when nothing new was created", async () => {
+    vi.mocked(generateForMonth).mockResolvedValue({ created: 0, skipped: 3 });
+    await generateMonthlyPayments(fd({ month: "10", year: "2026" }));
+    expect(applyCreditAndNotify).not.toHaveBeenCalled();
   });
 });

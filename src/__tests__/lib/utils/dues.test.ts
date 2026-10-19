@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { duesNote, selectedTotal } from "@/lib/utils/dues";
+import { duesNote, selectedTotal, dueBalance } from "@/lib/utils/dues";
 
 const d = (month: number, year: number, amount: number | string = 1000) => ({ month, year, amount });
 
@@ -7,6 +7,13 @@ describe("selectedTotal", () => {
   it("sums numbers and numeric strings", () => {
     expect(selectedTotal([d(1, 2026, 2500), d(2, 2026, "3000.50")])).toBe(5500.5);
     expect(selectedTotal([])).toBe(0);
+  });
+
+  it("counts only what is still owed on part-paid dues", () => {
+    expect(selectedTotal([{ month: 1, year: 2026, amount: 2500, amountPaid: 1000 }, d(2, 2026, 2500)])).toBe(4000);
+    expect(dueBalance({ amount: 10.3, amountPaid: 10.1 })).toBe(0.2); // no float drift
+    expect(dueBalance({ amount: 100, amountPaid: 150 })).toBe(0); // never negative
+    expect(dueBalance({ amount: 100 })).toBe(100);
   });
 });
 

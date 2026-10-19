@@ -2,7 +2,8 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
-import { notifyPayments } from "@/lib/notify/dispatch";
+import { depositAndApply } from "@/lib/ledger";
+import { notifyApplied } from "@/lib/credit-service";
 import { normalizeUtr } from "@/lib/utils/utr";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
@@ -10,6 +11,7 @@ import { revalidatePath } from "next/cache";
 const MAX_DUES_PER_CLAIM = 36;
 const MAX_OPEN_CLAIMS = 10;
 const MAX_AGE_DAYS = 90;
+const MAX_AMOUNT = 1_000_000; // ₹10 lakh per report; the treasurer checks it against the bank anyway
 const UNPAID = ["PENDING", "OVERDUE"] as const;
 
 const submitSchema = z.object({
@@ -19,6 +21,10 @@ const submitSchema = z.object({
     return utr ?? "";
   }),
   paidOn: z.string().optional(),
+  // What the resident actually paid. Optional for older clients: defaults to the selected dues' balance.
+  amount: z
+    .union([z.literal(""), z.coerce.number().positive("Enter the amount you paid").max(MAX_AMOUNT, "That amount is too large")])
+    .optional(),
 });
 
 /** Resident reports that they paid the selected dues. A treasurer verifies it later. */
@@ -31,6 +37,7 @@ export async function submitPaymentClaim(formData: FormData) {
   const parsed = submitSchema.safeParse({
     utrNumber: formData.get("utrNumber") ?? "",
     paidOn: formData.get("paidOn") || undefined,
+    amount: formData.get("amount") ?? undefined,
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const { utrNumber } = parsed.data;
@@ -51,14 +58,15 @@ export async function submitPaymentClaim(formData: FormData) {
   if (open >= MAX_OPEN_CLAIMS) return { error: "You have too many reports awaiting verification" };
 
   // The same reference can't be reported twice (rejected reports may be corrected and resent)
-  const [dupClaim, dupPayment] = await Promise.all([
+  const [dupClaim, dupPayment, dupDeposit] = await Promise.all([
     prisma.paymentClaim.findFirst({
       where: { societyId, utrNumber, status: { in: ["SUBMITTED", "APPROVED"] } },
       select: { id: true },
     }),
     prisma.maintenancePayment.findFirst({ where: { societyId, utrNumber }, select: { id: true } }),
+    prisma.creditEntry.findFirst({ where: { societyId, reference: utrNumber, type: "DEPOSIT" }, select: { id: true } }),
   ]);
-  if (dupClaim || dupPayment) return { error: "This reference has already been used" };
+  if (dupClaim || dupPayment || dupDeposit) return { error: "This reference has already been used" };
 
   // Only the resident's own, unpaid dues that aren't already under review
   const dues = await prisma.maintenancePayment.findMany({
@@ -69,11 +77,14 @@ export async function submitPaymentClaim(formData: FormData) {
       claimId: null,
       flat: { residents: { some: { userId } } },
     },
-    select: { id: true, amount: true },
+    select: { id: true, amount: true, amountPaid: true },
   });
   if (dues.length !== ids.length) return { error: "Some selected dues are no longer available" };
 
-  const amount = dues.reduce((sum, d) => sum + Number(d.amount), 0); // never trust a client total
+  // The resident may pay any amount (part-payment or advance); the treasurer confirms it against the bank
+  const balance = dues.reduce((sum, d) => sum + Number(d.amount) - Number(d.amountPaid), 0);
+  const declared = parsed.data.amount;
+  const amount = typeof declared === "number" ? declared : balance;
   const claim = await prisma.paymentClaim.create({
     data: { societyId, userId, utrNumber, amount, paidOn },
     select: { id: true },
@@ -94,45 +105,67 @@ export async function submitPaymentClaim(formData: FormData) {
   return { success: true as const };
 }
 
-/** Treasurer/admin confirms the money arrived: marks every due in the report paid. */
-export async function approveClaim(claimId: string) {
+const approveSchema = z.object({
+  claimId: z.string().min(1),
+  receivedAmount: z.number().positive("Enter the amount received").max(MAX_AMOUNT, "That amount is too large").optional(),
+});
+
+/**
+ * Treasurer/admin confirms the money arrived. The amount becomes the resident's credit and is
+ * applied to their dues straight away (the dues they chose first, then the oldest). A part-payment
+ * leaves the rest of the due open; extra stays as credit for future dues.
+ */
+export async function approveClaim(claimId: string, receivedAmount?: number) {
   const session = await requireRole(["ADMIN", "TREASURER"]);
   const societyId = session.user.societyId!;
 
+  const parsedInput = approveSchema.safeParse({ claimId, receivedAmount });
+  if (!parsedInput.success) return { error: parsedInput.error.issues[0].message };
+
   const claim = await prisma.paymentClaim.findFirst({
     where: { id: claimId, societyId, status: "SUBMITTED" },
-    select: { id: true, utrNumber: true, paidOn: true },
+    select: { id: true, userId: true, utrNumber: true, paidOn: true, amount: true },
   });
   if (!claim) return { error: "This report was already reviewed" };
+
+  const reported = Number(claim.amount);
+  const amount = receivedAmount ?? reported;
+  const note = amount !== reported ? `Received ${amount} (reported ${reported})` : null;
 
   // Claim the review first so two approvers can't both process it
   const taken = await prisma.paymentClaim.updateMany({
     where: { id: claim.id, societyId, status: "SUBMITTED" },
-    data: { status: "APPROVED", reviewedById: session.user.id, reviewedAt: new Date() },
+    data: { status: "APPROVED", reviewedById: session.user.id, reviewedAt: new Date(), reviewNote: note },
   });
   if (taken.count !== 1) return { error: "This report was already reviewed" };
 
-  const toPay = await prisma.maintenancePayment.findMany({
-    where: { claimId: claim.id, societyId, status: { not: "PAID" } },
+  const linked = await prisma.maintenancePayment.findMany({
+    where: { claimId: claim.id, societyId },
     select: { id: true },
   });
-  await prisma.maintenancePayment.updateMany({
-    where: { id: { in: toPay.map((p) => p.id) }, societyId },
-    data: { status: "PAID", paidAt: claim.paidOn, paidBy: session.user.id, utrNumber: claim.utrNumber },
-  });
+  const priorityIds = linked.map((p) => p.id);
 
   try {
-    await notifyPayments(
-      "PAYMENT_RECEIPT",
-      toPay.map((p) => ({ paymentId: p.id, keySuffix: String(claim.paidOn.getTime()) })),
-      societyId
-    );
-  } catch (err) {
-    console.error("[approveClaim] receipt failed:", err);
-  }
+    const { applied, balance } = await depositAndApply({
+      societyId, userId: claim.userId, actorId: session.user.id, amount,
+      claimId: claim.id, reference: claim.utrNumber, paidOn: claim.paidOn, priorityIds,
+      note: note ?? "Payment report approved",
+    });
+    // The report is settled; its dues are free to be reported again if still unpaid
+    await prisma.maintenancePayment.updateMany({ where: { claimId: claim.id, societyId }, data: { claimId: null } });
+    await notifyApplied(societyId, applied);
 
-  revalidatePath("/dashboard/maintenance");
-  return { success: true as const, paid: toPay.length };
+    revalidatePath("/dashboard/maintenance");
+    return { success: true as const, applied: applied.length, paidInFull: applied.filter((a) => a.fullyPaid).length, balance };
+  } catch (err) {
+    console.error("[approveClaim] ledger failed:", err);
+    // Nothing was credited: put the report back so it can be approved again
+    await prisma.paymentClaim.updateMany({
+      where: { id: claim.id, societyId, status: "APPROVED" },
+      data: { status: "SUBMITTED", reviewedById: null, reviewedAt: null, reviewNote: null },
+    });
+    return { error: "Could not record the payment. Please try again" };
+  }
 }
 
 const rejectSchema = z.object({

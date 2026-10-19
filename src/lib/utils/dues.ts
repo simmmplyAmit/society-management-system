@@ -2,12 +2,19 @@ import { MONTHS } from "@/lib/utils/month";
 
 interface DueLike {
   amount: string | number;
+  amountPaid?: string | number | null;
   month: number;
   year: number;
 }
 
+/** What is still owed on a due (part-payments reduce it). */
+export function dueBalance(d: Pick<DueLike, "amount" | "amountPaid">): number {
+  return Math.max(Math.round((Number(d.amount) - Number(d.amountPaid ?? 0)) * 100) / 100, 0);
+}
+
+/** Total still owed across the given dues, rounded to paise. */
 export function selectedTotal(dues: DueLike[]): number {
-  return dues.reduce((sum, d) => sum + Number(d.amount), 0);
+  return Math.round(dues.reduce((sum, d) => sum + dueBalance(d) * 100, 0)) / 100;
 }
 
 /** Oldest first. */

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getResidentPayments } from "@/lib/queries/maintenance";
-import { getResidentClaims } from "@/lib/queries/claims";
+import { getCreditActivity, getResidentClaims } from "@/lib/queries/claims";
+import { getCreditBalance } from "@/lib/ledger";
 import { getMyFlats } from "@/lib/queries/flats";
 import { isRecentUpiChange } from "@/lib/queries/upi";
 import { ResidentDues } from "./resident-dues";
@@ -15,7 +16,7 @@ export async function MyDues({
   userId: string;
   initialFlatId?: string;
 }) {
-  const [society, rawPayments, rawClaims, flats] = await Promise.all([
+  const [society, rawPayments, rawClaims, flats, creditBalance, creditActivity] = await Promise.all([
     prisma.society.findUnique({
       where: { id: societyId },
       select: { upiId: true, upiChangedAt: true, hasWings: true, name: true },
@@ -23,6 +24,8 @@ export async function MyDues({
     getResidentPayments(societyId, userId),
     getResidentClaims(societyId, userId),
     getMyFlats(societyId, userId),
+    getCreditBalance(societyId, userId),
+    getCreditActivity(societyId, userId),
   ]);
 
   return (
@@ -34,7 +37,9 @@ export async function MyDues({
         </div>
       )}
       <ResidentDues
-        payments={rawPayments.map((p) => ({ ...p, amount: Number(p.amount) }))}
+        payments={rawPayments.map((p) => ({ ...p, amount: Number(p.amount), amountPaid: Number(p.amountPaid) }))}
+        creditBalance={creditBalance}
+        creditActivity={creditActivity.map((m) => ({ ...m, amount: Number(m.amount) }))}
         flats={flats}
         initialFlatId={initialFlatId}
         claims={rawClaims.map((c) => ({ ...c, amount: Number(c.amount) }))}

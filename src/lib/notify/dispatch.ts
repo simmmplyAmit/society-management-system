@@ -101,20 +101,30 @@ export async function notifyPayments(
   const tasks: (() => Promise<void>)[] = [];
 
   for (const p of payments) {
-    // Primary residents; if none is flagged primary, everyone linked to the flat
+    // The owner is responsible for the dues. Fall back to the tenants only when no owner is linked,
+    // so a flat is never silently unreachable. Among those, primary residents first.
     const linked = p.flat.residents.filter((r) => r.user.isActive);
-    const primary = linked.filter((r) => r.isPrimary);
-    const recipients = (primary.length > 0 ? primary : linked).map((r) => r.user);
+    const owners = linked.filter((r) => r.type === "OWNER");
+    const pool = owners.length > 0 ? owners : linked;
+    const primary = pool.filter((r) => r.isPrimary);
+    const recipients = (primary.length > 0 ? primary : pool).map((r) => r.user);
     if (recipients.length === 0) {
       result.skipped += 1;
       continue;
     }
 
+    const total = Number(p.amount);
+    const paidSoFar = Number(p.amountPaid);
+    const balance = Math.max(total - paidSoFar, 0);
+    const isReceipt = kind === "PAYMENT_RECEIPT";
     const base: Omit<DueInfo, "name"> = {
       societyName: p.society.name,
       flat: flatLabel(p.flat, p.society.hasWings),
       period: `${MONTHS[p.month - 1]} ${p.year}`,
-      amount: formatCurrency(Number(p.amount)),
+      // Dues and reminders ask for what is left; a receipt states what has been paid
+      amount: formatCurrency(isReceipt ? paidSoFar : balance),
+      paidSoFar: !isReceipt && paidSoFar > 0 ? formatCurrency(paidSoFar) : undefined,
+      balance: isReceipt && balance > 0 ? formatCurrency(balance) : undefined,
       upiId: p.society.upiId,
       paidOn: p.paidAt ? formatDate(p.paidAt) : undefined,
       utr: p.utrNumber,

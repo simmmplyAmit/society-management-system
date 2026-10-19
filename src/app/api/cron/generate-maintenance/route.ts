@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateAllSocietiesCurrentMonth } from "@/lib/queries/maintenance";
 import { sendNewDueNotices, sendScheduledReminders } from "@/lib/notify/schedule";
+import { applyCreditAllSocieties } from "@/lib/credit-service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,6 +17,11 @@ export async function GET(req: NextRequest) {
 
   try {
     const result = await generateAllSocietiesCurrentMonth();
+    // Existing credit pays the new dues before anyone is told they owe money
+    const creditApplied = await applyCreditAllSocieties().catch((e) => {
+      console.error("[cron] credit apply failed", e);
+      return null;
+    });
     // Messaging problems are reported but never fail the dues generation above
     const notices = await sendNewDueNotices().catch((e) => {
       console.error("[cron] due notices failed", e);
@@ -25,7 +31,7 @@ export async function GET(req: NextRequest) {
       console.error("[cron] reminders failed", e);
       return null;
     });
-    return NextResponse.json({ ok: true, ...result, notices, reminders });
+    return NextResponse.json({ ok: true, ...result, creditApplied, notices, reminders });
   } catch (err) {
     console.error("[cron/generate-maintenance]", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

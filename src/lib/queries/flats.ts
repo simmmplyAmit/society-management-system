@@ -44,3 +44,19 @@ export async function getMyFlats(societyId: string, userId: string): Promise<MyF
         a.number.localeCompare(b.number, undefined, { numeric: true })
     );
 }
+
+/** Active members linked to a flat, labelled "Name · A-101, B-202", for pickers. */
+export async function getMemberOptions(societyId: string): Promise<{ id: string; label: string }[]> {
+  const rows = await prisma.flatResident.findMany({
+    where: { flat: { societyId }, user: { isActive: true } },
+    select: { user: { select: { id: true, name: true } }, flat: { select: { number: true } } },
+    orderBy: { user: { name: "asc" } },
+  });
+  const byUser = new Map<string, { name: string; flats: string[] }>();
+  for (const r of rows) {
+    const e = byUser.get(r.user.id) ?? { name: r.user.name, flats: [] };
+    e.flats.push(r.flat.number);
+    byUser.set(r.user.id, e);
+  }
+  return [...byUser].map(([id, e]) => ({ id, label: `${e.name} · ${e.flats.join(", ")}` }));
+}

@@ -14,7 +14,10 @@ import { PaymentsTable } from "@/components/maintenance/payments-table";
 import { DuesTabs, type DuesTab } from "@/components/maintenance/dues-tabs";
 import { PaymentFilters } from "@/components/maintenance/payment-filters";
 import { MyDues } from "@/components/maintenance/my-dues";
-import { getMyFlats } from "@/lib/queries/flats";
+import { getMemberOptions, getMyFlats } from "@/lib/queries/flats";
+import { RecordDepositForm, type MemberOption } from "@/components/maintenance/record-deposit-form";
+import { ToolSection } from "@/components/ui/tool-section";
+import { Wallet } from "lucide-react";
 import { ClaimsList } from "@/components/maintenance/claims-list";
 import { countPendingClaims, getPendingClaims } from "@/lib/queries/claims";
 
@@ -99,6 +102,8 @@ export default async function MaintenancePage({
       : [];
   const claimsToVerify = tab === "verify" && isManager ? await getPendingClaims(societyId!) : [];
   const verifyCount = isManager ? await countPendingClaims(societyId!) : 0;
+  // Members who can receive credit: anyone linked to a flat, listed with their flats
+  const members: MemberOption[] = tab === "pending" && isManager ? await getMemberOptions(societyId!) : [];
   const rawCharges = tab === "charges" ? await getMaintenanceCharges(societyId!) : [];
 
   return (
@@ -116,12 +121,21 @@ export default async function MaintenancePage({
             status={status}
           />
           <PaymentsTable
-            payments={rawPayments.map((p) => ({ ...p, amount: Number(p.amount) }))}
+            payments={rawPayments.map((p) => ({ ...p, amount: Number(p.amount), amountPaid: Number(p.amountPaid) }))}
             canManage={isManager}
             societyUpiId={society?.upiId}
             hasWings={hasWings}
             limit={PAYMENTS_LIMIT}
           />
+          {isManager && members.length > 0 && (
+            <ToolSection
+              title="Record a payment"
+              description="Cash, cheque or UPI received outside the app, in any amount"
+              icon={Wallet}
+            >
+              <RecordDepositForm members={members} />
+            </ToolSection>
+          )}
         </>
       )}
 
@@ -134,7 +148,7 @@ export default async function MaintenancePage({
           claims={claimsToVerify.map((c) => ({
             ...c,
             amount: Number(c.amount),
-            payments: c.payments.map((p) => ({ ...p, amount: Number(p.amount) })),
+            payments: c.payments.map((p) => ({ ...p, amount: Number(p.amount), amountPaid: Number(p.amountPaid) })),
           }))}
           hasWings={hasWings}
         />

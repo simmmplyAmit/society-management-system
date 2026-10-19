@@ -56,6 +56,10 @@ export interface DueInfo {
   upiId?: string | null;
   paidOn?: string;
   utr?: string | null;
+  /** Already paid toward this due (part-payment), shown with the remaining amount. */
+  paidSoFar?: string;
+  /** What is still owed after a receipt for a part-payment. */
+  balance?: string;
 }
 
 export function dueMessage(info: DueInfo, reminder: boolean): Rendered {
@@ -64,7 +68,8 @@ export function dueMessage(info: DueInfo, reminder: boolean): Rendered {
     ? `Reminder: maintenance ${info.amount} for ${info.period} is pending`
     : `Maintenance due: ${info.amount} for ${info.period}`;
   const pay = info.upiId ? `Pay by UPI to ${info.upiId}.` : "Please pay as per your society's instructions.";
-  const text = `Hi ${info.name}, ${reminder ? "a reminder that " : ""}maintenance of ${info.amount} for ${info.period} (${info.flat}) is pending. ${pay} Open ${appUrl()}/dashboard/maintenance to see your dues.`;
+  const part = info.paidSoFar ? ` (${info.paidSoFar} already paid)` : "";
+  const text = `Hi ${info.name}, ${reminder ? "a reminder that " : ""}maintenance of ${info.amount} for ${info.period} (${info.flat}) is pending${part}. ${pay} Open ${appUrl()}/dashboard/maintenance to see your dues.`;
   return {
     email: {
       subject,
@@ -73,7 +78,7 @@ export function dueMessage(info: DueInfo, reminder: boolean): Rendered {
         info.societyName,
         reminder ? "Maintenance reminder" : "Maintenance due",
         `<p style="font-size:14px;color:#374151">Hi ${escapeHtml(info.name)},</p>
-<p style="font-size:14px;color:#374151">${reminder ? "This is a reminder that your" : "Your"} maintenance for <b>${escapeHtml(info.period)}</b> is pending.</p>
+<p style="font-size:14px;color:#374151">${reminder ? "This is a reminder that your" : "Your"} maintenance for <b>${escapeHtml(info.period)}</b> is pending${info.paidSoFar ? ` (${escapeHtml(info.paidSoFar)} already paid, this is the balance)` : ""}.</p>
 <table style="font-size:14px;margin:12px 0;color:#111827"><tr><td style="color:#6b7280;padding-right:16px">Flat</td><td>${escapeHtml(info.flat)}</td></tr>
 <tr><td style="color:#6b7280;padding-right:16px">Amount</td><td><b>${escapeHtml(info.amount)}</b></td></tr>
 ${info.upiId ? `<tr><td style="color:#6b7280;padding-right:16px">Pay to UPI</td><td>${escapeHtml(info.upiId)}</td></tr>` : ""}</table>
@@ -89,7 +94,7 @@ ${info.upiId ? `<tr><td style="color:#6b7280;padding-right:16px">Pay to UPI</td>
 }
 
 export function receiptMessage(info: DueInfo): Rendered {
-  const text = `Hi ${info.name}, we received ${info.amount} maintenance for ${info.period} (${info.flat}) on ${info.paidOn ?? "today"}${info.utr ? `, ref ${info.utr}` : ""}. Thank you! - ${info.societyName}`;
+  const text = `Hi ${info.name}, we received ${info.amount} maintenance for ${info.period} (${info.flat}) on ${info.paidOn ?? "today"}${info.utr ? `, ref ${info.utr}` : ""}.${info.balance ? ` Balance due: ${info.balance}.` : ""} Thank you! - ${info.societyName}`;
   return {
     email: {
       subject: `Payment received: ${info.amount} for ${info.period}`,
@@ -101,6 +106,7 @@ export function receiptMessage(info: DueInfo): Rendered {
 <table style="font-size:14px;margin:12px 0;color:#111827"><tr><td style="color:#6b7280;padding-right:16px">Flat</td><td>${escapeHtml(info.flat)}</td></tr>
 <tr><td style="color:#6b7280;padding-right:16px">Period</td><td>${escapeHtml(info.period)}</td></tr>
 <tr><td style="color:#6b7280;padding-right:16px">Amount</td><td><b>${escapeHtml(info.amount)}</b></td></tr>
+${info.balance ? `<tr><td style="color:#6b7280;padding-right:16px">Balance due</td><td><b>${escapeHtml(info.balance)}</b></td></tr>` : ""}
 <tr><td style="color:#6b7280;padding-right:16px">Paid on</td><td>${escapeHtml(info.paidOn ?? "-")}</td></tr>
 ${info.utr ? `<tr><td style="color:#6b7280;padding-right:16px">Reference</td><td>${escapeHtml(info.utr)}</td></tr>` : ""}</table>`
       ),
