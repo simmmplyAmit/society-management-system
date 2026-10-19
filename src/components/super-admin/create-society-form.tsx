@@ -4,6 +4,7 @@ import { useTransition } from "react";
 import { createSociety } from "@/actions/super-admin";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -58,7 +59,7 @@ export function CreateSocietyForm() {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="adminPassword">Temporary password *</Label>
-            <Input id="adminPassword" name="adminPassword" type="password" placeholder="Min 8 characters" required />
+            <PasswordInput id="adminPassword" name="adminPassword" autoComplete="new-password" placeholder="Min 8 characters" required />
           </div>
           <Button type="submit" className="w-full" disabled={isPending}>
             {isPending ? "Creating…" : "Create society"}

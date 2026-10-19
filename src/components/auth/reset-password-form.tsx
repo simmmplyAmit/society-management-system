@@ -8,6 +8,7 @@ import { resetPassword } from "@/actions/password-reset";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 
 export function ResetPasswordForm({ defaultEmail }: { defaultEmail: string }) {
@@ -61,11 +62,11 @@ export function ResetPasswordForm({ defaultEmail }: { defaultEmail: string }) {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="password">New password</Label>
-            <Input id="password" name="password" type="password" autoComplete="new-password" minLength={8} placeholder="Min 8 characters" required />
+            <PasswordInput id="password" name="password" autoComplete="new-password" minLength={8} placeholder="Min 8 characters" required />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="confirm">Confirm password</Label>
-            <Input id="confirm" name="confirm" type="password" autoComplete="new-password" minLength={8} required />
+            <PasswordInput id="confirm" name="confirm" autoComplete="new-password" minLength={8} required />
           </div>
           <Button type="submit" size="lg" className="h-11 w-full" disabled={isPending}>
             {isPending ? "Updating…" : "Update password"}
