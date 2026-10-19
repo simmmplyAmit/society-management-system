@@ -112,3 +112,44 @@ ${info.utr ? `<tr><td style="color:#6b7280;padding-right:16px">Reference</td><td
     },
   };
 }
+
+export function upiChangeMessage(info: {
+  societyName: string;
+  kind: "requested" | "approved" | "rejected";
+  oldUpiId: string | null;
+  newUpiId: string;
+  requestedBy: string;
+  reviewedBy?: string;
+  note?: string | null;
+}): { subject: string; html: string; text: string } {
+  const verb = {
+    requested: "needs your approval",
+    approved: "was approved and is now active",
+    rejected: "was rejected",
+  }[info.kind];
+  const who =
+    info.kind === "requested"
+      ? `Requested by ${info.requestedBy}.`
+      : `Requested by ${info.requestedBy}, ${info.kind} by ${info.reviewedBy ?? "an approver"}.`;
+  const advice =
+    info.kind === "requested"
+      ? "Only approve if you know this change is genuine and the new UPI ID is correct. Anyone else with access to your society account could be behind it."
+      : "If you did not expect this, contact your platform support immediately and change your passwords.";
+  const text = `${info.societyName}: a UPI ID change ${verb}. Old: ${info.oldUpiId ?? "none"}. New: ${info.newUpiId}. ${who}${info.note ? ` Note: ${info.note}.` : ""} ${advice} ${appUrl()}/dashboard/upi`;
+  return {
+    subject: `UPI ID change ${verb} - ${info.societyName}`,
+    text,
+    html: shell(
+      info.societyName,
+      info.kind === "requested" ? "UPI ID change awaiting approval" : `UPI ID change ${info.kind}`,
+      `<table style="font-size:14px;margin:12px 0;color:#111827">
+<tr><td style="color:#6b7280;padding-right:16px">Current</td><td>${escapeHtml(info.oldUpiId ?? "none")}</td></tr>
+<tr><td style="color:#6b7280;padding-right:16px">New</td><td><b>${escapeHtml(info.newUpiId)}</b></td></tr>
+<tr><td style="color:#6b7280;padding-right:16px">Requested by</td><td>${escapeHtml(info.requestedBy)}</td></tr>
+${info.reviewedBy ? `<tr><td style="color:#6b7280;padding-right:16px">Reviewed by</td><td>${escapeHtml(info.reviewedBy)}</td></tr>` : ""}
+${info.note ? `<tr><td style="color:#6b7280;padding-right:16px">Note</td><td>${escapeHtml(info.note)}</td></tr>` : ""}</table>
+<p style="font-size:13px;color:#374151">${escapeHtml(advice)}</p>
+<a href="${appUrl()}/dashboard/upi" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-size:14px;font-weight:600">Open payment settings</a>`
+    ),
+  };
+}

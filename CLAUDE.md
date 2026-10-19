@@ -63,6 +63,11 @@ Roles and what each can do are listed in README.md. In short: ADMIN manages stru
 - ADMIN/TREASURER review claims on the **To verify** tab of Dues (`claims-list.tsx`): `approveClaim` marks every due in the claim `PAID` (UTR and paid-on date from the claim) and sends receipts; `rejectClaim` frees the dues (`claimId` cleared) and stores the reason for the resident. Both claim the review with a `status: SUBMITTED` guarded `updateMany`, so concurrent reviewers cannot double-process.
 - Guards: only the resident's own unpaid, unclaimed dues; a UTR cannot be reused (open/approved claims or any payment); at most 10 open claims per resident. Dues under review cannot be selected again.
 
+### UPI ID changes (four-eyes)
+- `Society.upiId` decides where residents' money goes, so it is **not** editable through `updateSociety`. An ADMIN calls `requestUpiChange` (`src/actions/upi.ts`); a *different* ADMIN or TREASURER must `approveUpiChange` (the requester cannot approve their own, and a society with no other approver cannot raise a request). Only the very first UPI ID is applied immediately.
+- `UpiChangeRequest` rows are the audit log (old/new ID, requester, reviewer, note, status). Pending requests lapse after 7 days; approving cancels other pending ones. Approvals/rejections atomically claim the request with a `status: PENDING` guarded `updateMany`.
+- Every active, email-verified ADMIN/TREASURER is emailed on request and on decision (`src/lib/notify/upi.ts`). The UI lives at `/dashboard/upi` (ADMIN, TREASURER) with a home-page banner for approvers. Residents see a notice for 14 days after a change (`Society.upiChangedAt`).
+
 ### Cron
 `GET /api/cron/generate-maintenance` requires `Authorization: Bearer $CRON_SECRET`. It runs daily on Vercel (`vercel.json`, 18:30 UTC = 00:00 IST). For every active society it generates the previous and current month's dues, marks unpaid dues from earlier months `OVERDUE`, then sends new-due notices and scheduled reminders.
 

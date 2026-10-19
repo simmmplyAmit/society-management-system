@@ -11,7 +11,6 @@ const societySchema = z.object({
   city: z.string().nullable(),
   state: z.string().nullable(),
   pincode: z.string().nullable(),
-  upiId: z.string().nullable(),
   hasWings: z.boolean(),
 });
 
@@ -20,6 +19,7 @@ export async function updateSociety(formData: FormData) {
   const societyId = session.user.societyId;
   if (!societyId) return { error: "No society found" };
 
+  // upiId is deliberately not editable here: it goes through requestUpiChange (needs a second approver)
   // Convert empty strings to null for optional fields; handle checkbox explicitly
   const parsed = societySchema.safeParse({
     name: formData.get("name"),
@@ -27,7 +27,6 @@ export async function updateSociety(formData: FormData) {
     city: (formData.get("city") as string)?.trim() || null,
     state: (formData.get("state") as string)?.trim() || null,
     pincode: (formData.get("pincode") as string)?.trim() || null,
-    upiId: (formData.get("upiId") as string)?.trim() || null,
     hasWings: formData.get("hasWings") === "on",
   });
 

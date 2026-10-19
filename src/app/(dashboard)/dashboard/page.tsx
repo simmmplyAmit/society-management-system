@@ -11,9 +11,12 @@ import {
   Clock,
   Home,
   ArrowRight,
+  ShieldAlert,
+  Landmark,
 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { getPendingUpiRequestFor } from "@/lib/queries/upi";
 import type { Role } from "@prisma/client";
 
 const WELCOME: Record<Role, string> = {
@@ -149,10 +152,26 @@ export default async function DashboardPage() {
   const pct = billed > 0 ? Math.round((totalCollected / billed) * 100) : 0;
   const paidCount = thisMonthPayments.filter((p) => p.status === "PAID").length;
   const usersCount = await prisma.user.count({ where: { societyId: societyId! } });
+  const canReviewUpi = role === "ADMIN" || role === "TREASURER";
+  const pendingUpi = canReviewUpi ? await getPendingUpiRequestFor(societyId!, userId) : null;
 
   return (
     <div className="space-y-5">
       <Greeting name={session.user.name} sub={WELCOME[role]} />
+
+      {pendingUpi && (
+        <Link
+          href="/dashboard/upi"
+          className="flex items-center gap-3 rounded-xl bg-amber-50 p-4 ring-1 ring-amber-600/20"
+        >
+          <ShieldAlert className="size-5 shrink-0 text-amber-700" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-amber-900">UPI ID change needs your approval</span>
+            <span className="block truncate text-xs text-amber-900/80">New ID: {pendingUpi.newUpiId}. Review it before approving.</span>
+          </span>
+          <ArrowRight className="size-4 text-amber-700" />
+        </Link>
+      )}
 
       <div className="rounded-3xl bg-gradient-to-br from-indigo-600 to-violet-700 p-5 text-white shadow-lg shadow-indigo-500/20 lg:p-7">
         <p className="text-sm text-white/80">Collected in {monthLabel(month, year)}</p>
@@ -218,6 +237,14 @@ export default async function DashboardPage() {
           sub="All-time, yearly, monthly and by type"
           icon={TrendingDown}
         />
+        {canReviewUpi && (
+          <ActionRow
+            href="/dashboard/upi"
+            title="Payment settings"
+            sub="UPI ID and change approvals"
+            icon={Landmark}
+          />
+        )}
       </div>
     </div>
   );

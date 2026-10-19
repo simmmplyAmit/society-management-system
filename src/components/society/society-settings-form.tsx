@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
+import Link from "next/link";
 import type { Society } from "@prisma/client";
 
 interface SocietySettingsFormProps {
@@ -60,7 +61,10 @@ export function SocietySettingsForm({ society }: SocietySettingsFormProps) {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="upiId">UPI ID</Label>
-              <Input id="upiId" name="upiId" placeholder="society@upi" defaultValue={society.upiId ?? ""} />
+              <Input id="upiId" value={society.upiId ?? "Not set"} readOnly disabled />
+              <Link href="/dashboard/upi" className="text-xs font-medium text-primary hover:underline">
+                {society.upiId ? "Request a change" : "Set UPI ID"}
+              </Link>
             </div>
           </div>
           <div className="flex items-start gap-3 rounded-lg border p-3">

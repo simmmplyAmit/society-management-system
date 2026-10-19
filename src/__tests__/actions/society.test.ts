@@ -68,13 +68,21 @@ describe("updateSociety", () => {
   it("converts empty strings to null for optional fields", async () => {
     mockUpdate.mockResolvedValue({} as never);
 
-    const fd = makeFormData({ name: "Test Society", address: "", city: "", upiId: "" });
+    const fd = makeFormData({ name: "Test Society", address: "", city: "" });
     await updateSociety(fd);
 
     const callData = mockUpdate.mock.calls[0][0].data as Record<string, unknown>;
     expect(callData.address).toBeNull();
     expect(callData.city).toBeNull();
-    expect(callData.upiId).toBeNull();
+  });
+
+  it("never changes the UPI ID, even if the form sends one (it needs approval)", async () => {
+    mockUpdate.mockResolvedValue({} as never);
+
+    await updateSociety(makeFormData({ name: "Test Society", upiId: "attacker@upi" }));
+
+    const callData = mockUpdate.mock.calls[0][0].data as Record<string, unknown>;
+    expect(callData).not.toHaveProperty("upiId");
   });
 
   it("trims whitespace from optional fields and saves non-empty values", async () => {

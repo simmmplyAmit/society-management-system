@@ -45,6 +45,7 @@ model Society {
   state     String?
   pincode   String?
   upiId     String?  // society bank UPI ID for maintenance payments
+  upiChangedAt DateTime? // set when an approved change is applied; drives the resident notice
   logoUrl   String?
   hasWings  Boolean  @default(true) // false = single-building, no wing concept
   isActive  Boolean  @default(true)
@@ -58,6 +59,7 @@ model Society {
   expenses            Expense[]
   notificationLogs    NotificationLog[]
   paymentClaims       PaymentClaim[]
+  upiChangeRequests   UpiChangeRequest[]
 
   @@index([isActive])
 }
@@ -140,6 +142,8 @@ model User {
   accounts      Account[]      // ready for future OAuth providers
   otpCodes      OtpCode[]
   paymentClaims PaymentClaim[]
+  upiChangesRequested UpiChangeRequest[] @relation("UpiChangeRequester")
+  upiChangesReviewed  UpiChangeRequest[] @relation("UpiChangeReviewer")
 
   @@index([societyId])
   @@index([email])
@@ -388,4 +392,37 @@ model PaymentClaim {
   @@index([societyId, status])
   @@index([userId])
   @@index([societyId, utrNumber])
+}
+
+
+// ─────────────────────────────────────────────
+// UPI ID changes need a second person's approval. Rows double as the audit log.
+// ─────────────────────────────────────────────
+
+enum UpiChangeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model UpiChangeRequest {
+  id            String          @id @default(cuid())
+  societyId     String
+  oldUpiId      String?
+  newUpiId      String
+  status        UpiChangeStatus @default(PENDING)
+  requestedById String
+  reviewedById  String?         // null for the initial set-up, which needs no approval
+  reviewedAt    DateTime?
+  reviewNote    String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  society     Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  requestedBy User    @relation("UpiChangeRequester", fields: [requestedById], references: [id])
+  reviewedBy  User?   @relation("UpiChangeReviewer", fields: [reviewedById], references: [id])
+
+  @@index([societyId, status])
+  @@index([societyId, createdAt])
 }

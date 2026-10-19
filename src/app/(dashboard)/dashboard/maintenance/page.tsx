@@ -16,6 +16,7 @@ import { ResidentDues } from "@/components/maintenance/resident-dues";
 import { DuesTabs, type DuesTab } from "@/components/maintenance/dues-tabs";
 import { PaymentFilters } from "@/components/maintenance/payment-filters";
 import { ClaimsList } from "@/components/maintenance/claims-list";
+import { isRecentUpiChange } from "@/lib/queries/upi";
 import { countPendingClaims, getPendingClaims, getResidentClaims } from "@/lib/queries/claims";
 
 interface SearchParams {
@@ -41,7 +42,7 @@ export default async function MaintenancePage({
 
   const society = await prisma.society.findUnique({
     where: { id: societyId! },
-    select: { upiId: true, hasWings: true, name: true },
+    select: { upiId: true, upiChangedAt: true, hasWings: true, name: true },
   });
 
   // ─── Resident view ───────────────────────────────
@@ -55,6 +56,12 @@ export default async function MaintenancePage({
     return (
       <div className="space-y-4">
         <h2 className="text-2xl font-semibold">My maintenance</h2>
+        {isRecentUpiChange(society?.upiChangedAt ?? null, new Date()) && (
+          <div className="rounded-xl bg-amber-50 p-3 text-xs text-amber-900 ring-1 ring-amber-600/20">
+            <span className="font-semibold">The society&apos;s UPI ID was changed recently.</span> If you did not hear
+            about this from your committee, check with them before paying.
+          </div>
+        )}
         <ResidentDues payments={payments} claims={claims} societyUpiId={society?.upiId} societyName={society?.name} hasWings={society?.hasWings ?? true} />
       </div>
     );
