@@ -15,6 +15,7 @@ type PaymentStatus = "PENDING" | "PAID" | "OVERDUE";
 
 interface Payment {
   id: string;
+  flatId: string;
   amount: string | number;
   month: number;
   year: number;
@@ -37,15 +38,39 @@ interface Claim {
   createdAt: Date;
 }
 
+export interface FlatChip {
+  id: string;
+  number: string;
+  floor: { number: number; wing: { name: string } };
+  type: "OWNER" | "TENANT";
+}
+
 interface ResidentDuesProps {
   payments: Payment[];
+  /** Every flat the user is linked to. With more than one, a flat switcher appears. */
+  flats?: FlatChip[];
+  initialFlatId?: string;
   claims?: Claim[];
   societyUpiId?: string | null;
   societyName?: string | null;
   hasWings?: boolean;
 }
 
-export function ResidentDues({ payments, claims = [], societyUpiId, societyName, hasWings = true }: ResidentDuesProps) {
+export function ResidentDues({
+  payments: allPayments,
+  flats = [],
+  initialFlatId,
+  claims = [],
+  societyUpiId,
+  societyName,
+  hasWings = true,
+}: ResidentDuesProps) {
+  const multiFlat = flats.length > 1;
+  const [activeFlat, setActiveFlat] = useState<string>(
+    multiFlat && initialFlatId && flats.some((f) => f.id === initialFlatId) ? initialFlatId : "all"
+  );
+  // "All flats" is the unified view; picking a flat narrows every section below
+  const payments = allPayments.filter((p) => activeFlat === "all" || p.flatId === activeFlat);
   const unpaid = payments.filter((p) => p.status !== "PAID");
   // Dues already reported as paid wait for the treasurer, so they can't be selected again
   const underReview = unpaid.filter((p) => p.claim?.status === "SUBMITTED");
@@ -53,7 +78,18 @@ export function ResidentDues({ payments, claims = [], societyUpiId, societyName,
   const paid = payments.filter((p) => p.status === "PAID");
 
   // Everything is selected to start with, so "pay all" stays one tap
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set(pending.map((p) => p.id)));
+  const isOpen = (p: Payment) => p.status !== "PAID" && p.claim?.status !== "SUBMITTED";
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(
+    () => new Set(payments.filter(isOpen).map((p) => p.id))
+  );
+
+  function chooseFlat(id: string) {
+    setActiveFlat(id);
+    // Selection restarts as "everything due" in the newly chosen scope
+    setSelectedIds(
+      new Set(allPayments.filter((p) => (id === "all" || p.flatId === id) && isOpen(p)).map((p) => p.id))
+    );
+  }
 
   const selected = pending.filter((p) => selectedIds.has(p.id));
   const totalDue = selectedTotal(pending);
@@ -76,13 +112,49 @@ export function ResidentDues({ payments, claims = [], societyUpiId, societyName,
     });
   }
 
+  const unpaidByFlat = new Map<string, number>();
+  for (const p of allPayments) {
+    if (p.status !== "PAID") unpaidByFlat.set(p.flatId, (unpaidByFlat.get(p.flatId) ?? 0) + Number(p.amount));
+  }
+  const unpaidAll = [...unpaidByFlat.values()].reduce((a, b) => a + b, 0);
+  const activeFlatInfo = flats.find((f) => f.id === activeFlat);
+
   return (
     <div className="space-y-4">
+      {multiFlat && (
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+          {[{ id: "all", label: "All flats", amount: unpaidAll, sub: `${flats.length} flats` }, ...flats.map((f) => ({
+            id: f.id,
+            label: flatLabel(f, hasWings),
+            amount: unpaidByFlat.get(f.id) ?? 0,
+            sub: f.type === "OWNER" ? "Owner" : "Tenant",
+          }))].map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => chooseFlat(c.id)}
+              aria-pressed={activeFlat === c.id}
+              className={cn(
+                "shrink-0 rounded-xl px-3.5 py-2 text-left transition-colors",
+                activeFlat === c.id
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-card ring-1 ring-border hover:bg-muted/50"
+              )}
+            >
+              <span className="block text-xs font-semibold">{c.label}</span>
+              <span className={cn("block text-[11px]", activeFlat === c.id ? "text-primary-foreground/80" : "text-muted-foreground")}>
+                {c.amount > 0 ? `${formatCurrency(c.amount)} due` : "All paid"} · {c.sub}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {pending.length > 0 && (
         <div className="space-y-3">
         <div className="rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-700 p-5 text-white shadow-lg shadow-indigo-500/20">
           <p className="text-sm text-white/80">
-            {allSelected ? "Total due" : `Paying ${selected.length} of ${pending.length} dues`}
+            {allSelected ? (activeFlatInfo ? `Due for ${flatLabel(activeFlatInfo, hasWings)}` : "Total due") : `Paying ${selected.length} of ${pending.length} dues`}
           </p>
           <p className="mt-1 text-4xl font-semibold tracking-tight">{formatCurrency(payTotal)}</p>
           {!allSelected && (

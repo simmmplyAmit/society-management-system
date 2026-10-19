@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-export type DuesTab = "pending" | "verify" | "generate" | "charges";
+export type DuesTab = "pending" | "verify" | "mine" | "generate" | "charges";
 
 const LABELS: Record<DuesTab, string> = {
   pending: "Pending",
   verify: "To verify",
+  mine: "My dues",
   generate: "Generate",
   charges: "Charges",
 };
@@ -21,7 +22,7 @@ export function DuesTabs({
 }) {
   if (tabs.length < 2) return null;
   return (
-    <div className="flex gap-1 rounded-lg bg-muted p-1" role="tablist">
+    <div className="flex gap-1 overflow-x-auto rounded-lg bg-muted p-1" role="tablist">
       {tabs.map((t) => (
         <Link
           key={t}
@@ -29,7 +30,7 @@ export function DuesTabs({
           role="tab"
           aria-selected={active === t}
           className={cn(
-            "flex-1 whitespace-nowrap rounded-md px-1.5 py-1.5 text-center text-xs font-medium transition-colors",
+            "flex-1 shrink-0 whitespace-nowrap rounded-md px-2.5 py-1.5 text-center text-xs font-medium transition-colors",
             active === t
               ? "bg-background shadow-sm"
               : "text-muted-foreground hover:text-foreground"

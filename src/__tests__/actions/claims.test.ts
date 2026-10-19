@@ -42,9 +42,9 @@ beforeEach(() => {
 });
 
 describe("submitPaymentClaim", () => {
-  it("is limited to residents", async () => {
+  it("is open to every society role, but only for flats the user is linked to", async () => {
     await submitPaymentClaim(fd(valid, ["p1", "p2"]));
-    expect(requireRole).toHaveBeenCalledWith(["OWNER", "TENANT"]);
+    expect(requireRole).toHaveBeenCalledWith(["ADMIN", "SECRETARY", "TREASURER", "OWNER", "TENANT"]);
   });
 
   it("only accepts the resident's own unpaid, unclaimed dues in their society", async () => {

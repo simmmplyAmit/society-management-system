@@ -21,7 +21,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard, roles: ALL },
   { href: "/dashboard/society", label: "Society", icon: Building2, roles: ["ADMIN", "SECRETARY"] },
   { href: "/dashboard/residents", label: "Residents", icon: Users, roles: ["ADMIN", "SECRETARY"] },
-  { href: "/dashboard/maintenance", label: "Dues", icon: Receipt, roles: ["ADMIN", "TREASURER", "OWNER", "TENANT"] },
+  { href: "/dashboard/maintenance", label: "Dues", icon: Receipt, roles: ["ADMIN", "SECRETARY", "TREASURER", "OWNER", "TENANT"] },
   { href: "/dashboard/expenses", label: "Expenses", icon: TrendingDown, roles: ["ADMIN", "SECRETARY", "TREASURER"] },
   { href: "/dashboard/help", label: "Help", icon: HelpCircle, roles: ALL },
 ];

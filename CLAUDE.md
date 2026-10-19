@@ -51,6 +51,10 @@ Roles and what each can do are listed in README.md. In short: ADMIN manages stru
 - `MaintenancePayment`: one row per flat per month (`@@unique([flatId, month, year])`), with status `PENDING` / `PAID` / `OVERDUE`. All dues generation goes through `generateForMonth` in `src/lib/queries/maintenance.ts`, which is idempotent.
 - Residents pay through a UPI deep link (`src/lib/utils/upi.ts`) built from `Society.upiId`. Admins mark payments paid by hand, optionally with a UTR number.
 
+### Multiple flats and "My dues"
+- A user can be linked to several flats (`FlatResident`), as owner or tenant, whatever their role. `getMyFlats` (`src/lib/queries/flats.ts`) lists them with unpaid totals. `ResidentDues` shows an **All flats** (unified) view plus one chip per flat; `?flat=<flatId>` deep-links a flat. Dues belong to the flat, so an owner and tenant of the same flat see the same dues.
+- ADMIN/SECRETARY/TREASURER who also own flats get a **My dues** tab on Dues and a **My flats** list on Home (`MyDues` component). `submitPaymentClaim` is open to every society role, scoped to flats the user is linked to.
+
 ### Verification, password reset and notifications
 - Users must verify **both** email and mobile (6-digit OTP) before using the app. The gate is `ensureVerified` in `src/lib/session.ts` (called by `getSession`/`requireRole` and the dashboard layout); `/verify` uses `getSessionUnverified`. `SUPER_ADMIN` is exempt, and `REQUIRE_VERIFICATION=false` switches the gate off. Logic lives in `src/lib/verification.ts`; the JWT carries a `verified` flag refreshed with the rest of the token.
 - OTPs (`src/lib/otp.ts`) are stored as HMACs in `OtpCode`, expire in 10 minutes, allow 5 guesses, and are throttled in the DB (60s cooldown, 5/hour per target) so limits hold across serverless instances. Forgot-password (`src/actions/password-reset.ts`) emails an OTP and never reveals whether an email exists.

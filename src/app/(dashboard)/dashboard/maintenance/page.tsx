@@ -5,19 +5,18 @@ import {
   getPayments,
   PAYMENTS_LIMIT,
   type PaymentStatusFilter,
-  getResidentPayments,
 } from "@/lib/queries/maintenance";
 import { SetChargeForm } from "@/components/maintenance/set-charge-form";
 import { GeneratePaymentsForm } from "@/components/maintenance/generate-payments-form";
 import { DuesScheduler } from "@/components/maintenance/dues-scheduler";
 import { ChargesList } from "@/components/maintenance/charges-list";
 import { PaymentsTable } from "@/components/maintenance/payments-table";
-import { ResidentDues } from "@/components/maintenance/resident-dues";
 import { DuesTabs, type DuesTab } from "@/components/maintenance/dues-tabs";
 import { PaymentFilters } from "@/components/maintenance/payment-filters";
+import { MyDues } from "@/components/maintenance/my-dues";
+import { getMyFlats } from "@/lib/queries/flats";
 import { ClaimsList } from "@/components/maintenance/claims-list";
-import { isRecentUpiChange } from "@/lib/queries/upi";
-import { countPendingClaims, getPendingClaims, getResidentClaims } from "@/lib/queries/claims";
+import { countPendingClaims, getPendingClaims } from "@/lib/queries/claims";
 
 interface SearchParams {
   tab?: string;
@@ -42,33 +41,24 @@ export default async function MaintenancePage({
 
   const society = await prisma.society.findUnique({
     where: { id: societyId! },
-    select: { upiId: true, upiChangedAt: true, hasWings: true, name: true },
+    select: { upiId: true, hasWings: true },
   });
 
   // ─── Resident view ───────────────────────────────
   if (role === "OWNER" || role === "TENANT") {
-    const [rawPayments, rawClaims] = await Promise.all([
-      getResidentPayments(societyId!, userId),
-      getResidentClaims(societyId!, userId),
-    ]);
-    const payments = rawPayments.map((p) => ({ ...p, amount: Number(p.amount) }));
-    const claims = rawClaims.map((c) => ({ ...c, amount: Number(c.amount) }));
     return (
       <div className="space-y-4">
         <h2 className="text-2xl font-semibold">My maintenance</h2>
-        {isRecentUpiChange(society?.upiChangedAt ?? null, new Date()) && (
-          <div className="rounded-xl bg-amber-50 p-3 text-xs text-amber-900 ring-1 ring-amber-600/20">
-            <span className="font-semibold">The society&apos;s UPI ID was changed recently.</span> If you did not hear
-            about this from your committee, check with them before paying.
-          </div>
-        )}
-        <ResidentDues payments={payments} claims={claims} societyUpiId={society?.upiId} societyName={society?.name} hasWings={society?.hasWings ?? true} />
+        <MyDues societyId={societyId!} userId={userId} initialFlatId={sp.flat} />
       </div>
     );
   }
 
   // ─── Manager view ────────────────────────────────
-  const tabs: DuesTab[] = ["pending", ...(isManager ? (["verify", "generate"] as const) : []), ...(isAdmin ? (["charges"] as const) : [])];
+  // Committee members can own flats too: they get a "My dues" tab for their own flats
+  const myFlats = await getMyFlats(societyId!, userId);
+  const myDueCount = myFlats.reduce((n, f) => n + f.unpaidCount, 0);
+  const tabs: DuesTab[] = ["pending", ...(isManager ? (["verify"] as const) : []), ...(myFlats.length > 0 ? (["mine"] as const) : []), ...(isManager ? (["generate"] as const) : []), ...(isAdmin ? (["charges"] as const) : [])];
   const tab: DuesTab = tabs.includes(sp.tab as DuesTab) ? (sp.tab as DuesTab) : "pending";
 
   const ymMatch = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(sp.ym ?? "");
@@ -114,7 +104,7 @@ export default async function MaintenancePage({
   return (
     <div className="space-y-5">
       <h2 className="text-2xl font-semibold">Maintenance</h2>
-      <DuesTabs tabs={tabs} active={tab} counts={{ verify: verifyCount }} />
+      <DuesTabs tabs={tabs} active={tab} counts={{ verify: verifyCount, mine: myDueCount }} />
 
       {tab === "pending" && (
         <>
@@ -133,6 +123,10 @@ export default async function MaintenancePage({
             limit={PAYMENTS_LIMIT}
           />
         </>
+      )}
+
+      {tab === "mine" && myFlats.length > 0 && (
+        <MyDues societyId={societyId!} userId={userId} initialFlatId={sp.flat} />
       )}
 
       {tab === "verify" && isManager && (

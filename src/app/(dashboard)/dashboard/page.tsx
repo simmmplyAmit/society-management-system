@@ -17,6 +17,8 @@ import {
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getPendingUpiRequestFor } from "@/lib/queries/upi";
+import { getMyFlats, type MyFlat } from "@/lib/queries/flats";
+import { flatLabel } from "@/lib/utils/flat";
 import type { Role } from "@prisma/client";
 
 const WELCOME: Record<Role, string> = {
@@ -41,22 +43,13 @@ export default async function DashboardPage() {
 
   // ─── Resident dashboard ──────────────────────────
   if (role === "OWNER" || role === "TENANT") {
-    const flatResidents = await prisma.flatResident.findMany({
-      where: { userId, flat: { societyId: societyId! } },
-      include: {
-        flat: {
-          include: { floor: { include: { wing: { select: { name: true } } } } },
-        },
-      },
-    });
-
-    const flatIds = flatResidents.map((fr) => fr.flatId);
-    const pendingPayments = await prisma.maintenancePayment.findMany({
-      where: { flatId: { in: flatIds }, status: "PENDING" },
-      select: { amount: true, month: true, year: true },
-    });
-
-    const totalDue = pendingPayments.reduce((s, p) => s + Number(p.amount), 0);
+    const [myFlats, soc] = await Promise.all([
+      getMyFlats(societyId!, userId),
+      prisma.society.findUnique({ where: { id: societyId! }, select: { hasWings: true } }),
+    ]);
+    const hasWings = soc?.hasWings ?? true;
+    const totalDue = myFlats.reduce((n, f) => n + f.unpaidTotal, 0);
+    const dueCount = myFlats.reduce((n, f) => n + f.unpaidCount, 0);
 
     return (
       <div className="space-y-5">
@@ -79,7 +72,7 @@ export default async function DashboardPage() {
           </p>
           <div className="mt-4 flex items-center justify-between text-sm text-white/85">
             <span>
-              {pendingPayments.length} pending payment{pendingPayments.length !== 1 ? "s" : ""}
+              {dueCount} pending payment{dueCount !== 1 ? "s" : ""}
             </span>
             <span className="inline-flex items-center gap-1 font-medium">
               {totalDue > 0 ? "Pay now" : "View history"} <ArrowRight className="size-4" />
@@ -87,31 +80,7 @@ export default async function DashboardPage() {
           </div>
         </Link>
 
-        {flatResidents.length > 0 && (
-          <div>
-            <h3 className="mb-2 text-sm font-semibold">Your homes</h3>
-            <div className="space-y-2">
-              {flatResidents.map((fr) => (
-                <div
-                  key={fr.id}
-                  className="flex items-center gap-3 rounded-xl bg-card p-4 ring-1 ring-border"
-                >
-                  <span className="flex size-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-                    <Home className="size-5" />
-                  </span>
-                  <div>
-                    <p className="text-sm font-semibold">
-                      Wing {fr.flat.floor.wing.name} · Flat {fr.flat.number}
-                    </p>
-                    <p className="text-xs capitalize text-muted-foreground">
-                      Floor {fr.flat.floor.number} · {fr.type.toLowerCase()}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        <MyFlatsList flats={myFlats} hasWings={hasWings} />
       </div>
     );
   }
@@ -154,6 +123,10 @@ export default async function DashboardPage() {
   const usersCount = await prisma.user.count({ where: { societyId: societyId! } });
   const canReviewUpi = role === "ADMIN" || role === "TREASURER";
   const pendingUpi = canReviewUpi ? await getPendingUpiRequestFor(societyId!, userId) : null;
+  const [myFlats, mgrSoc] = await Promise.all([
+    getMyFlats(societyId!, userId), // committee members can own flats too
+    prisma.society.findUnique({ where: { id: societyId! }, select: { hasWings: true } }),
+  ]);
 
   return (
     <div className="space-y-5">
@@ -224,6 +197,13 @@ export default async function DashboardPage() {
         />
       </div>
 
+      {myFlats.length > 0 && (
+        <div>
+          <h3 className="mb-2 text-sm font-semibold">My flats</h3>
+          <MyFlatsList flats={myFlats} hasWings={mgrSoc?.hasWings ?? true} href="/dashboard/maintenance?tab=mine" />
+        </div>
+      )}
+
       <div className="grid gap-3 lg:grid-cols-2">
         <ActionRow
           href="/dashboard/maintenance"
@@ -255,6 +235,54 @@ function Greeting({ name, sub }: { name: string; sub: string }) {
     <div>
       <h2 className="text-2xl font-semibold">Hello, {name.split(" ")[0]} 👋</h2>
       <p className="text-sm text-muted-foreground">{sub}</p>
+    </div>
+  );
+}
+
+/** One row per flat the user is linked to, each opening that flat's dues. */
+function MyFlatsList({
+  flats,
+  hasWings,
+  href = "/dashboard/maintenance",
+}: {
+  flats: MyFlat[];
+  hasWings: boolean;
+  href?: string;
+}) {
+  if (flats.length === 0) return null;
+  const sep = href.includes("?") ? "&" : "?";
+  return (
+    <div className="space-y-2">
+      {flats.length > 1 && (
+        <h3 className="text-sm font-semibold">Your flats</h3>
+      )}
+      {flats.map((f) => (
+        <Link
+          key={f.id}
+          href={flats.length > 1 ? `${href}${sep}flat=${f.id}` : href}
+          className="flex items-center gap-3 rounded-xl bg-card p-4 ring-1 ring-border shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition hover:ring-primary/30"
+        >
+          <span className="flex size-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+            <Home className="size-5" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold">{flatLabel(f, hasWings)}</span>
+            <span className="block text-xs capitalize text-muted-foreground">
+              Floor {f.floor.number} · {f.type.toLowerCase()}
+            </span>
+          </span>
+          <span className="shrink-0 text-right">
+            <span className={`block text-sm font-semibold ${f.unpaidTotal > 0 ? "" : "text-emerald-600"}`}>
+              {f.unpaidTotal > 0 ? formatCurrency(f.unpaidTotal) : "All paid"}
+            </span>
+            {f.unpaidCount > 0 && (
+              <span className="block text-[11px] text-muted-foreground">
+                {f.unpaidCount} due{f.unpaidCount !== 1 ? "s" : ""}
+              </span>
+            )}
+          </span>
+        </Link>
+      ))}
     </div>
   );
 }

@@ -23,7 +23,8 @@ const submitSchema = z.object({
 
 /** Resident reports that they paid the selected dues. A treasurer verifies it later. */
 export async function submitPaymentClaim(formData: FormData) {
-  const session = await requireRole(["OWNER", "TENANT"]);
+  // Any society member may report a payment for flats they are linked to (committee members can own flats too)
+  const session = await requireRole(["ADMIN", "SECRETARY", "TREASURER", "OWNER", "TENANT"]);
   const { id: userId, societyId } = session.user;
   if (!societyId) return { error: "No society found" };
 
