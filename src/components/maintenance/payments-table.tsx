@@ -28,6 +28,7 @@ interface Payment {
   paidAt: Date | null;
   utrNumber: string | null;
   notes: string | null;
+  claim?: { status: "SUBMITTED" | "APPROVED" | "REJECTED"; utrNumber: string } | null;
   flat: {
     number: string;
     floor: { number: number; wing: { name: string } };
@@ -51,7 +52,7 @@ export function PaymentsTable({ payments, canManage, societyUpiId, hasWings, lim
       <div className="rounded-xl border border-dashed border-border bg-card px-4 py-10 text-center">
         <p className="text-sm font-medium">No dues match these filters</p>
         <p className="mt-1 text-xs text-muted-foreground">
-          Try another month or flat, or generate dues from the &ldquo;Generate dues&rdquo; tab.
+          Try another month or flat, or generate dues from the &ldquo;Generate&rdquo; tab.
         </p>
       </div>
     );
@@ -113,6 +114,11 @@ export function PaymentsTable({ payments, canManage, societyUpiId, hasWings, lim
                   </Badge>
                 </div>
               </div>
+              {payment.claim?.status === "SUBMITTED" && payment.status !== "PAID" && (
+                <p className="mt-1.5 text-xs text-sky-700">
+                  Resident reported paid · UTR {payment.claim.utrNumber}. Check the <span className="font-semibold">To verify</span> tab.
+                </p>
+              )}
               {payment.status === "PAID" && (
                 <p className="mt-1.5 text-xs text-muted-foreground">
                   {formatDate(payment.paidAt)}

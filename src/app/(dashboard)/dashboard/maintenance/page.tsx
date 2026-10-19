@@ -15,6 +15,8 @@ import { PaymentsTable } from "@/components/maintenance/payments-table";
 import { ResidentDues } from "@/components/maintenance/resident-dues";
 import { DuesTabs, type DuesTab } from "@/components/maintenance/dues-tabs";
 import { PaymentFilters } from "@/components/maintenance/payment-filters";
+import { ClaimsList } from "@/components/maintenance/claims-list";
+import { countPendingClaims, getPendingClaims, getResidentClaims } from "@/lib/queries/claims";
 
 interface SearchParams {
   tab?: string;
@@ -44,18 +46,22 @@ export default async function MaintenancePage({
 
   // ─── Resident view ───────────────────────────────
   if (role === "OWNER" || role === "TENANT") {
-    const rawPayments = await getResidentPayments(societyId!, userId);
+    const [rawPayments, rawClaims] = await Promise.all([
+      getResidentPayments(societyId!, userId),
+      getResidentClaims(societyId!, userId),
+    ]);
     const payments = rawPayments.map((p) => ({ ...p, amount: Number(p.amount) }));
+    const claims = rawClaims.map((c) => ({ ...c, amount: Number(c.amount) }));
     return (
       <div className="space-y-4">
         <h2 className="text-2xl font-semibold">My maintenance</h2>
-        <ResidentDues payments={payments} societyUpiId={society?.upiId} societyName={society?.name} hasWings={society?.hasWings ?? true} />
+        <ResidentDues payments={payments} claims={claims} societyUpiId={society?.upiId} societyName={society?.name} hasWings={society?.hasWings ?? true} />
       </div>
     );
   }
 
   // ─── Manager view ────────────────────────────────
-  const tabs: DuesTab[] = ["pending", ...(isManager ? (["generate"] as const) : []), ...(isAdmin ? (["charges"] as const) : [])];
+  const tabs: DuesTab[] = ["pending", ...(isManager ? (["verify", "generate"] as const) : []), ...(isAdmin ? (["charges"] as const) : [])];
   const tab: DuesTab = tabs.includes(sp.tab as DuesTab) ? (sp.tab as DuesTab) : "pending";
 
   const ymMatch = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(sp.ym ?? "");
@@ -94,12 +100,14 @@ export default async function MaintenancePage({
           status,
         })
       : [];
+  const claimsToVerify = tab === "verify" && isManager ? await getPendingClaims(societyId!) : [];
+  const verifyCount = isManager ? await countPendingClaims(societyId!) : 0;
   const rawCharges = tab === "charges" ? await getMaintenanceCharges(societyId!) : [];
 
   return (
     <div className="space-y-5">
       <h2 className="text-2xl font-semibold">Maintenance</h2>
-      <DuesTabs tabs={tabs} active={tab} />
+      <DuesTabs tabs={tabs} active={tab} counts={{ verify: verifyCount }} />
 
       {tab === "pending" && (
         <>
@@ -118,6 +126,17 @@ export default async function MaintenancePage({
             limit={PAYMENTS_LIMIT}
           />
         </>
+      )}
+
+      {tab === "verify" && isManager && (
+        <ClaimsList
+          claims={claimsToVerify.map((c) => ({
+            ...c,
+            amount: Number(c.amount),
+            payments: c.payments.map((p) => ({ ...p, amount: Number(p.amount) })),
+          }))}
+          hasWings={hasWings}
+        />
       )}
 
       {tab === "generate" && isManager && (

@@ -167,6 +167,7 @@ export async function getPayments(societyId: string, filters: PaymentFilters = {
       ...(statuses ? { status: { in: statuses } } : {}),
     },
     include: {
+      claim: { select: { status: true, utrNumber: true } },
       flat: {
         include: {
           floor: { include: { wing: { select: { name: true } } } },
@@ -198,6 +199,7 @@ export async function getResidentPayments(societyId: string, userId: string) {
   return prisma.maintenancePayment.findMany({
     where: { flatId: { in: flatIds } },
     include: {
+      claim: { select: { id: true, status: true } },
       flat: {
         include: {
           floor: { include: { wing: { select: { name: true } } } },

@@ -9,6 +9,7 @@ import { flatLabel } from "@/lib/utils/flat";
 import { CheckCircle2 } from "lucide-react";
 import { buildUpiLink } from "@/lib/utils/upi";
 import { duesNote, selectedTotal } from "@/lib/utils/dues";
+import { ReportPaymentForm } from "./report-payment-form";
 
 type PaymentStatus = "PENDING" | "PAID" | "OVERDUE";
 
@@ -20,21 +21,35 @@ interface Payment {
   status: PaymentStatus;
   paidAt: Date | null;
   utrNumber: string | null;
+  claim?: { id: string; status: "SUBMITTED" | "APPROVED" | "REJECTED" } | null;
   flat: {
     number: string;
     floor: { number: number; wing: { name: string } };
   };
 }
 
+interface Claim {
+  id: string;
+  utrNumber: string;
+  amount: string | number;
+  status: "SUBMITTED" | "APPROVED" | "REJECTED";
+  reviewNote: string | null;
+  createdAt: Date;
+}
+
 interface ResidentDuesProps {
   payments: Payment[];
+  claims?: Claim[];
   societyUpiId?: string | null;
   societyName?: string | null;
   hasWings?: boolean;
 }
 
-export function ResidentDues({ payments, societyUpiId, societyName, hasWings = true }: ResidentDuesProps) {
-  const pending = payments.filter((p) => p.status !== "PAID");
+export function ResidentDues({ payments, claims = [], societyUpiId, societyName, hasWings = true }: ResidentDuesProps) {
+  const unpaid = payments.filter((p) => p.status !== "PAID");
+  // Dues already reported as paid wait for the treasurer, so they can't be selected again
+  const underReview = unpaid.filter((p) => p.claim?.status === "SUBMITTED");
+  const pending = unpaid.filter((p) => p.claim?.status !== "SUBMITTED");
   const paid = payments.filter((p) => p.status === "PAID");
 
   // Everything is selected to start with, so "pay all" stays one tap
@@ -64,6 +79,7 @@ export function ResidentDues({ payments, societyUpiId, societyName, hasWings = t
   return (
     <div className="space-y-4">
       {pending.length > 0 && (
+        <div className="space-y-3">
         <div className="rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-700 p-5 text-white shadow-lg shadow-indigo-500/20">
           <p className="text-sm text-white/80">
             {allSelected ? "Total due" : `Paying ${selected.length} of ${pending.length} dues`}
@@ -92,12 +108,34 @@ export function ResidentDues({ payments, societyUpiId, societyName, hasWings = t
             )
           )}
           <p className="mt-3 text-[11px] leading-snug text-white/70">
-            Your society marks dues as paid after it receives the money, so it can take a little while to show up here.
+            After paying, enter the UPI reference below so your society can confirm it.
           </p>
+        </div>
+        <ReportPaymentForm paymentIds={selected.map((p) => p.id)} total={payTotal} />
         </div>
       )}
 
-      {pending.length === 0 && payments.length > 0 && (
+      {underReview.length > 0 && (
+        <div>
+          <h3 className="mb-2 text-sm font-semibold">Awaiting verification</h3>
+          <div className="divide-y divide-border overflow-hidden rounded-xl bg-card ring-1 ring-border">
+            {underReview.map((p) => (
+              <div key={p.id} className="flex items-center gap-3 px-4 py-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">{monthLabel(p.month, p.year)}</p>
+                  <p className="text-xs text-muted-foreground">{flatLabel(p.flat, hasWings)}</p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-sm font-semibold">{formatCurrency(p.amount)}</p>
+                  <Badge variant="info" className="mt-0.5">Awaiting verification</Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {unpaid.length === 0 && payments.length > 0 && (
         <Card className="border-emerald-200 bg-emerald-50">
           <CardContent className="flex items-center gap-2 p-4">
             <CheckCircle2 className="h-5 w-5 text-emerald-500" />
@@ -149,6 +187,18 @@ export function ResidentDues({ payments, societyUpiId, societyName, hasWings = t
               );
             })}
           </div>
+        </div>
+      )}
+
+      {claims[0]?.status === "REJECTED" && (
+        <div className="rounded-xl bg-rose-50 p-3 text-sm ring-1 ring-rose-600/15">
+          <p className="font-semibold text-rose-700">
+            Your report {claims[0].utrNumber} for {formatCurrency(claims[0].amount)} was not accepted
+          </p>
+          <p className="mt-0.5 text-xs text-rose-700/80">
+            {claims[0].reviewNote ? `Reason: ${claims[0].reviewNote}. ` : ""}The dues are open again. Check the
+            reference and report it again.
+          </p>
         </div>
       )}
 

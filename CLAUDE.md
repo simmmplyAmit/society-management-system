@@ -58,6 +58,11 @@ Roles and what each can do are listed in README.md. In short: ADMIN manages stru
 - When messages go out: new-due notices (cron, and the "notify" checkbox on Generate; never for back-filled old months), reminders at day 5/12/19 of the billing month while unpaid, a receipt on mark-paid, and manual "Remind" buttons on the Pending tab (`src/actions/notifications.ts`, once per person per day).
 - Without provider keys, non-production runs log messages to the console and show the OTP on the verify screen; production fails closed.
 
+### UPI payment reports (claims)
+- Residents pay by UPI deep link, then report the UTR for the dues they selected (`submitPaymentClaim` in `src/actions/claims.ts`, UI in `report-payment-form.tsx`). This creates a `PaymentClaim` and sets `MaintenancePayment.claimId`; the amount is always computed on the server from the linked dues.
+- ADMIN/TREASURER review claims on the **To verify** tab of Dues (`claims-list.tsx`): `approveClaim` marks every due in the claim `PAID` (UTR and paid-on date from the claim) and sends receipts; `rejectClaim` frees the dues (`claimId` cleared) and stores the reason for the resident. Both claim the review with a `status: SUBMITTED` guarded `updateMany`, so concurrent reviewers cannot double-process.
+- Guards: only the resident's own unpaid, unclaimed dues; a UTR cannot be reused (open/approved claims or any payment); at most 10 open claims per resident. Dues under review cannot be selected again.
+
 ### Cron
 `GET /api/cron/generate-maintenance` requires `Authorization: Bearer $CRON_SECRET`. It runs daily on Vercel (`vercel.json`, 18:30 UTC = 00:00 IST). For every active society it generates the previous and current month's dues, marks unpaid dues from earlier months `OVERDUE`, then sends new-due notices and scheduled reminders.
 

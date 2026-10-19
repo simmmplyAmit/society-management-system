@@ -57,6 +57,7 @@ model Society {
   maintenancePayments MaintenancePayment[]
   expenses            Expense[]
   notificationLogs    NotificationLog[]
+  paymentClaims       PaymentClaim[]
 
   @@index([isActive])
 }
@@ -138,6 +139,7 @@ model User {
   expenses      Expense[]
   accounts      Account[]      // ready for future OAuth providers
   otpCodes      OtpCode[]
+  paymentClaims PaymentClaim[]
 
   @@index([societyId])
   @@index([email])
@@ -245,17 +247,20 @@ model MaintenancePayment {
   paidBy    String?           // userId
   utrNumber String?           // UPI transaction reference
   notes     String?
+  claimId   String?           // resident-reported payment awaiting/after review
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
 
   society Society           @relation(fields: [societyId], references: [id], onDelete: Cascade)
   flat    Flat              @relation(fields: [flatId], references: [id], onDelete: Cascade)
   charge  MaintenanceCharge @relation(fields: [chargeId], references: [id], onDelete: Cascade)
+  claim   PaymentClaim?     @relation(fields: [claimId], references: [id], onDelete: SetNull)
 
   @@unique([flatId, month, year])
   @@index([societyId, month, year])
   @@index([flatId])
   @@index([status])
+  @@index([claimId])
 }
 
 // ─────────────────────────────────────────────
@@ -349,4 +354,38 @@ model NotificationLog {
 
   @@index([societyId, createdAt])
   @@index([paymentId])
+}
+
+
+// ─────────────────────────────────────────────
+// Resident-reported UPI payments, verified by a treasurer/admin
+// ─────────────────────────────────────────────
+
+enum ClaimStatus {
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+model PaymentClaim {
+  id           String      @id @default(cuid())
+  societyId    String
+  userId       String      // the resident who reported the payment
+  utrNumber    String      // UPI/bank reference, stored uppercase
+  amount       Decimal     @db.Decimal(10, 2) // computed on the server from the linked dues
+  paidOn       DateTime
+  status       ClaimStatus @default(SUBMITTED)
+  reviewNote   String?
+  reviewedById String?
+  reviewedAt   DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  society  Society             @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  user     User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payments MaintenancePayment[]
+
+  @@index([societyId, status])
+  @@index([userId])
+  @@index([societyId, utrNumber])
 }
