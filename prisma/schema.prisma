@@ -46,6 +46,7 @@ model Society {
   pincode   String?
   upiId     String?  // society bank UPI ID for maintenance payments
   upiChangedAt DateTime? // set when an approved change is applied; drives the resident notice
+  cashReceiptSeq Int @default(0) // last cash receipt number issued
   logoUrl   String?
   hasWings  Boolean  @default(true) // false = single-building, no wing concept
   isActive  Boolean  @default(true)
@@ -62,6 +63,8 @@ model Society {
   creditEntries       CreditEntry[]
   upiChangeRequests   UpiChangeRequest[]
   specialCharges      SpecialCharge[]
+  cashCollections     CashCollection[]
+  cashDeposits        CashDeposit[]
 
   @@index([isActive])
 }
@@ -148,6 +151,10 @@ model User {
   paymentClaims PaymentClaim[]
   creditEntries CreditEntry[]
   specialChargesCreated SpecialCharge[]
+  cashPaid            CashCollection[] @relation("CashPayer")
+  cashCollected       CashCollection[] @relation("CashCollector")
+  cashDeposited       CashDeposit[]    @relation("CashDepositor")
+  cashDepositsConfirmed CashDeposit[]  @relation("CashConfirmer")
   upiChangesRequested UpiChangeRequest[] @relation("UpiChangeRequester")
   upiChangesReviewed  UpiChangeRequest[] @relation("UpiChangeReviewer")
 
@@ -523,4 +530,52 @@ model SpecialCharge {
   payments  MaintenancePayment[]
 
   @@index([societyId, isActive])
+}
+
+
+// ─────────────────────────────────────────────
+// Cash: money handed to a committee member (numbered receipt, credited to the payer at once)
+// and later banked in a batch. Cash "in hand" = collections with no deposit yet.
+// ─────────────────────────────────────────────
+
+model CashCollection {
+  id            String   @id @default(cuid())
+  societyId     String
+  receiptNo     Int      // sequential per society
+  userId        String   // who paid (their credit was topped up)
+  collectedById String   // committee member holding the cash
+  amount        Decimal  @db.Decimal(10, 2)
+  receivedOn    DateTime
+  note          String?
+  depositId     String?  // null = still in hand
+  createdAt     DateTime @default(now())
+
+  society     Society      @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  payer       User         @relation("CashPayer", fields: [userId], references: [id])
+  collectedBy User         @relation("CashCollector", fields: [collectedById], references: [id])
+  deposit     CashDeposit? @relation(fields: [depositId], references: [id], onDelete: SetNull)
+
+  @@unique([societyId, receiptNo])
+  @@index([societyId, depositId])
+  @@index([collectedById])
+}
+
+model CashDeposit {
+  id            String    @id @default(cuid())
+  societyId     String
+  depositedById String
+  amount        Decimal   @db.Decimal(10, 2) // sum of the collections, computed on the server
+  depositedOn   DateTime
+  reference     String    // bank slip number or transaction reference
+  note          String?
+  confirmedById String?   // a different admin/treasurer checked it against the bank statement
+  confirmedAt   DateTime?
+  createdAt     DateTime  @default(now())
+
+  society     Society          @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  depositedBy User             @relation("CashDepositor", fields: [depositedById], references: [id])
+  confirmedBy User?            @relation("CashConfirmer", fields: [confirmedById], references: [id])
+  collections CashCollection[]
+
+  @@index([societyId, depositedOn])
 }

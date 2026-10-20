@@ -126,6 +126,8 @@ export async function depositAndApply(o: ApplyOptions & {
   amount: number;
   claimId?: string | null;
   note?: string | null;
+  /** Runs inside the same transaction, right after the deposit entry is written. */
+  inTx?: (tx: Prisma.TransactionClient) => Promise<void>;
 }): Promise<{ applied: Applied[]; balance: number }> {
   const paise = toPaise(o.amount);
   if (!(paise > 0)) throw new Error("Deposit must be positive");
@@ -144,6 +146,7 @@ export async function depositAndApply(o: ApplyOptions & {
         createdById: o.actorId,
       },
     });
+    if (o.inTx) await o.inTx(tx);
     const applied = await applyTx(tx, o);
     return { applied, balance: fromPaise(await balancePaise(tx, o.societyId, o.userId)) };
   });

@@ -93,6 +93,19 @@ describe("depositAndApply", () => {
     expect(tx.maintenancePayment.update.mock.calls[0][0].data).toMatchObject({ amountPaid: 10.3, status: "PAID" });
   });
 
+  it("runs the caller's hook inside the same transaction, after the deposit entry", async () => {
+    balances(100, 0);
+    tx.maintenancePayment.findMany.mockResolvedValue([]);
+    const order: string[] = [];
+    tx.creditEntry.create.mockImplementation(async () => { order.push("deposit"); return { id: "e1" }; });
+    await depositAndApply({
+      societyId: "s1", userId: "u1", actorId: "t1", amount: 100,
+      inTx: async (t) => { expect(t).toBe(tx); order.push("hook"); },
+    });
+    expect(order).toEqual(["deposit", "hook"]);
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
   it("rejects a non-positive deposit before touching the database", async () => {
     await expect(depositAndApply({ societyId: "s1", userId: "u1", actorId: "t1", amount: 0 })).rejects.toThrow();
     expect(prisma.$transaction).not.toHaveBeenCalled();

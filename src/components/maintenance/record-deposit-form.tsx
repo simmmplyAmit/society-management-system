@@ -37,7 +37,7 @@ export function RecordDepositForm({ members }: { members: MemberOption[] }) {
   return (
     <form onSubmit={submit} className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        For money received outside the app. Any amount works: it is added to the member&apos;s credit and pays their
+        For money that has already reached the society&apos;s bank account outside the app. Any amount works: it is added to the member&apos;s credit and pays their
         oldest dues first.
       </p>
       <div className="space-y-1.5">

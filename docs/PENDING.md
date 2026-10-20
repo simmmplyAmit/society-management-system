@@ -34,6 +34,16 @@ Members sometimes pay a society expense out of pocket. The admin or treasurer re
 - [ ] Per-charge reports (billed vs collected) and a combined statement per flat.
 - [ ] SMS wording for other charges reuses the maintenance DLT template with the charge name in the period text; register dedicated templates if wording matters.
 
+## 2c. Cash handling follow-ups
+
+- [ ] **Void or correct a cash receipt** (wrong amount or payer). Needs a reversal of the credit and any dues it paid, with a second person's approval; today receipts cannot be edited.
+- [ ] Printable or shareable receipt (PDF) with the receipt number, and a receipt message to the payer that mentions "cash, receipt #N".
+- [ ] Alert (email/SMS) to admins and treasurers when cash has been in someone's hands for several days; today it is only highlighted on the Cash tab.
+- [ ] Hand-over of cash between committee members before banking (so a deposit is always made by the holder, or the transfer is recorded).
+- [ ] Reconcile deposits against the bank statement (import) instead of manual confirmation.
+- [ ] Cash report: collected vs deposited by month and by collector, for audits.
+- [ ] A treasurer collecting cash from themselves, or confirming their own deposit, is only partly blocked (confirmation needs another person; collection does not).
+
 ## 3. Notifications and messaging gaps
 
 - [ ] Notify the treasurer or admin when a resident reports a payment (today they only see the "To verify" badge).
@@ -61,7 +71,7 @@ Members sometimes pay a society expense out of pocket. The admin or treasurer re
 ## 6. Deployment checklist (nothing deployed yet)
 
 - [ ] Open the PR `main-22f19h` into `main` (the GitHub tool failed earlier: "invalid session"; use https://github.com/simmmplyAmit/society-management-system/compare/main...main-22f19h) and merge.
-- [ ] Neon production database (pooled URL, region near users). Run `npx prisma migrate deploy`. Migrations added in this work: `add_otp_and_notifications`, `add_payment_claims`, `add_upi_change_requests`, `add_credit_ledger_and_part_payments`, `add_special_charges` (changes the dues unique key to include a charge key; existing rows get `chargeKey = MAINTENANCE`).
+- [ ] Neon production database (pooled URL, region near users). Run `npx prisma migrate deploy`. Migrations added in this work: `add_otp_and_notifications`, `add_payment_claims`, `add_upi_change_requests`, `add_credit_ledger_and_part_payments`, `add_cash_collections`, `add_special_charges` (changes the dues unique key to include a charge key; existing rows get `chargeKey = MAINTENANCE`).
 - [ ] Vercel project with env vars: `DATABASE_URL`, `AUTH_SECRET`, `CRON_SECRET`, `AUTH_TRUST_HOST=true`, `APP_URL`, `RESEND_API_KEY`, `EMAIL_FROM`, `MSG91_AUTH_KEY`, `MSG91_TEMPLATE_OTP`, `MSG91_TEMPLATE_DUE`, `MSG91_TEMPLATE_RECEIPT` (see `.env.example`).
 - [ ] Verify the Resend sending domain; register the three MSG91 DLT templates (text in `.env.example`) and confirm the exact flow request format and variable names against MSG91's docs (written from memory).
 - [ ] **Existing users are locked out until they verify email and mobile.** Set `REQUIRE_VERIFICATION=false` until the providers work, then remove it.

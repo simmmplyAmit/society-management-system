@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-export type DuesTab = "pending" | "verify" | "mine" | "generate" | "charges" | "other";
+export type DuesTab = "pending" | "verify" | "cash" | "mine" | "generate" | "charges" | "other";
 
 const LABELS: Record<DuesTab, string> = {
   pending: "Pending",
   verify: "To verify",
+  cash: "Cash",
   mine: "My dues",
   generate: "Generate",
   charges: "Charges",
