@@ -33,6 +33,16 @@ Done: Advanced "paid by members" on Add expense, credit in the same transaction,
 - [ ] Per-charge reports (billed vs collected) and a combined statement per flat.
 - [ ] SMS wording for other charges reuses the maintenance DLT template with the charge name in the period text; register dedicated templates if wording matters.
 
+## 2d. Other income follow-ups
+
+Built: record bank interest, rent, donations etc. with category, date and bank reference; year view with by-type totals against expenses.
+
+- [ ] Edit an income entry (today delete and re-add).
+- [ ] Count dues collected too, for a full income and expense statement / balance (receipts and payments account).
+- [ ] Deleting income is not approval-gated or logged; consider an audit trail.
+- [ ] Monthly and all-time charts like the expenses analytics; export to CSV.
+- [ ] Recurring income (for example a monthly hall rental or FD interest) and attaching a receipt link.
+
 ## 2c. Cash handling follow-ups
 
 - [ ] **Void or correct a cash receipt** (wrong amount or payer). Needs a reversal of the credit and any dues it paid, with a second person's approval; today receipts cannot be edited.

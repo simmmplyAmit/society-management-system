@@ -20,11 +20,11 @@ export function BottomNav({ role }: { role: Role }) {
             <Link
               key={item.href}
               href={item.href}
-              className="flex min-w-[56px] flex-col items-center gap-0.5 text-[10px] font-medium"
+              className="flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[10px] font-medium"
             >
               <span
                 className={cn(
-                  "flex h-7 w-12 items-center justify-center rounded-full transition-colors",
+                  "flex h-7 w-11 items-center justify-center rounded-full transition-colors",
                   active ? "bg-primary/10 text-primary" : "text-muted-foreground"
                 )}
               >

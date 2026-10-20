@@ -58,6 +58,7 @@ model Society {
   maintenanceCharges  MaintenanceCharge[]
   maintenancePayments MaintenancePayment[]
   expenses            Expense[]
+  incomes             Income[]
   notificationLogs    NotificationLog[]
   paymentClaims       PaymentClaim[]
   creditEntries       CreditEntry[]
@@ -147,6 +148,7 @@ model User {
   flatResidents FlatResident[]
   tenantRecords TenantRecord[]
   expenses      Expense[]
+  incomesAdded  Income[]
   accounts      Account[]      // ready for future OAuth providers
   otpCodes      OtpCode[]
   paymentClaims PaymentClaim[]
@@ -315,6 +317,26 @@ model Expense {
   @@index([societyId, date])
 }
 
+// Money the society receives apart from dues: bank interest, hall rent, scrap sale, donations…
+model Income {
+  id          String   @id @default(cuid())
+  societyId   String
+  title       String
+  category    String   // e.g. "Bank interest", "Hall rental"
+  amount      Decimal  @db.Decimal(10, 2)
+  date        DateTime
+  description String?
+  reference   String?  // bank reference / receipt no.
+  addedById   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  addedBy User    @relation(fields: [addedById], references: [id])
+
+  @@index([societyId])
+  @@index([societyId, date])
+}
 
 // ─────────────────────────────────────────────
 // Verification (OTP) and outbound notifications

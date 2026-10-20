@@ -4,6 +4,7 @@ import {
   Users,
   Receipt,
   TrendingDown,
+  TrendingUp,
   HelpCircle,
 } from "lucide-react";
 import type { Role } from "@prisma/client";
@@ -23,6 +24,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard/residents", label: "Residents", icon: Users, roles: ["ADMIN", "SECRETARY"] },
   { href: "/dashboard/maintenance", label: "Dues", icon: Receipt, roles: ["ADMIN", "SECRETARY", "TREASURER", "OWNER", "TENANT"] },
   { href: "/dashboard/expenses", label: "Expenses", icon: TrendingDown, roles: ["ADMIN", "SECRETARY", "TREASURER"] },
+  { href: "/dashboard/income", label: "Income", icon: TrendingUp, roles: ["ADMIN", "SECRETARY", "TREASURER"] },
   { href: "/dashboard/help", label: "Help", icon: HelpCircle, roles: ALL },
 ];
 
