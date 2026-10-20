@@ -64,6 +64,7 @@ model Society {
   upiChangeRequests   UpiChangeRequest[]
   specialCharges      SpecialCharge[]
   cashCollections     CashCollection[]
+  expenseContributions ExpenseContribution[]
   cashDeposits        CashDeposit[]
 
   @@index([isActive])
@@ -151,6 +152,9 @@ model User {
   paymentClaims PaymentClaim[]
   creditEntries CreditEntry[]
   specialChargesCreated SpecialCharge[]
+  expenseContributed  ExpenseContribution[] @relation("ContributionMember")
+  expenseContributionsRequested ExpenseContribution[] @relation("ContributionRequester")
+  expenseContributionsReviewed  ExpenseContribution[] @relation("ContributionReviewer")
   cashPaid            CashCollection[] @relation("CashPayer")
   cashCollected       CashCollection[] @relation("CashCollector")
   cashDeposited       CashDeposit[]    @relation("CashDepositor")
@@ -305,6 +309,7 @@ model Expense {
 
   society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
   addedBy User    @relation(fields: [addedById], references: [id])
+  contributions ExpenseContribution[]
 
   @@index([societyId])
   @@index([societyId, date])
@@ -456,6 +461,8 @@ enum CreditEntryType {
   DEPOSIT     // money received (approved report or recorded by the treasurer): +
   APPLIED     // spent against a due: -
   REVERSAL    // a spend that was undone: +
+  EXPENSE_CREDIT          // the society owes the member for an expense they paid: +
+  EXPENSE_CREDIT_REVERSAL // that credit taken back (expense deleted): -
 }
 
 model CreditEntry {
@@ -466,6 +473,7 @@ model CreditEntry {
   amount      Decimal         @db.Decimal(10, 2) // signed
   paymentId   String?         // the due an APPLIED/REVERSAL entry relates to
   claimId     String?         // the report a DEPOSIT came from
+  expenseId   String?         // the expense an EXPENSE_CREDIT(_REVERSAL) relates to
   reference   String?         // UTR
   note        String?
   createdById String?
@@ -477,6 +485,7 @@ model CreditEntry {
   @@index([societyId, userId])
   @@index([paymentId])
   @@index([claimId])
+  @@index([expenseId])
 }
 
 
@@ -578,4 +587,44 @@ model CashDeposit {
   collections CashCollection[]
 
   @@index([societyId, depositedOn])
+}
+
+
+// ─────────────────────────────────────────────
+// Expenses a member paid out of pocket. The society owes the member, so they are credited
+// (credit can only be used against dues). Crediting yourself needs another admin/treasurer.
+// ─────────────────────────────────────────────
+
+enum ContributionStatus {
+  PENDING    // awaiting a second person (the requester tagged themselves)
+  APPROVED   // credited
+  REJECTED
+  CANCELLED  // withdrawn, or the expense was deleted before approval
+  REVERSED   // credited, then taken back when the expense was deleted
+}
+
+model ExpenseContribution {
+  id            String             @id @default(cuid())
+  societyId     String
+  expenseId     String?            // null once the expense is deleted; the title below keeps the record readable
+  expenseTitle  String
+  userId        String             // the member who paid and is credited
+  amount        Decimal            @db.Decimal(10, 2)
+  status        ContributionStatus @default(PENDING)
+  requestedById String             // who recorded the expense
+  reviewedById  String?
+  reviewedAt    DateTime?
+  note          String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  society     Society  @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  expense     Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+  member      User     @relation("ContributionMember", fields: [userId], references: [id])
+  requestedBy User     @relation("ContributionRequester", fields: [requestedById], references: [id])
+  reviewedBy  User?    @relation("ContributionReviewer", fields: [reviewedById], references: [id])
+
+  @@index([societyId, status])
+  @@index([expenseId])
+  @@index([userId])
 }

@@ -172,3 +172,24 @@ ${info.note ? `<tr><td style="color:#6b7280;padding-right:16px">Note</td><td>${e
     ),
   };
 }
+
+export function expenseCreditMessage(info: {
+  societyName: string;
+  name: string;
+  amount: string;
+  expenseTitle: string;
+}): { subject: string; html: string; text: string } {
+  const text = `Hi ${info.name}, ${info.amount} has been credited to your ${info.societyName} account because you paid for "${info.expenseTitle}" on the society's behalf. It will be adjusted against your maintenance dues automatically. Open ${appUrl()}/dashboard/maintenance to see your credit.`;
+  return {
+    subject: `${info.amount} credited for "${info.expenseTitle}"`,
+    text,
+    html: shell(
+      info.societyName,
+      "Expense credit added",
+      `<p style="font-size:14px;color:#374151">Hi ${escapeHtml(info.name)},</p>
+<p style="font-size:14px;color:#374151"><b>${escapeHtml(info.amount)}</b> has been credited to your account because you paid for <b>${escapeHtml(info.expenseTitle)}</b> on the society's behalf.</p>
+<p style="font-size:13px;color:#6b7280">It is adjusted against your maintenance dues automatically. Credit can only be used for dues.</p>
+<a href="${appUrl()}/dashboard/maintenance" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-size:14px;font-weight:600">View my credit</a>`
+    ),
+  };
+}

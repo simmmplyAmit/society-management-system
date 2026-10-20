@@ -13,7 +13,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import { prisma } from "@/lib/prisma";
-import { depositAndApply, applyCreditFor, applyCreditForSociety, getCreditBalance, hasCreditAllocations } from "@/lib/ledger";
+import { depositAndApply, depositAndApplyIn, reverseExpenseCreditIn, InsufficientCreditError, applyCreditFor, applyCreditForSociety, getCreditBalance, hasCreditAllocations } from "@/lib/ledger";
 
 const due = (id: string, amount: number, amountPaid = 0, month = 1, year = 2026) => ({ id, amount, amountPaid, month, year });
 let entryNo = 0;
@@ -154,5 +154,33 @@ describe("balance and allocations", () => {
     vi.mocked(prisma.creditEntry.count).mockResolvedValue(1);
     expect(await hasCreditAllocations("s1", "p1")).toBe(true);
     expect(vi.mocked(prisma.creditEntry.count).mock.calls[0][0]!.where).toEqual({ societyId: "s1", paymentId: "p1", type: "APPLIED" });
+  });
+});
+
+describe("expense credit", () => {
+  it("records an EXPENSE_CREDIT with its expense inside the caller's transaction", async () => {
+    balances(500, 0);
+    tx.maintenancePayment.findMany.mockResolvedValue([]);
+    await depositAndApplyIn(tx as never, {
+      societyId: "s1", userId: "u1", actorId: "t1", amount: 500, type: "EXPENSE_CREDIT", expenseId: "e1", note: "Paid for: Lift",
+    });
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(tx.creditEntry.create.mock.calls[0][0].data).toMatchObject({
+      type: "EXPENSE_CREDIT", amount: 500, expenseId: "e1", note: "Paid for: Lift",
+    });
+    expect(prisma.$transaction).not.toHaveBeenCalled(); // joined the caller's transaction instead of opening one
+  });
+
+  it("takes expense credit back only while the member still holds it", async () => {
+    balances(500);
+    await reverseExpenseCreditIn(tx as never, { societyId: "s1", userId: "u1", amount: 500, expenseId: "e1", actorId: "t1" });
+    expect(tx.creditEntry.create.mock.calls[0][0].data).toMatchObject({ type: "EXPENSE_CREDIT_REVERSAL", amount: -500, expenseId: "e1" });
+
+    vi.clearAllMocks();
+    balances(499.99);
+    await expect(
+      reverseExpenseCreditIn(tx as never, { societyId: "s1", userId: "u1", amount: 500, expenseId: "e1", actorId: "t1" })
+    ).rejects.toBeInstanceOf(InsufficientCreditError);
+    expect(tx.creditEntry.create).not.toHaveBeenCalled();
   });
 });

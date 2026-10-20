@@ -3,18 +3,17 @@
 Running list of work that is planned, deferred or still to be verified. Update it as items are done.
 Last updated: 2026-10-20 (branch `main-22f19h`).
 
-## 1. Next planned feature: members paying society expenses (step 3)
+## 1. Members paying society expenses (step 3): built, follow-ups
 
-Members sometimes pay a society expense out of pocket. The admin or treasurer records the expense and tags amounts to one or more members, who are then credited in the ledger.
+Done: Advanced "paid by members" on Add expense, credit in the same transaction, self-tag approval by another admin/treasurer, reversal on delete while credit is unspent, receipt link, "Owed to members" card, credit email to the member.
 
-- [ ] Hide it under an **Advanced** section of the expense form; the basic form stays unchanged.
-- [ ] "Paid by members": pick members and an amount each. The amounts must add up to at most the expense total (the rest comes from society funds).
-- [ ] Saving posts a credit entry per member (new `CreditEntryType`, e.g. `EXPENSE_REIMBURSEMENT`) that the existing automatic application spends on dues.
-- [ ] **No self-approval:** if the treasurer or admin tags themselves, a different admin or treasurer must approve (same four-eyes pattern as UPI ID changes).
-- [ ] Editing or deleting such an expense posts reversing entries; never delete ledger rows.
-- [ ] Attach the receipt (the expense already has `receiptUrl`).
-- [ ] Reports should show members' credit as an amount the society owes, so the books do not look like money is missing.
-- [ ] Credit is dues-only (decision below), so there is no cash payout path. If a member should be paid back in cash, that needs a new decision.
+- [ ] Edit an expense or its member amounts (today only delete). Needs the same credit-reversal rules.
+- [ ] Deleting is blocked once a member has spent the credit on dues; a reviewed correction tool is needed (see credit corrections below).
+- [ ] Optional cash reimbursement to the member (credit is dues-only by decision; revisit if members must be paid back in money).
+- [ ] Upload the receipt file (today a `https://` link only).
+- [ ] Recording an expense for *someone else's* credit needs no approval (only self-tagging does). Consider requiring approval for any credit above a limit, or for committee members.
+- [ ] Reports: an expense funding breakdown (society funds vs member-paid) per period.
+- [ ] Credit email only; no SMS (needs a DLT template).
 
 ## 2. Features decided but not built
 
@@ -71,7 +70,7 @@ Members sometimes pay a society expense out of pocket. The admin or treasurer re
 ## 6. Deployment checklist (nothing deployed yet)
 
 - [ ] Open the PR `main-22f19h` into `main` (the GitHub tool failed earlier: "invalid session"; use https://github.com/simmmplyAmit/society-management-system/compare/main...main-22f19h) and merge.
-- [ ] Neon production database (pooled URL, region near users). Run `npx prisma migrate deploy`. Migrations added in this work: `add_otp_and_notifications`, `add_payment_claims`, `add_upi_change_requests`, `add_credit_ledger_and_part_payments`, `add_cash_collections`, `add_special_charges` (changes the dues unique key to include a charge key; existing rows get `chargeKey = MAINTENANCE`).
+- [ ] Neon production database (pooled URL, region near users). Run `npx prisma migrate deploy`. Migrations added in this work: `add_otp_and_notifications`, `add_payment_claims`, `add_upi_change_requests`, `add_credit_ledger_and_part_payments`, `add_cash_collections`, `add_expense_contributions`, `add_special_charges` (changes the dues unique key to include a charge key; existing rows get `chargeKey = MAINTENANCE`).
 - [ ] Vercel project with env vars: `DATABASE_URL`, `AUTH_SECRET`, `CRON_SECRET`, `AUTH_TRUST_HOST=true`, `APP_URL`, `RESEND_API_KEY`, `EMAIL_FROM`, `MSG91_AUTH_KEY`, `MSG91_TEMPLATE_OTP`, `MSG91_TEMPLATE_DUE`, `MSG91_TEMPLATE_RECEIPT` (see `.env.example`).
 - [ ] Verify the Resend sending domain; register the three MSG91 DLT templates (text in `.env.example`) and confirm the exact flow request format and variable names against MSG91's docs (written from memory).
 - [ ] **Existing users are locked out until they verify email and mobile.** Set `REQUIRE_VERIFICATION=false` until the providers work, then remove it.

@@ -121,34 +121,80 @@ async function applyTx(tx: Tx, o: ApplyOptions): Promise<Applied[]> {
   return applied;
 }
 
-/** Add money to the user's credit, then spend it on their dues straight away. */
-export async function depositAndApply(o: ApplyOptions & {
+type DepositOptions = ApplyOptions & {
   amount: number;
+  /** DEPOSIT (money received) or EXPENSE_CREDIT (the society owes the member for an expense they paid). */
+  type?: "DEPOSIT" | "EXPENSE_CREDIT";
   claimId?: string | null;
+  expenseId?: string | null;
   note?: string | null;
   /** Runs inside the same transaction, right after the deposit entry is written. */
   inTx?: (tx: Prisma.TransactionClient) => Promise<void>;
-}): Promise<{ applied: Applied[]; balance: number }> {
+};
+
+/**
+ * Add to the user's credit and spend it on their dues straight away, inside a caller-supplied
+ * transaction (so it can commit together with other writes). Locks the user's row first.
+ */
+export async function depositAndApplyIn(
+  tx: Tx,
+  o: DepositOptions
+): Promise<{ applied: Applied[]; balance: number }> {
   const paise = toPaise(o.amount);
   if (!(paise > 0)) throw new Error("Deposit must be positive");
 
-  return prisma.$transaction(async (tx) => {
-    await lockUser(tx, o.userId);
-    await tx.creditEntry.create({
-      data: {
-        societyId: o.societyId,
-        userId: o.userId,
-        type: "DEPOSIT",
-        amount: fromPaise(paise),
-        claimId: o.claimId ?? null,
-        reference: o.reference ?? null,
-        note: o.note ?? null,
-        createdById: o.actorId,
-      },
-    });
-    if (o.inTx) await o.inTx(tx);
-    const applied = await applyTx(tx, o);
-    return { applied, balance: fromPaise(await balancePaise(tx, o.societyId, o.userId)) };
+  await lockUser(tx, o.userId);
+  await tx.creditEntry.create({
+    data: {
+      societyId: o.societyId,
+      userId: o.userId,
+      type: o.type ?? "DEPOSIT",
+      amount: fromPaise(paise),
+      claimId: o.claimId ?? null,
+      expenseId: o.expenseId ?? null,
+      reference: o.reference ?? null,
+      note: o.note ?? null,
+      createdById: o.actorId,
+    },
+  });
+  if (o.inTx) await o.inTx(tx);
+  const applied = await applyTx(tx, o);
+  return { applied, balance: fromPaise(await balancePaise(tx, o.societyId, o.userId)) };
+}
+
+/** Add money to the user's credit, then spend it on their dues straight away. */
+export async function depositAndApply(o: DepositOptions): Promise<{ applied: Applied[]; balance: number }> {
+  if (!(toPaise(o.amount) > 0)) throw new Error("Deposit must be positive");
+  return prisma.$transaction((tx) => depositAndApplyIn(tx, o));
+}
+
+export class InsufficientCreditError extends Error {
+  constructor(public readonly userId: string) {
+    super("INSUFFICIENT_CREDIT");
+  }
+}
+
+/**
+ * Take back credit that was granted for an expense. Only possible while the member still holds
+ * that much unspent credit; once it has paid dues it can't be clawed back here.
+ */
+export async function reverseExpenseCreditIn(
+  tx: Tx,
+  o: { societyId: string; userId: string; amount: number; expenseId: string | null; actorId: string | null; note?: string | null }
+): Promise<void> {
+  const paise = toPaise(o.amount);
+  await lockUser(tx, o.userId);
+  if ((await balancePaise(tx, o.societyId, o.userId)) < paise) throw new InsufficientCreditError(o.userId);
+  await tx.creditEntry.create({
+    data: {
+      societyId: o.societyId,
+      userId: o.userId,
+      type: "EXPENSE_CREDIT_REVERSAL",
+      amount: -fromPaise(paise),
+      expenseId: o.expenseId,
+      note: o.note ?? null,
+      createdById: o.actorId,
+    },
   });
 }
 

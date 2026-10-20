@@ -47,9 +47,17 @@ export interface FlatChip {
   type: "OWNER" | "TENANT";
 }
 
+const CREDIT_LABEL: Record<CreditMove["type"], string> = {
+  DEPOSIT: "Payment received",
+  APPLIED: "Applied to dues",
+  REVERSAL: "Returned to credit",
+  EXPENSE_CREDIT: "Credited for an expense you paid",
+  EXPENSE_CREDIT_REVERSAL: "Expense credit taken back",
+};
+
 export interface CreditMove {
   id: string;
-  type: "DEPOSIT" | "APPLIED" | "REVERSAL";
+  type: "DEPOSIT" | "APPLIED" | "REVERSAL" | "EXPENSE_CREDIT" | "EXPENSE_CREDIT_REVERSAL";
   amount: string | number;
   note: string | null;
   createdAt: Date;
@@ -317,7 +325,7 @@ export function ResidentDues({
                 <div key={m.id} className="flex items-center gap-3 px-4 py-3">
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium">
-                      {m.type === "DEPOSIT" ? "Payment received" : m.type === "APPLIED" ? "Applied to dues" : "Returned to credit"}
+                      {CREDIT_LABEL[m.type]}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {formatDate(m.createdAt)}

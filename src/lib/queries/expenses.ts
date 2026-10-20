@@ -23,6 +23,11 @@ export async function getExpenses(
     where,
     include: {
       addedBy: { select: { name: true } },
+      // Members who paid some of it themselves (and are credited)
+      contributions: {
+        where: { status: { in: ["APPROVED", "PENDING"] } },
+        select: { id: true, amount: true, status: true, member: { select: { name: true } } },
+      },
     },
     orderBy: { date: "desc" },
   });
@@ -75,5 +80,34 @@ export async function getExpenseAnalytics(
       const [year, category] = k.split("\u0000");
       return { year: Number(year), category, total: t };
     }),
+  };
+}
+
+/** Credit a member's own expense request is waiting for a second person. */
+export async function getPendingContributions(societyId: string) {
+  return prisma.expenseContribution.findMany({
+    where: { societyId, status: "PENDING", expenseId: { not: null } },
+    include: {
+      member: { select: { name: true } },
+      requestedBy: { select: { name: true } },
+      expense: { select: { amount: true, date: true, receiptUrl: true } },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+/** What the society currently owes members: credit they hold and have not yet spent on dues. */
+export async function getMemberCreditSummary(societyId: string) {
+  const rows = await prisma.creditEntry.groupBy({
+    by: ["userId"],
+    where: { societyId },
+    _sum: { amount: true },
+  });
+  const held = rows
+    .map((r) => ({ userId: r.userId, balance: Math.round(Number(r._sum.amount ?? 0) * 100) / 100 }))
+    .filter((r) => r.balance > 0);
+  return {
+    total: Math.round(held.reduce((n, r) => n + r.balance * 100, 0)) / 100,
+    members: held.length,
   };
 }

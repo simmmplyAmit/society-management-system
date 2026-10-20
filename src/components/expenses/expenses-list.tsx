@@ -15,6 +15,8 @@ interface Expense {
   date: Date;
   description: string | null;
   addedBy: { name: string };
+  receiptUrl?: string | null;
+  contributions?: { id: string; amount: number; status: "APPROVED" | "PENDING" | "REJECTED" | "CANCELLED" | "REVERSED"; member: { name: string } }[];
 }
 
 interface ExpensesListProps {
@@ -67,6 +69,26 @@ export function ExpensesList({ expenses, canDelete }: ExpensesListProps) {
             </p>
             {expense.description && (
               <p className="mt-0.5 truncate text-xs text-muted-foreground">{expense.description}</p>
+            )}
+            {expense.contributions && expense.contributions.length > 0 && (
+              <div className="mt-1 flex flex-wrap gap-1">
+                {expense.contributions.map((c) => (
+                  <span
+                    key={c.id}
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 ring-inset ${
+                      c.status === "APPROVED" ? "bg-sky-50 text-sky-700 ring-sky-600/20" : "bg-amber-50 text-amber-700 ring-amber-600/20"
+                    }`}
+                  >
+                    Paid by {c.member.name} {formatCurrency(c.amount)}
+                    {c.status === "PENDING" ? " · awaiting approval" : ""}
+                  </span>
+                ))}
+              </div>
+            )}
+            {expense.receiptUrl && (
+              <a href={expense.receiptUrl} target="_blank" rel="noopener noreferrer" className="mt-0.5 block text-[11px] font-medium text-primary hover:underline">
+                View receipt
+              </a>
             )}
           </div>
           <span className="shrink-0 text-sm font-semibold">{formatCurrency(expense.amount)}</span>

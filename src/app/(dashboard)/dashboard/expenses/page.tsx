@@ -1,5 +1,8 @@
 import { requireRole } from "@/lib/session";
-import { getExpenses, getExpenseAnalytics } from "@/lib/queries/expenses";
+import { getExpenses, getExpenseAnalytics, getMemberCreditSummary, getPendingContributions } from "@/lib/queries/expenses";
+import { getMemberOptions } from "@/lib/queries/flats";
+import { PendingContributions } from "@/components/expenses/pending-contributions";
+import { formatCurrency } from "@/lib/utils/month";
 import { AddExpenseForm } from "@/components/expenses/add-expense-form";
 import { ExpensesList } from "@/components/expenses/expenses-list";
 import { ExpenseAnalyticsView } from "@/components/expenses/expense-analytics";
@@ -26,12 +29,19 @@ export default async function ExpensesPage({
 
   const isTreasurer = role === "TREASURER" || role === "ADMIN";
 
-  const [rawExpenses, analytics] = await Promise.all([
+  const [rawExpenses, analytics, pending, credit, members] = await Promise.all([
     getExpenses(societyId!, month, year),
     getExpenseAnalytics(societyId!),
+    isTreasurer ? getPendingContributions(societyId!) : Promise.resolve([]),
+    isTreasurer ? getMemberCreditSummary(societyId!) : Promise.resolve(null),
+    isTreasurer ? getMemberOptions(societyId!) : Promise.resolve([]),
   ]);
 
-  const expenses = rawExpenses.map((e) => ({ ...e, amount: Number(e.amount) }));
+  const expenses = rawExpenses.map((e) => ({
+    ...e,
+    amount: Number(e.amount),
+    contributions: e.contributions.map((c) => ({ ...c, amount: Number(c.amount) })),
+  }));
 
   return (
     <div className="space-y-5">
@@ -39,9 +49,37 @@ export default async function ExpensesPage({
 
       <ExpenseAnalyticsView data={analytics} />
 
+      {credit && credit.total > 0 && (
+        <div className="rounded-xl bg-card p-4 ring-1 ring-border shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+          <p className="text-xs font-medium text-muted-foreground">Owed to members (credit not yet used)</p>
+          <p className="text-xl font-semibold">{formatCurrency(credit.total)}</p>
+          <p className="text-xs text-muted-foreground">
+            Held by {credit.members} member{credit.members !== 1 ? "s" : ""}. It reduces what they pay in maintenance, so
+            the society has spent this money but not yet collected the matching dues.
+          </p>
+        </div>
+      )}
+
+      {isTreasurer && (
+        <PendingContributions
+          currentUserId={session.user.id}
+          items={pending.map((c) => ({
+            id: c.id,
+            expenseTitle: c.expenseTitle,
+            expenseAmount: Number(c.expense?.amount ?? 0),
+            expenseDate: c.expense?.date ?? c.createdAt,
+            receiptUrl: c.expense?.receiptUrl ?? null,
+            memberName: c.member.name,
+            amount: Number(c.amount),
+            requestedById: c.requestedById,
+            requestedByName: c.requestedBy.name,
+          }))}
+        />
+      )}
+
       {isTreasurer && (
         <ToolSection title="Add expense" description="Record a new bill or payment" icon={Plus}>
-          <AddExpenseForm />
+          <AddExpenseForm members={members} currentUserId={session.user.id} />
         </ToolSection>
       )}
 

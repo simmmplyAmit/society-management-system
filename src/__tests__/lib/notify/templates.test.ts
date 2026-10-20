@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { dueMessage, receiptMessage, otpMessage, escapeHtml } from "@/lib/notify/templates";
+import { dueMessage, receiptMessage, otpMessage, escapeHtml, expenseCreditMessage } from "@/lib/notify/templates";
 
 const info = {
   name: "Rahul", societyName: "Sunrise", flat: "Wing A · F1 · A-101",
@@ -36,5 +36,13 @@ describe("templates", () => {
     const o = otpMessage("123456", "Verify your email address");
     expect(o.sms).toMatchObject({ template: "otp", vars: { otp: "123456" } });
     expect(o.email.subject).toContain("123456");
+  });
+
+  it("builds an expense credit email and escapes user text", () => {
+    const m = expenseCreditMessage({ societyName: "A&B", name: "<b>Eve</b>", amount: "₹600", expenseTitle: "<script>x</script>" });
+    expect(m.subject).toContain("₹600 credited");
+    expect(m.html).not.toContain("<script>");
+    expect(m.html).not.toContain("<b>Eve</b>");
+    expect(m.text).toMatch(/adjusted against your maintenance dues/);
   });
 });
