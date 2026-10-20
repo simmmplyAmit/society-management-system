@@ -84,4 +84,4 @@ Roles and what each can do are listed in README.md. In short: ADMIN manages stru
 - Tests mirror the source layout: `__tests__/actions`, `__tests__/queries`, `__tests__/lib`, `__tests__/api`.
 
 ## Not yet implemented
-WhatsApp messages, automatic UPI payment verification, and tenant-occupancy UI beyond create/close.
+WhatsApp messages, automatic UPI payment verification, late fees, members paying expenses, and tenant-occupancy UI beyond create/close. The full backlog and decisions are in `docs/PENDING.md`.
