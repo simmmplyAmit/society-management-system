@@ -18,6 +18,7 @@ const incomeSchema = z.object({
 
 function paths() {
   revalidatePath("/dashboard/income");
+  revalidatePath("/dashboard/income/statement");
   revalidatePath("/dashboard");
 }
 
@@ -43,6 +44,32 @@ export async function addIncome(formData: FormData) {
       addedById: session.user.id,
     },
   });
+  paths();
+  return { success: true as const };
+}
+
+export async function updateIncome(incomeId: string, formData: FormData) {
+  const session = await requireRole(["TREASURER", "ADMIN"]);
+  const societyId = session.user.societyId!;
+
+  const parsed = incomeSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const date = new Date(parsed.data.date);
+  if (Number.isNaN(date.getTime())) return { error: "Enter a valid date" };
+
+  const { count } = await prisma.income.updateMany({
+    where: { id: incomeId, societyId },
+    data: {
+      title: parsed.data.title,
+      category: parsed.data.category,
+      amount: parsed.data.amount,
+      date,
+      description: parsed.data.description || null,
+      reference: parsed.data.reference || null,
+    },
+  });
+  if (count === 0) return { error: "Income entry not found" };
   paths();
   return { success: true as const };
 }

@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/prisma", () => ({
-  prisma: { income: { create: vi.fn(), deleteMany: vi.fn() } },
+  prisma: { income: { create: vi.fn(), deleteMany: vi.fn(), updateMany: vi.fn().mockResolvedValue({ count: 1 }) } },
 }));
 vi.mock("@/lib/session", () => ({
   requireRole: vi.fn().mockResolvedValue({ user: { id: "t1", role: "TREASURER", societyId: "s1" } }),
 }));
 
-import { addIncome, deleteIncome } from "@/actions/income";
+import { addIncome, deleteIncome, updateIncome } from "@/actions/income";
 import { requireRole } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 
@@ -60,5 +60,37 @@ describe("deleteIncome", () => {
     await deleteIncome("i1");
     expect(requireRole).toHaveBeenCalledWith(["TREASURER", "ADMIN"]);
     expect(prisma.income.deleteMany).toHaveBeenCalledWith({ where: { id: "i1", societyId: "s1" } });
+  });
+});
+
+describe("updateIncome", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.income.updateMany).mockResolvedValue({ count: 1 });
+  });
+
+  it("requires TREASURER or ADMIN and scopes the update by society", async () => {
+    const r = await updateIncome("i1", fd(valid));
+    expect(requireRole).toHaveBeenCalledWith(["TREASURER", "ADMIN"]);
+    expect(r).toEqual({ success: true });
+    expect(prisma.income.updateMany).toHaveBeenCalledWith({
+      where: { id: "i1", societyId: "s1" },
+      data: expect.objectContaining({ amount: 1250.75, category: "Bank interest" }),
+    });
+  });
+
+  it("cannot move an entry to another society", async () => {
+    await updateIncome("i1", fd({ ...valid, societyId: "other" }));
+    expect(vi.mocked(prisma.income.updateMany).mock.calls[0][0].data).not.toHaveProperty("societyId");
+  });
+
+  it("reports an entry that isn't in this society", async () => {
+    vi.mocked(prisma.income.updateMany).mockResolvedValue({ count: 0 });
+    expect(await updateIncome("x", fd(valid))).toEqual({ error: "Income entry not found" });
+  });
+
+  it("rejects invalid input without writing", async () => {
+    expect(await updateIncome("i1", fd({ ...valid, amount: "-1" }))).toHaveProperty("error");
+    expect(prisma.income.updateMany).not.toHaveBeenCalled();
   });
 });

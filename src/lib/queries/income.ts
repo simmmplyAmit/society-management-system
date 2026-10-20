@@ -1,5 +1,6 @@
 // Server-only data access (not a "use server" file). Pass a societyId taken from the session.
 import { prisma } from "@/lib/prisma";
+import { buildStatement, type Statement } from "@/lib/utils/statement";
 
 export async function getIncomes(societyId: string, year: number) {
   return prisma.income.findMany({
@@ -34,4 +35,27 @@ export async function getIncomeSummary(societyId: string, year: number): Promise
     expenseTotal: Number(expenses._sum.amount ?? 0),
     byCategory: [...cats].map(([category, p]) => ({ category, total: p / 100 })).sort((a, b) => b.total - a.total),
   };
+}
+
+/** Yearly cash-basis statement: dues received + other income against expenses. */
+export async function getStatement(societyId: string, year: number): Promise<Statement> {
+  const range = { gte: new Date(year, 0, 1), lte: new Date(year, 11, 31, 23, 59, 59) };
+  const [deposits, incomes, expenses, contributions] = await Promise.all([
+    prisma.creditEntry.findMany({
+      where: { societyId, type: "DEPOSIT", createdAt: range },
+      select: { amount: true, createdAt: true },
+    }),
+    prisma.income.findMany({ where: { societyId, date: range }, select: { amount: true, date: true, category: true } }),
+    prisma.expense.findMany({ where: { societyId, date: range }, select: { amount: true, date: true, category: true } }),
+    prisma.expenseContribution.findMany({
+      where: { societyId, status: "APPROVED", expense: { is: { date: range } } },
+      select: { amount: true, expense: { select: { date: true } } },
+    }),
+  ]);
+  return buildStatement({
+    deposits: deposits.map((d) => ({ amount: Number(d.amount), date: d.createdAt })),
+    incomes: incomes.map((i) => ({ ...i, amount: Number(i.amount) })),
+    expenses: expenses.map((e) => ({ ...e, amount: Number(e.amount) })),
+    memberPaid: contributions.flatMap((c) => (c.expense ? [{ amount: Number(c.amount), date: c.expense.date }] : [])),
+  });
 }

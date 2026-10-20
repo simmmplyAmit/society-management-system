@@ -5,7 +5,8 @@ import { AddIncomeForm } from "@/components/income/add-income-form";
 import { IncomeList } from "@/components/income/income-list";
 import { YearSelector } from "@/components/expenses/year-selector";
 import { ToolSection } from "@/components/ui/tool-section";
-import { Plus } from "lucide-react";
+import Link from "next/link";
+import { Plus, FileText } from "lucide-react";
 
 export default async function IncomePage({
   searchParams,
@@ -32,6 +33,14 @@ export default async function IncomePage({
       <p className="-mt-3 text-sm text-muted-foreground">
         Money the society receives apart from maintenance dues: bank interest, hall rent, scrap sales, donations.
       </p>
+
+      <Link
+        href={`/dashboard/income/statement?year=${year}`}
+        className="flex items-center justify-between rounded-xl bg-card px-4 py-3 text-sm font-medium ring-1 ring-border hover:bg-muted/40"
+      >
+        <span className="flex items-center gap-2"><FileText className="size-4 text-primary" /> Full statement for {year}</span>
+        <span className="text-xs text-muted-foreground">Dues + income vs expenses</span>
+      </Link>
 
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-xl bg-card p-4 ring-1 ring-border shadow-[0_1px_2px_rgba(16,24,40,0.04)]">

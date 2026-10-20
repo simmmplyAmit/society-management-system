@@ -37,10 +37,11 @@ Done: Advanced "paid by members" on Add expense, credit in the same transaction,
 
 Built: record bank interest, rent, donations etc. with category, date and bank reference; year view with by-type totals against expenses.
 
-- [ ] Edit an income entry (today delete and re-add).
-- [ ] Count dues collected too, for a full income and expense statement / balance (receipts and payments account).
+- [x] Edit an income entry; yearly cash-basis statement (dues received + other income vs expenses, by month and type).
+- [ ] Statement is cash basis only: no billed-vs-collected (accrual) view, no opening/closing bank balance, and cash in hand is not separated from banked money.
+- [ ] Edits to income are not logged (no history of old values).
 - [ ] Deleting income is not approval-gated or logged; consider an audit trail.
-- [ ] Monthly and all-time charts like the expenses analytics; export to CSV.
+- [ ] Charts like the expenses analytics; export the statement to CSV/PDF.
 - [ ] Recurring income (for example a monthly hall rental or FD interest) and attaching a receipt link.
 
 ## 2c. Cash handling follow-ups
