@@ -1,7 +1,7 @@
 # Pending items and decisions
 
 Running list of work that is planned, deferred or still to be verified. Update it as items are done.
-Last updated: 2026-10-20 (branch `main-22f19h`, up to commit `123ecbf`).
+Last updated: 2026-10-20 (branch `main-22f19h`).
 
 ## 1. Next planned feature: members paying society expenses (step 3)
 
@@ -23,6 +23,16 @@ Members sometimes pay a society expense out of pocket. The admin or treasurer re
 - [ ] **Credit corrections.** The ledger has no manual adjustment. A due paid from credit cannot be undone (blocked on purpose). A reviewed correction tool (with four-eyes approval) is needed for mistaken deposits.
 - [ ] **Show each member's credit** to admins and treasurers (for example in the Residents list and the Record a payment picker).
 - [ ] **Move-out and sale.** No refunds (credit is dues-only), so decide how leftover credit is handled when someone leaves or sells.
+
+## 2b. Other charges follow-ups
+
+- [ ] Edit a charge (name, amount, end month, targeting). Today you can only stop it and create a new one; stopping keeps dues already raised.
+- [ ] Target by wing or floor, or an explicit list of flats, and exempt individual flats.
+- [ ] Bulk import of flat configuration and area (CSV or paste), and per-flat "carpet vs built-up" area if both are needed.
+- [ ] A scheduled charge whose start month is in the future shows no preview of when it will first bill.
+- [ ] Reverse or cancel dues already raised by a charge (for example billed to the wrong flats). Needs a reviewed tool; today dues have to be corrected by hand.
+- [ ] Per-charge reports (billed vs collected) and a combined statement per flat.
+- [ ] SMS wording for other charges reuses the maintenance DLT template with the charge name in the period text; register dedicated templates if wording matters.
 
 ## 3. Notifications and messaging gaps
 
@@ -51,7 +61,7 @@ Members sometimes pay a society expense out of pocket. The admin or treasurer re
 ## 6. Deployment checklist (nothing deployed yet)
 
 - [ ] Open the PR `main-22f19h` into `main` (the GitHub tool failed earlier: "invalid session"; use https://github.com/simmmplyAmit/society-management-system/compare/main...main-22f19h) and merge.
-- [ ] Neon production database (pooled URL, region near users). Run `npx prisma migrate deploy`. Migrations added in this work: `add_otp_and_notifications`, `add_payment_claims`, `add_upi_change_requests`, `add_credit_ledger_and_part_payments`.
+- [ ] Neon production database (pooled URL, region near users). Run `npx prisma migrate deploy`. Migrations added in this work: `add_otp_and_notifications`, `add_payment_claims`, `add_upi_change_requests`, `add_credit_ledger_and_part_payments`, `add_special_charges` (changes the dues unique key to include a charge key; existing rows get `chargeKey = MAINTENANCE`).
 - [ ] Vercel project with env vars: `DATABASE_URL`, `AUTH_SECRET`, `CRON_SECRET`, `AUTH_TRUST_HOST=true`, `APP_URL`, `RESEND_API_KEY`, `EMAIL_FROM`, `MSG91_AUTH_KEY`, `MSG91_TEMPLATE_OTP`, `MSG91_TEMPLATE_DUE`, `MSG91_TEMPLATE_RECEIPT` (see `.env.example`).
 - [ ] Verify the Resend sending domain; register the three MSG91 DLT templates (text in `.env.example`) and confirm the exact flow request format and variable names against MSG91's docs (written from memory).
 - [ ] **Existing users are locked out until they verify email and mobile.** Set `REQUIRE_VERIFICATION=false` until the providers work, then remove it.

@@ -8,7 +8,7 @@ export async function getPendingClaims(societyId: string) {
       user: { select: { name: true, phone: true } },
       payments: {
         select: {
-          id: true, month: true, year: true, amount: true, amountPaid: true,
+          id: true, month: true, year: true, amount: true, amountPaid: true, label: true,
           flat: {
             select: {
               number: true,

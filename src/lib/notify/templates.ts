@@ -48,6 +48,8 @@ export function otpMessage(code: string, reason: string): Rendered {
 }
 
 export interface DueInfo {
+  /** What the due is for. Anything but "Maintenance" is an other charge (sinking fund, water…). */
+  label?: string;
   name: string;
   societyName: string;
   flat: string;
@@ -62,23 +64,34 @@ export interface DueInfo {
   balance?: string;
 }
 
+/** "maintenance" for the monthly charge, otherwise the charge's own name. */
+function whatFor(info: DueInfo): string {
+  return info.label && info.label !== "Maintenance" ? info.label : "maintenance";
+}
+
+/** Period text for SMS templates whose wording says "maintenance of ₹X for <period>". */
+function smsPeriod(info: DueInfo): string {
+  return info.label && info.label !== "Maintenance" ? `${info.period} (${info.label})` : info.period;
+}
+
 export function dueMessage(info: DueInfo, reminder: boolean): Rendered {
   const upi = info.upiId ?? "-";
+  const what = whatFor(info);
   const subject = reminder
-    ? `Reminder: maintenance ${info.amount} for ${info.period} is pending`
-    : `Maintenance due: ${info.amount} for ${info.period}`;
+    ? `Reminder: ${what} ${info.amount} for ${info.period} is pending`
+    : `${what.charAt(0).toUpperCase() + what.slice(1)} due: ${info.amount} for ${info.period}`;
   const pay = info.upiId ? `Pay by UPI to ${info.upiId}.` : "Please pay as per your society's instructions.";
   const part = info.paidSoFar ? ` (${info.paidSoFar} already paid)` : "";
-  const text = `Hi ${info.name}, ${reminder ? "a reminder that " : ""}maintenance of ${info.amount} for ${info.period} (${info.flat}) is pending${part}. ${pay} Open ${appUrl()}/dashboard/maintenance to see your dues.`;
+  const text = `Hi ${info.name}, ${reminder ? "a reminder that " : ""}${what} of ${info.amount} for ${info.period} (${info.flat}) is pending${part}. ${pay} Open ${appUrl()}/dashboard/maintenance to see your dues.`;
   return {
     email: {
       subject,
       text,
       html: shell(
         info.societyName,
-        reminder ? "Maintenance reminder" : "Maintenance due",
+        reminder ? `${what.charAt(0).toUpperCase() + what.slice(1)} reminder` : `${what.charAt(0).toUpperCase() + what.slice(1)} due`,
         `<p style="font-size:14px;color:#374151">Hi ${escapeHtml(info.name)},</p>
-<p style="font-size:14px;color:#374151">${reminder ? "This is a reminder that your" : "Your"} maintenance for <b>${escapeHtml(info.period)}</b> is pending${info.paidSoFar ? ` (${escapeHtml(info.paidSoFar)} already paid, this is the balance)` : ""}.</p>
+<p style="font-size:14px;color:#374151">${reminder ? "This is a reminder that your" : "Your"} ${escapeHtml(what)} for <b>${escapeHtml(info.period)}</b> is pending${info.paidSoFar ? ` (${escapeHtml(info.paidSoFar)} already paid, this is the balance)` : ""}.</p>
 <table style="font-size:14px;margin:12px 0;color:#111827"><tr><td style="color:#6b7280;padding-right:16px">Flat</td><td>${escapeHtml(info.flat)}</td></tr>
 <tr><td style="color:#6b7280;padding-right:16px">Amount</td><td><b>${escapeHtml(info.amount)}</b></td></tr>
 ${info.upiId ? `<tr><td style="color:#6b7280;padding-right:16px">Pay to UPI</td><td>${escapeHtml(info.upiId)}</td></tr>` : ""}</table>
@@ -87,14 +100,14 @@ ${info.upiId ? `<tr><td style="color:#6b7280;padding-right:16px">Pay to UPI</td>
     },
     sms: {
       template: "due",
-      vars: { name: info.name, amount: info.amount, period: info.period, flat: info.flat, upi },
+      vars: { name: info.name, amount: info.amount, period: smsPeriod(info), flat: info.flat, upi },
       preview: text,
     },
   };
 }
 
 export function receiptMessage(info: DueInfo): Rendered {
-  const text = `Hi ${info.name}, we received ${info.amount} maintenance for ${info.period} (${info.flat}) on ${info.paidOn ?? "today"}${info.utr ? `, ref ${info.utr}` : ""}.${info.balance ? ` Balance due: ${info.balance}.` : ""} Thank you! - ${info.societyName}`;
+  const text = `Hi ${info.name}, we received ${info.amount} ${whatFor(info)} for ${info.period} (${info.flat}) on ${info.paidOn ?? "today"}${info.utr ? `, ref ${info.utr}` : ""}.${info.balance ? ` Balance due: ${info.balance}.` : ""} Thank you! - ${info.societyName}`;
   return {
     email: {
       subject: `Payment received: ${info.amount} for ${info.period}`,
@@ -113,7 +126,7 @@ ${info.utr ? `<tr><td style="color:#6b7280;padding-right:16px">Reference</td><td
     },
     sms: {
       template: "receipt",
-      vars: { name: info.name, amount: info.amount, period: info.period, flat: info.flat },
+      vars: { name: info.name, amount: info.amount, period: smsPeriod(info), flat: info.flat },
       preview: text,
     },
   };

@@ -119,6 +119,7 @@ export async function notifyPayments(
     const isReceipt = kind === "PAYMENT_RECEIPT";
     const base: Omit<DueInfo, "name"> = {
       societyName: p.society.name,
+      label: p.label,
       flat: flatLabel(p.flat, p.society.hasWings),
       period: `${MONTHS[p.month - 1]} ${p.year}`,
       // Dues and reminders ask for what is left; a receipt states what has been paid

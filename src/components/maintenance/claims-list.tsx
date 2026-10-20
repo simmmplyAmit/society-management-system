@@ -23,6 +23,7 @@ interface Claim {
     year: number;
     amount: string | number;
     amountPaid?: string | number | null;
+    label?: string | null;
     flat: { number: string; floor: { number: number; wing: { name: string } } };
   }[];
 }
@@ -111,7 +112,7 @@ function ClaimCard({ claim, hasWings }: { claim: Claim; hasWings: boolean }) {
         {claim.payments.map((p) => (
           <li key={p.id} className="flex justify-between gap-2">
             <span className="truncate">
-              {MONTHS[p.month - 1].slice(0, 3)} {p.year} · {flatLabel(p.flat, hasWings)}
+              {p.label && p.label !== "Maintenance" ? `${p.label} · ` : ""}{MONTHS[p.month - 1].slice(0, 3)} {p.year} · {flatLabel(p.flat, hasWings)}
             </span>
             <span className="shrink-0">{formatCurrency(dueBalance(p))}</span>
           </li>

@@ -14,10 +14,13 @@ import { PaymentsTable } from "@/components/maintenance/payments-table";
 import { DuesTabs, type DuesTab } from "@/components/maintenance/dues-tabs";
 import { PaymentFilters } from "@/components/maintenance/payment-filters";
 import { MyDues } from "@/components/maintenance/my-dues";
-import { getMemberOptions, getMyFlats } from "@/lib/queries/flats";
+import { getFlatDetails, getMemberOptions, getMyFlats } from "@/lib/queries/flats";
+import { getSpecialCharges } from "@/lib/queries/special-charges";
+import { SpecialChargeForm } from "@/components/maintenance/special-charge-form";
+import { SpecialChargesList } from "@/components/maintenance/special-charges-list";
 import { RecordDepositForm, type MemberOption } from "@/components/maintenance/record-deposit-form";
 import { ToolSection } from "@/components/ui/tool-section";
-import { Wallet } from "lucide-react";
+import { Plus, Wallet } from "lucide-react";
 import { ClaimsList } from "@/components/maintenance/claims-list";
 import { countPendingClaims, getPendingClaims } from "@/lib/queries/claims";
 
@@ -61,7 +64,7 @@ export default async function MaintenancePage({
   // Committee members can own flats too: they get a "My dues" tab for their own flats
   const myFlats = await getMyFlats(societyId!, userId);
   const myDueCount = myFlats.reduce((n, f) => n + f.unpaidCount, 0);
-  const tabs: DuesTab[] = ["pending", ...(isManager ? (["verify"] as const) : []), ...(myFlats.length > 0 ? (["mine"] as const) : []), ...(isManager ? (["generate"] as const) : []), ...(isAdmin ? (["charges"] as const) : [])];
+  const tabs: DuesTab[] = ["pending", ...(isManager ? (["verify"] as const) : []), ...(myFlats.length > 0 ? (["mine"] as const) : []), ...(isManager ? (["generate"] as const) : []), ...(isAdmin ? (["charges"] as const) : []), ...(isManager ? (["other"] as const) : [])];
   const tab: DuesTab = tabs.includes(sp.tab as DuesTab) ? (sp.tab as DuesTab) : "pending";
 
   const ymMatch = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(sp.ym ?? "");
@@ -104,6 +107,8 @@ export default async function MaintenancePage({
   const verifyCount = isManager ? await countPendingClaims(societyId!) : 0;
   // Members who can receive credit: anyone linked to a flat, listed with their flats
   const members: MemberOption[] = tab === "pending" && isManager ? await getMemberOptions(societyId!) : [];
+  const specialCharges = tab === "other" && isManager ? await getSpecialCharges(societyId!) : [];
+  const flatDetails = tab === "other" && isAdmin ? await getFlatDetails(societyId!) : [];
   const rawCharges = tab === "charges" ? await getMaintenanceCharges(societyId!) : [];
 
   return (
@@ -158,6 +163,29 @@ export default async function MaintenancePage({
         <>
           <GeneratePaymentsForm />
           <DuesScheduler flats={flatOptions} hasWings={hasWings} />
+        </>
+      )}
+
+      {tab === "other" && isManager && (
+        <>
+          {isAdmin && (
+            <ToolSection
+              title="New charge"
+              description="Sinking fund, water, festival, repairs… one-time or recurring"
+              icon={Plus}
+            >
+              <SpecialChargeForm flats={flatDetails} />
+            </ToolSection>
+          )}
+          <SpecialChargesList
+            charges={specialCharges.map((c) => ({
+              ...c,
+              rate: Number(c.rate),
+              minArea: c.minArea == null ? null : Number(c.minArea),
+              maxArea: c.maxArea == null ? null : Number(c.maxArea),
+            }))}
+            canManage={isAdmin}
+          />
         </>
       )}
 

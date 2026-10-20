@@ -1,10 +1,18 @@
-import { MONTHS } from "@/lib/utils/month";
+import { MONTHS, monthLabel } from "@/lib/utils/month";
 
 interface DueLike {
   amount: string | number;
   amountPaid?: string | number | null;
+  label?: string | null;
   month: number;
   year: number;
+}
+
+const isMaintenance = (label?: string | null) => !label || label === "Maintenance";
+
+/** "October 2026" for monthly maintenance, "Sinking fund · October 2026" for other charges. */
+export function dueTitle(d: Pick<DueLike, "label" | "month" | "year">): string {
+  return isMaintenance(d.label) ? monthLabel(d.month, d.year) : `${d.label} · ${monthLabel(d.month, d.year)}`;
 }
 
 /** What is still owed on a due (part-payments reduce it). */
@@ -31,7 +39,8 @@ const NOTE_MAX = 50; // UPI transaction notes are limited to ~50 characters
 export function duesNote(dues: DueLike[]): string {
   if (dues.length === 0) return "Maintenance";
   const months = [...dues].sort(byPeriod).map((d) => `${MONTHS[d.month - 1].slice(0, 3)} ${d.year}`);
-  const listed = `Maintenance ${[...new Set(months)].join(", ")}`;
+  const prefix = dues.every((d) => isMaintenance(d.label)) ? "Maintenance" : "Dues";
+  const listed = `${prefix} ${[...new Set(months)].join(", ")}`;
   if (listed.length <= NOTE_MAX) return listed;
-  return `Maintenance ${new Set(months).size} months`;
+  return `${prefix} ${new Set(months).size} months`;
 }

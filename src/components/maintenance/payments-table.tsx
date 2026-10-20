@@ -22,6 +22,7 @@ const STATUS_CONFIG: Record<
 
 interface Payment {
   id: string;
+  label?: string | null;
   amountPaid?: string | number | null;
   month: number;
   year: number;
@@ -102,7 +103,7 @@ export function PaymentsTable({ payments, canManage, societyUpiId, hasWings, lim
                   </p>
                   <p className="truncate text-xs text-muted-foreground">
                     <span className="font-medium text-foreground/70">
-                      {MONTHS[payment.month - 1].slice(0, 3)} {payment.year}
+                      {payment.label && payment.label !== "Maintenance" ? `${payment.label} · ` : ""}{MONTHS[payment.month - 1].slice(0, 3)} {payment.year}
                     </span>
                     {" · "}
                     {resident

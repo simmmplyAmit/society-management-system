@@ -60,3 +60,36 @@ export async function getMemberOptions(societyId: string): Promise<{ id: string;
   }
   return [...byUser].map(([id, e]) => ({ id, label: `${e.name} · ${e.flats.join(", ")}` }));
 }
+
+export interface FlatDetail {
+  id: string;
+  number: string;
+  floor: { number: number; wing: { name: string } };
+  configuration: string | null;
+  areaSqFt: number | null;
+}
+
+/** Every flat with the attributes other charges target (configuration, area). */
+export async function getFlatDetails(societyId: string): Promise<FlatDetail[]> {
+  const flats = await prisma.flat.findMany({
+    where: { societyId },
+    select: {
+      id: true, number: true, configuration: true, areaSqFt: true,
+      floor: { select: { number: true, wing: { select: { name: true } } } },
+    },
+  });
+  return flats
+    .map((f) => ({
+      id: f.id,
+      number: f.number,
+      floor: { number: f.floor.number, wing: { name: f.floor.wing.name } },
+      configuration: f.configuration,
+      areaSqFt: f.areaSqFt == null ? null : Number(f.areaSqFt),
+    }))
+    .sort(
+      (a, b) =>
+        a.floor.wing.name.localeCompare(b.floor.wing.name) ||
+        a.floor.number - b.floor.number ||
+        a.number.localeCompare(b.number, undefined, { numeric: true })
+    );
+}

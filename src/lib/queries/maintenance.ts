@@ -45,7 +45,7 @@ export async function generateForMonth(
 
   for (const charge of activeCharges) {
     const existing = await prisma.maintenancePayment.findUnique({
-      where: { flatId_month_year: { flatId: charge.flatId, month, year } },
+      where: { flatId_month_year_chargeKey: { flatId: charge.flatId, month, year, chargeKey: "MAINTENANCE" } },
     });
 
     if (existing) { skipped++; continue; }

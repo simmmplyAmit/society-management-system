@@ -4,6 +4,7 @@ vi.mock("@/lib/queries/maintenance", () => ({
   generateAllSocietiesCurrentMonth: vi.fn().mockResolvedValue({ month: 10, year: 2026, results: [], overdueMarked: 3 }),
 }));
 
+vi.mock("@/lib/queries/special-charges", () => ({ generateAllSpecialCharges: vi.fn().mockResolvedValue({ created: 7, missingArea: 1 }) }));
 vi.mock("@/lib/credit-service", () => ({ applyCreditAllSocieties: vi.fn().mockResolvedValue(4) }));
 vi.mock("@/lib/notify/schedule", () => ({
   sendNewDueNotices: vi.fn().mockResolvedValue({ sent: 1, failed: 0, skipped: 0 }),
@@ -47,6 +48,7 @@ describe("GET /api/cron/generate-maintenance", () => {
     expect(await res.json()).toMatchObject({
       ok: true,
       overdueMarked: 3,
+      specialCharges: { created: 7 },
       creditApplied: 4,
       notices: { sent: 1 },
       reminders: { sent: 2 },

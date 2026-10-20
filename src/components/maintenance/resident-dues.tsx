@@ -4,11 +4,11 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { formatCurrency, formatDate, monthLabel } from "@/lib/utils/month";
+import { formatCurrency, formatDate } from "@/lib/utils/month";
 import { flatLabel } from "@/lib/utils/flat";
 import { CheckCircle2 } from "lucide-react";
 import { buildUpiLink } from "@/lib/utils/upi";
-import { dueBalance, duesNote, selectedTotal } from "@/lib/utils/dues";
+import { dueBalance, dueTitle, duesNote, selectedTotal } from "@/lib/utils/dues";
 import { ReportPaymentForm } from "./report-payment-form";
 
 type PaymentStatus = "PENDING" | "PAID" | "OVERDUE";
@@ -18,6 +18,7 @@ interface Payment {
   flatId: string;
   amount: string | number;
   amountPaid?: string | number | null;
+  label?: string | null;
   month: number;
   year: number;
   status: PaymentStatus;
@@ -218,7 +219,7 @@ export function ResidentDues({
             {underReview.map((p) => (
               <div key={p.id} className="flex items-center gap-3 px-4 py-3">
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium">{monthLabel(p.month, p.year)}</p>
+                  <p className="text-sm font-medium">{dueTitle(p)}</p>
                   <p className="text-xs text-muted-foreground">{flatLabel(p.flat, hasWings)}</p>
                 </div>
                 <div className="shrink-0 text-right">
@@ -270,7 +271,7 @@ export function ResidentDues({
                     className="size-4 shrink-0 accent-primary"
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">{monthLabel(p.month, p.year)}</p>
+                    <p className="text-sm font-medium">{dueTitle(p)}</p>
                     <p className="text-xs text-muted-foreground">{flatLabel(p.flat, hasWings)}</p>
                   </div>
                   <div className="shrink-0 text-right">
@@ -341,7 +342,7 @@ export function ResidentDues({
               <div key={p.id} className="flex items-center gap-3 px-4 py-3">
                 <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium">{monthLabel(p.month, p.year)}</p>
+                  <p className="text-sm font-medium">{dueTitle(p)}</p>
                   <p className="text-xs text-muted-foreground">
                     Paid {formatDate(p.paidAt)}
                     {p.utrNumber && ` · UTR: ${p.utrNumber}`}

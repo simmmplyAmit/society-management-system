@@ -34,3 +34,17 @@ describe("duesNote", () => {
     expect(duesNote([d(10, 2026), d(10, 2026)])).toBe("Maintenance Oct 2026");
   });
 });
+
+describe("labels", () => {
+  it("titles maintenance by month and other charges with their name", async () => {
+    const { dueTitle } = await import("@/lib/utils/dues");
+    expect(dueTitle({ month: 10, year: 2026 })).toBe("October 2026");
+    expect(dueTitle({ label: "Maintenance", month: 10, year: 2026 })).toBe("October 2026");
+    expect(dueTitle({ label: "Sinking fund", month: 10, year: 2026 })).toBe("Sinking fund · October 2026");
+  });
+
+  it("writes 'Dues' in the UPI note when any other charge is included", () => {
+    expect(duesNote([{ month: 10, year: 2026, amount: 1, label: "Sinking fund" }, d(9, 2026)])).toBe("Dues Sep 2026, Oct 2026");
+    expect(duesNote([d(9, 2026)])).toBe("Maintenance Sep 2026");
+  });
+});

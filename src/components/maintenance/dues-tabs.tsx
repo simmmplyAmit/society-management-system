@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-export type DuesTab = "pending" | "verify" | "mine" | "generate" | "charges";
+export type DuesTab = "pending" | "verify" | "mine" | "generate" | "charges" | "other";
 
 const LABELS: Record<DuesTab, string> = {
   pending: "Pending",
@@ -9,6 +9,7 @@ const LABELS: Record<DuesTab, string> = {
   mine: "My dues",
   generate: "Generate",
   charges: "Charges",
+  other: "Other",
 };
 
 export function DuesTabs({

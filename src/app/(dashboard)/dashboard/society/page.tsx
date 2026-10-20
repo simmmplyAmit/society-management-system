@@ -1,6 +1,9 @@
 import { requireRole } from "@/lib/session";
 import { getSociety } from "@/lib/queries/society";
 import { getWingsWithStructure } from "@/lib/queries/wings";
+import { getFlatDetails } from "@/lib/queries/flats";
+import { FlatDetailsEditor } from "@/components/society/flat-details-editor";
+import { ToolSection } from "@/components/ui/tool-section";
 import { SocietySettingsForm } from "@/components/society/society-settings-form";
 import { AddWingForm } from "@/components/society/add-wing-form";
 import { AddFloorForm } from "@/components/society/add-floor-form";
@@ -13,15 +16,16 @@ import { deleteFlat } from "@/actions/flats";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Building2, ChevronRight } from "lucide-react";
+import { Building2, ChevronRight, Ruler } from "lucide-react";
 
 export default async function SocietyPage() {
   const session = await requireRole(["ADMIN", "SECRETARY"]);
   const societyId = session.user.societyId!;
 
-  const [society, wings] = await Promise.all([
+  const [society, wings, flatDetails] = await Promise.all([
     getSociety(societyId),
     getWingsWithStructure(societyId),
+    getFlatDetails(societyId),
   ]);
 
   if (!society) return <p className="text-sm text-muted-foreground">Society not found.</p>;
@@ -180,6 +184,16 @@ export default async function SocietyPage() {
           )}
         </CardContent>
       </Card>
+
+      {isAdmin && flatDetails.length > 0 && (
+        <ToolSection
+          title="Flat details"
+          description="Configuration and area, used to target other charges"
+          icon={Ruler}
+        >
+          <FlatDetailsEditor flats={flatDetails} hasWings={hasWings} />
+        </ToolSection>
+      )}
 
       <Separator />
 

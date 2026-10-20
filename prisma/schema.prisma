@@ -61,6 +61,7 @@ model Society {
   paymentClaims       PaymentClaim[]
   creditEntries       CreditEntry[]
   upiChangeRequests   UpiChangeRequest[]
+  specialCharges      SpecialCharge[]
 
   @@index([isActive])
 }
@@ -103,6 +104,8 @@ model Flat {
   floorId    String
   societyId  String   // denormalized for fast filtering
   isOccupied Boolean  @default(false)
+  configuration String? // e.g. "2 BHK"; used to target other charges
+  areaSqFt   Decimal?  @db.Decimal(8, 2)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -144,6 +147,7 @@ model User {
   otpCodes      OtpCode[]
   paymentClaims PaymentClaim[]
   creditEntries CreditEntry[]
+  specialChargesCreated SpecialCharge[]
   upiChangesRequested UpiChangeRequest[] @relation("UpiChangeRequester")
   upiChangesReviewed  UpiChangeRequest[] @relation("UpiChangeReviewer")
 
@@ -244,7 +248,10 @@ model MaintenancePayment {
   id        String            @id @default(cuid())
   societyId String
   flatId    String
-  chargeId  String
+  chargeId  String?           // set for monthly maintenance, null for other charges
+  chargeKey String            @default("MAINTENANCE") // "MAINTENANCE" or the SpecialCharge id
+  label     String            @default("Maintenance") // what this due is for, shown to residents
+  specialChargeId String?
   month     Int               // 1–12
   year      Int
   amount    Decimal           @db.Decimal(10, 2)
@@ -260,14 +267,16 @@ model MaintenancePayment {
 
   society Society           @relation(fields: [societyId], references: [id], onDelete: Cascade)
   flat    Flat              @relation(fields: [flatId], references: [id], onDelete: Cascade)
-  charge  MaintenanceCharge @relation(fields: [chargeId], references: [id], onDelete: Cascade)
+  charge  MaintenanceCharge? @relation(fields: [chargeId], references: [id], onDelete: Cascade)
+  specialCharge SpecialCharge? @relation(fields: [specialChargeId], references: [id], onDelete: SetNull)
   claim   PaymentClaim?     @relation(fields: [claimId], references: [id], onDelete: SetNull)
 
-  @@unique([flatId, month, year])
+  @@unique([flatId, month, year, chargeKey])
   @@index([societyId, month, year])
   @@index([flatId])
   @@index([status])
   @@index([claimId])
+  @@index([specialChargeId])
 }
 
 // ─────────────────────────────────────────────
@@ -461,4 +470,57 @@ model CreditEntry {
   @@index([societyId, userId])
   @@index([paymentId])
   @@index([claimId])
+}
+
+
+// ─────────────────────────────────────────────
+// Other charges (sinking fund, water, festival, repairs…): one-time or recurring and time
+// bound, targeted by flat configuration and/or area. Each billing creates ordinary
+// MaintenancePayment rows (label = name), so credit, part-payments, claims and
+// reminders work for them unchanged.
+// ─────────────────────────────────────────────
+
+enum ChargeBasis {
+  FIXED     // `rate` rupees per flat
+  PER_SQFT  // `rate` rupees per sq ft of the flat's area
+}
+
+enum ChargeSchedule {
+  ONE_TIME
+  RECURRING
+}
+
+enum ChargeFrequency {
+  MONTHLY
+  QUARTERLY
+  HALF_YEARLY
+  YEARLY
+}
+
+model SpecialCharge {
+  id             String           @id @default(cuid())
+  societyId      String
+  name           String
+  description    String?
+  basis          ChargeBasis
+  rate           Decimal          @db.Decimal(10, 2)
+  schedule       ChargeSchedule
+  frequency      ChargeFrequency? // recurring only
+  startMonth     Int              // billing month (one-time) or first billing month
+  startYear      Int
+  endMonth       Int?             // recurring: last billing month, inclusive
+  endYear        Int?
+  configurations String[]         // normalized (e.g. "2BHK"); empty = every configuration
+  minArea        Decimal?         @db.Decimal(8, 2)
+  maxArea        Decimal?         @db.Decimal(8, 2)
+  isActive       Boolean          @default(true)
+  createdById    String
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  society   Society              @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  createdBy User                 @relation(fields: [createdById], references: [id])
+  payments  MaintenancePayment[]
+
+  @@index([societyId, isActive])
 }
