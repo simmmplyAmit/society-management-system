@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Plus, X } from "lucide-react";
 import { formatCurrency } from "@/lib/utils/month";
+import { AttachmentsField } from "@/components/documents/attachments";
+import { uploadAttachments } from "@/lib/client/upload-documents";
 import { AccountFields, type AccountOption } from "@/components/bank/account-fields";
 import type { MemberOption } from "@/components/maintenance/record-deposit-form";
 
@@ -47,6 +49,7 @@ export function AddExpenseForm({
   const [isPending, startTransition] = useTransition();
   const [amount, setAmount] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
+  const [files, setFiles] = useState<File[]>([]);
 
   const total = Number(amount) || 0;
   const assigned = useMemo(
@@ -77,7 +80,8 @@ export function AddExpenseForm({
     startTransition(async () => {
       const result = await addExpense(formData);
       if (result?.error) return void toast.error(result.error);
-      const r = result as { credited?: number; pendingApproval?: number };
+      const r = result as { expenseId?: string; credited?: number; pendingApproval?: number };
+      const title = String(formData.get("title") ?? "Expense");
       toast.success(
         "Expense added" +
           (r.credited ? `. ${r.credited} member${r.credited !== 1 ? "s" : ""} credited` : "") +
@@ -86,6 +90,13 @@ export function AddExpenseForm({
       form.reset();
       setAmount("");
       setRows([]);
+      // The expense is saved; now upload its bills. A failed upload never undoes the expense.
+      if (files.length > 0 && r.expenseId) {
+        const up = await uploadAttachments(files, { expenseId: r.expenseId }, { category: "BILL", titlePrefix: title });
+        if (up.uploaded) toast.success(`${up.uploaded} file${up.uploaded !== 1 ? "s" : ""} attached`);
+        up.errors.forEach((m) => toast.error(`${m}. Open the expense to attach it again`));
+      }
+      setFiles([]);
     });
   }
 
@@ -129,6 +140,8 @@ export function AddExpenseForm({
           <Label htmlFor="description">Notes</Label>
           <Input id="description" name="description" placeholder="Optional details" />
         </div>
+
+        <AttachmentsField files={files} onChange={setFiles} />
 
         {members.length > 0 && (
           <details className="group rounded-lg border border-border bg-muted/30">

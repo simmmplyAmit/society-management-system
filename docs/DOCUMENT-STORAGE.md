@@ -59,4 +59,4 @@ Tax receipts and audit records are kept for **8 years** and cannot be deleted be
 
 ## Not covered yet
 
-Virus scanning, image resizing before upload, attaching files to expenses and income, renewal reminders for expiring agreements and insurance. See `docs/PENDING.md`.
+Virus scanning, image resizing before upload, attaching files to payment reports, renewal reminders for expiring agreements and insurance. See `docs/PENDING.md`.

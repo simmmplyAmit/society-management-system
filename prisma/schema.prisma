@@ -321,6 +321,7 @@ model Expense {
   addedBy User    @relation(fields: [addedById], references: [id])
   bankAccount BankAccount? @relation(fields: [bankAccountId], references: [id])
   contributions ExpenseContribution[]
+  documents Document[]
 
   @@index([societyId])
   @@index([societyId, date])
@@ -345,6 +346,7 @@ model Income {
   society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
   addedBy User    @relation(fields: [addedById], references: [id])
   bankAccount BankAccount? @relation(fields: [bankAccountId], references: [id])
+  documents Document[]
 
   @@index([societyId])
   @@index([societyId, date])
@@ -442,6 +444,8 @@ model Document {
   tags         String[]           @default([]) // lowercase, normalised; for search
   expiresOn    DateTime?          // insurance, AMC, agreements: used for renewal reminders
   retainUntil  DateTime?          // cannot be deleted before this (tax and audit records)
+  expenseId    String?            // attached to an expense or an income entry (kept in the library if that is deleted)
+  incomeId     String?
   uploadedById String
   confirmedAt  DateTime?
   deletedAt    DateTime?
@@ -452,11 +456,15 @@ model Document {
   society    Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
   uploadedBy User    @relation("DocumentUploader", fields: [uploadedById], references: [id])
   deletedBy  User?   @relation("DocumentDeleter", fields: [deletedById], references: [id])
+  expense    Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+  income     Income?  @relation(fields: [incomeId], references: [id], onDelete: SetNull)
 
   @@index([societyId, status, category])
   @@index([societyId, expiresOn])
   @@index([status, createdAt])
   @@index([tags], type: Gin)
+  @@index([expenseId])
+  @@index([incomeId])
 }
 
 // ─────────────────────────────────────────────

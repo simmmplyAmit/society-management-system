@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { AttachmentsField } from "@/components/documents/attachments";
+import { uploadAttachments } from "@/lib/client/upload-documents";
+import { useState } from "react";
 import { AccountFields, type AccountOption } from "@/components/bank/account-fields";
 
 export const INCOME_CATEGORIES = [
@@ -47,6 +50,7 @@ export function AddIncomeForm({
   accounts?: AccountOption[];
 }) {
   const [isPending, startTransition] = useTransition();
+  const [files, setFiles] = useState<File[]>([]);
   const today = new Date().toISOString().split("T")[0];
   const d = initial?.date ? new Date(initial.date) : null;
   const dateValue = d
@@ -63,8 +67,15 @@ export function AddIncomeForm({
       const result = initial ? await updateIncome(initial.id, formData) : await addIncome(formData);
       if (result && "error" in result && result.error) return void toast.error(result.error);
       toast.success(initial ? "Income updated" : "Income added");
-      if (initial) onDone?.();
-      else form.reset();
+      if (initial) return void onDone?.();
+      form.reset();
+      const incomeId = (result as { incomeId?: string }).incomeId;
+      if (files.length > 0 && incomeId) {
+        const up = await uploadAttachments(files, { incomeId }, { category: "OTHER", titlePrefix: String(formData.get("title") ?? "Income") });
+        if (up.uploaded) toast.success(`${up.uploaded} file${up.uploaded !== 1 ? "s" : ""} attached`);
+        up.errors.forEach((m) => toast.error(`${m}. Open the entry to attach it again`));
+      }
+      setFiles([]);
     });
   }
 
@@ -105,6 +116,7 @@ export function AddIncomeForm({
         defaultChannel={initial?.receivedVia ?? "BANK"}
         defaultAccountId={initial?.bankAccountId}
       />
+      {!initial && <AttachmentsField files={files} onChange={setFiles} />}
       <div className="space-y-1.5">
         <Label htmlFor="inc-notes">Notes</Label>
         <Input id="inc-notes" name="description" defaultValue={initial?.description ?? ""} placeholder="Optional details" maxLength={500} />

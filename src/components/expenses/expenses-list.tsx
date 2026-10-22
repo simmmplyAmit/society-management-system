@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency, formatDate } from "@/lib/utils/month";
+import { Attachments, type AttachmentRow } from "@/components/documents/attachments";
 
 interface Expense {
   id: string;
@@ -17,6 +18,7 @@ interface Expense {
   addedBy: { name: string };
   receiptUrl?: string | null;
   paidVia?: "BANK" | "CASH";
+  documents?: AttachmentRow[];
   contributions?: { id: string; amount: number; status: "APPROVED" | "PENDING" | "REJECTED" | "CANCELLED" | "REVERSED"; member: { name: string } }[];
 }
 
@@ -87,6 +89,13 @@ export function ExpensesList({ expenses, canDelete }: ExpensesListProps) {
                 ))}
               </div>
             )}
+            <Attachments
+              target={{ expenseId: expense.id }}
+              docs={expense.documents ?? []}
+              canEdit={canDelete}
+              category="BILL"
+              titlePrefix={expense.title}
+            />
             {expense.receiptUrl && (
               <a href={expense.receiptUrl} target="_blank" rel="noopener noreferrer" className="mt-0.5 block text-[11px] font-medium text-primary hover:underline">
                 View receipt

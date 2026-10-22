@@ -5,7 +5,10 @@ import { buildStatement, type Statement } from "@/lib/utils/statement";
 export async function getIncomes(societyId: string, year: number) {
   return prisma.income.findMany({
     where: { societyId, date: { gte: new Date(year, 0, 1), lte: new Date(year, 11, 31, 23, 59, 59) } },
-    include: { addedBy: { select: { name: true } } },
+    include: {
+      addedBy: { select: { name: true } },
+      documents: { where: { status: "READY" }, select: { id: true, title: true, fileName: true, mimeType: true }, orderBy: { createdAt: "asc" } },
+    },
     orderBy: { date: "desc" },
   });
 }

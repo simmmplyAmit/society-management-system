@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { AddIncomeForm } from "@/components/income/add-income-form";
+import { Attachments, type AttachmentRow } from "@/components/documents/attachments";
 import type { AccountOption } from "@/components/bank/account-fields";
 import { deleteIncome } from "@/actions/income";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ interface Income {
   addedBy: { name: string };
   receivedVia?: "BANK" | "CASH";
   bankAccountId?: string | null;
+  documents?: AttachmentRow[];
 }
 
 function DeleteIncomeButton({ id }: { id: string }) {
@@ -68,6 +70,7 @@ function IncomeRow({ i, canEdit, accounts }: { i: Income; canEdit: boolean; acco
           {i.receivedVia === "CASH" ? " · Cash" : ""}
         </p>
         {i.description && <p className="mt-0.5 truncate text-xs text-muted-foreground">{i.description}</p>}
+        <Attachments target={{ incomeId: i.id }} docs={i.documents ?? []} canEdit={canEdit} category="OTHER" titlePrefix={i.title} />
       </div>
       <span className="shrink-0 text-sm font-semibold text-emerald-700">+{formatCurrency(i.amount)}</span>
       {canEdit && (

@@ -82,9 +82,9 @@ export async function addExpense(formData: FormData) {
   };
 
   if (contributions.length === 0) {
-    await prisma.expense.create({ data: { ...base, addedById: session.user.id } });
+    const created = await prisma.expense.create({ data: { ...base, addedById: session.user.id }, select: { id: true } });
     paths();
-    return { success: true };
+    return { success: true, expenseId: created.id };
   }
 
   const ids = contributions.map((c) => c.userId);
@@ -105,7 +105,7 @@ export async function addExpense(formData: FormData) {
     await notifyApplied(societyId, r.applied);
     await notifyExpenseCredit(societyId, r.credited.map((c) => ({ ...c, expenseTitle: base.title })));
     paths();
-    return { success: true, credited: r.credited.length, pendingApproval: r.pending };
+    return { success: true, expenseId: r.expenseId, credited: r.credited.length, pendingApproval: r.pending };
   } catch (err) {
     console.error("[addExpense] failed:", err);
     return { error: "Could not save the expense. Please try again" };

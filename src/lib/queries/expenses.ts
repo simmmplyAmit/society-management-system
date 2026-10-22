@@ -23,6 +23,7 @@ export async function getExpenses(
     where,
     include: {
       addedBy: { select: { name: true } },
+      documents: { where: { status: "READY" }, select: { id: true, title: true, fileName: true, mimeType: true }, orderBy: { createdAt: "asc" } },
       // Members who paid some of it themselves (and are credited)
       contributions: {
         where: { status: { in: ["APPROVED", "PENDING"] } },

@@ -28,6 +28,9 @@ const requestSchema = z.object({
   sizeBytes: z.coerce.number().int().positive("The file is empty").max(MAX_DOCUMENT_BYTES, "Files can be at most 10 MB"),
   expiresOn: z.string().optional(),
   tags: z.string().max(1000).optional(), // JSON array of strings
+  // Attach to an expense or an income entry (admin/treasurer only)
+  expenseId: z.string().max(40).optional(),
+  incomeId: z.string().max(40).optional(),
 });
 
 function paths() {
@@ -47,6 +50,20 @@ export async function requestDocumentUpload(formData: FormData) {
 
   const ext = ALLOWED_TYPES[d.mimeType];
   if (!ext) return { error: "Only PDF, JPG, PNG or WebP files can be uploaded" };
+
+  const expenseId = d.expenseId || null;
+  const incomeId = d.incomeId || null;
+  if (expenseId || incomeId) {
+    if (expenseId && incomeId) return { error: "Attach a file to one entry at a time" };
+    if (session.user.role !== "ADMIN" && session.user.role !== "TREASURER") {
+      return { error: "Only an admin or the treasurer can attach files to expenses and income" };
+    }
+    // The entry must belong to this society
+    const target = expenseId
+      ? await prisma.expense.findFirst({ where: { id: expenseId, societyId }, select: { id: true } })
+      : await prisma.income.findFirst({ where: { id: incomeId!, societyId }, select: { id: true } });
+    if (!target) return { error: "That entry was not found" };
+  }
 
   let tags: string[] = [];
   if (d.tags) {
@@ -93,6 +110,8 @@ export async function requestDocumentUpload(formData: FormData) {
       mimeType: d.mimeType,
       sizeBytes: d.sizeBytes,
       tags,
+      expenseId,
+      incomeId,
       expiresOn,
       retainUntil: retainUntil(category, new Date()),
       uploadedById: session.user.id,

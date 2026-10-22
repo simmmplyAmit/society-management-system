@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/prisma", () => ({
-  prisma: { income: { create: vi.fn(), deleteMany: vi.fn(), updateMany: vi.fn().mockResolvedValue({ count: 1 }) } },
+  prisma: { income: { create: vi.fn().mockResolvedValue({ id: "i1" }), deleteMany: vi.fn(), updateMany: vi.fn().mockResolvedValue({ count: 1 }) } },
 }));
 vi.mock("@/lib/session", () => ({
   requireRole: vi.fn().mockResolvedValue({ user: { id: "t1", role: "TREASURER", societyId: "s1" } }),
@@ -28,9 +28,10 @@ describe("addIncome", () => {
 
   it("saves income scoped to the session's society and user", async () => {
     const r = await addIncome(fd({ ...valid, reference: "UTR123" }));
-    expect(r).toEqual({ success: true });
+    expect(r).toEqual({ success: true, incomeId: "i1" });
     expect(prisma.income.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ societyId: "s1", addedById: "t1", amount: 1250.75, reference: "UTR123" }),
+      select: { id: true },
     });
   });
 

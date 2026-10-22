@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    expense: { create: vi.fn(), deleteMany: vi.fn() },
+    expense: { create: vi.fn().mockResolvedValue({ id: "e1" }), deleteMany: vi.fn() },
     expenseContribution: { count: vi.fn().mockResolvedValue(0) },
     user: { findMany: vi.fn() },
   },
@@ -44,6 +44,7 @@ describe("addExpense", () => {
     expect(r.success).toBe(true);
     expect(prisma.expense.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ societyId: "s1", addedById: "t1", amount: 2500.5, title: "Lift repair" }),
+      select: { id: true },
     });
   });
 
@@ -82,7 +83,7 @@ describe("addExpense with members who paid", () => {
 
   it("records the expense and credits members in one go, then sends receipts and emails", async () => {
     const r = await addExpense(withRows([{ userId: "u1", amount: 600 }, { userId: "u2", amount: 400 }], { receiptUrl: "https://x.test/bill.pdf" }));
-    expect(r).toEqual({ success: true, credited: 1, pendingApproval: 1 });
+    expect(r).toEqual({ success: true, expenseId: "e1", credited: 1, pendingApproval: 1 });
     expect(createExpenseWithContributions).toHaveBeenCalledWith(
       expect.objectContaining({ societyId: "s1", actorId: "t1", amount: 1000, receiptUrl: "https://x.test/bill.pdf", title: "Lift repair" }),
       [{ userId: "u1", amount: 600 }, { userId: "u2", amount: 400 }]

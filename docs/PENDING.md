@@ -55,7 +55,7 @@ Built: record bank interest, rent, donations etc. with category, date and bank r
 
 ## 2f. Documents follow-ups (library built)
 
-- [ ] Attach files to an expense or income entry (replaces the `receiptUrl` link) and to payment reports and bank imports.
+- [x] Files can be attached to expenses and income entries. [ ] Attach to payment reports (proof of payment) and bank imports; show the linked expense/income on the Documents page; migrate old `receiptUrl` links; deleting an expense could offer to delete its files too.
 - [ ] Renewal reminders (email to the committee) for documents with an expiry date.
 - [ ] Resize and compress phone photos in the browser before upload.
 - [ ] Virus scanning (not available on serverless; consider R2 + a scanning service, or restrict to committee uploads as now).

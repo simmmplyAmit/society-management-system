@@ -38,7 +38,8 @@ export async function addIncome(formData: FormData) {
   const account = parsed.data.channel === "CASH" ? { id: null } : await resolveBankAccountId(societyId, formData.get("bankAccountId"));
   if ("error" in account) return { error: account.error };
 
-  await prisma.income.create({
+  const created = await prisma.income.create({
+    select: { id: true },
     data: {
       societyId,
       receivedVia: parsed.data.channel,
@@ -53,7 +54,7 @@ export async function addIncome(formData: FormData) {
     },
   });
   paths();
-  return { success: true as const };
+  return { success: true as const, incomeId: created.id };
 }
 
 export async function updateIncome(incomeId: string, formData: FormData) {

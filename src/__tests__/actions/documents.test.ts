@@ -3,6 +3,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     document: { create: vi.fn(), findFirst: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn() },
+    expense: { findFirst: vi.fn() },
+    income: { findFirst: vi.fn() },
   },
 }));
 vi.mock("@/lib/session", () => ({
@@ -65,6 +67,40 @@ describe("requestDocumentUpload", () => {
 
   it("rejects malformed tags without creating a record", async () => {
     expect(await requestDocumentUpload(fd({ ...valid, tags: "{not json" }))).toEqual({ error: "Invalid tags" });
+    expect(prisma.document.create).not.toHaveBeenCalled();
+  });
+
+  it("attaches to an expense of the same society", async () => {
+    vi.mocked(prisma.expense.findFirst).mockResolvedValue({ id: "e1" } as never);
+    const r = await requestDocumentUpload(fd({ ...valid, category: "BILL", expenseId: "e1" }));
+    expect(r).toMatchObject({ success: true });
+    expect(prisma.expense.findFirst).toHaveBeenCalledWith({ where: { id: "e1", societyId: "s1" }, select: { id: true } });
+    expect(vi.mocked(prisma.document.create).mock.calls[0][0].data).toMatchObject({ expenseId: "e1", incomeId: null });
+  });
+
+  it("attaches to an income entry of the same society", async () => {
+    vi.mocked(prisma.income.findFirst).mockResolvedValue({ id: "i1" } as never);
+    await requestDocumentUpload(fd({ ...valid, incomeId: "i1" }));
+    expect(prisma.income.findFirst).toHaveBeenCalledWith({ where: { id: "i1", societyId: "s1" }, select: { id: true } });
+    expect(vi.mocked(prisma.document.create).mock.calls[0][0].data).toMatchObject({ incomeId: "i1", expenseId: null });
+  });
+
+  it("refuses an expense or income entry from another society", async () => {
+    vi.mocked(prisma.expense.findFirst).mockResolvedValue(null);
+    expect(await requestDocumentUpload(fd({ ...valid, expenseId: "foreign" }))).toEqual({ error: "That entry was not found" });
+    expect(prisma.document.create).not.toHaveBeenCalled();
+    expect(signUpload).not.toHaveBeenCalled();
+  });
+
+  it("refuses to attach to both an expense and an income entry", async () => {
+    expect(await requestDocumentUpload(fd({ ...valid, expenseId: "e1", incomeId: "i1" }))).toHaveProperty("error");
+    expect(prisma.document.create).not.toHaveBeenCalled();
+  });
+
+  it("only lets an admin or the treasurer attach to entries", async () => {
+    vi.mocked(requireRole).mockResolvedValueOnce({ user: { id: "sec", role: "SECRETARY", societyId: "s1" } } as never);
+    expect(await requestDocumentUpload(fd({ ...valid, expenseId: "e1" }))).toHaveProperty("error");
+    expect(prisma.expense.findFirst).not.toHaveBeenCalled();
     expect(prisma.document.create).not.toHaveBeenCalled();
   });
 
