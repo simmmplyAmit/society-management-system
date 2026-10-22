@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { depositAndApply } from "@/lib/ledger";
 import { notifyApplied } from "@/lib/credit-service";
+import { resolveBankAccountId } from "@/lib/queries/bank";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 
@@ -57,7 +58,7 @@ export async function collectCash(formData: FormData) {
   try {
     const { applied, balance } = await depositAndApply({
       societyId, userId: member.id, actorId: collectorId, amount, paidOn: receivedOn,
-      note: "Cash received",
+      note: "Cash received", channel: "CASH",
       // Receipt number, collection record and credit all commit together or not at all
       inTx: async (tx) => {
         const seq = await tx.society.update({
@@ -106,6 +107,9 @@ export async function depositCash(formData: FormData) {
   const depositedOn = parseDate(parsed.data.depositedOn, new Date());
   if ("error" in depositedOn) return depositedOn;
 
+  const account = await resolveBankAccountId(societyId, formData.get("bankAccountId"));
+  if ("error" in account) return { error: account.error };
+
   const dup = await prisma.cashDeposit.findFirst({ where: { societyId, reference }, select: { id: true } });
   if (dup) return { error: "This bank reference has already been used for a deposit" };
 
@@ -123,7 +127,7 @@ export async function depositCash(formData: FormData) {
   try {
     await prisma.$transaction(async (tx) => {
       const deposit = await tx.cashDeposit.create({
-        data: { societyId, depositedById: session.user.id, amount: total, depositedOn, reference, note: note || null },
+        data: { societyId, depositedById: session.user.id, amount: total, depositedOn, reference, note: note || null, bankAccountId: account.id },
         select: { id: true },
       });
       // Guarded attach: if anyone banked one of these in the meantime, everything rolls back

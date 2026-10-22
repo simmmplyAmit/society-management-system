@@ -7,6 +7,7 @@ import { AddExpenseForm } from "@/components/expenses/add-expense-form";
 import { ExpensesList } from "@/components/expenses/expenses-list";
 import { ExpenseAnalyticsView } from "@/components/expenses/expense-analytics";
 import { YearSelector } from "@/components/expenses/year-selector";
+import { getBankAccounts } from "@/lib/queries/bank";
 import { ToolSection } from "@/components/ui/tool-section";
 import { Plus } from "lucide-react";
 
@@ -29,12 +30,13 @@ export default async function ExpensesPage({
 
   const isTreasurer = role === "TREASURER" || role === "ADMIN";
 
-  const [rawExpenses, analytics, pending, credit, members] = await Promise.all([
+  const [rawExpenses, analytics, pending, credit, members, bankAccounts] = await Promise.all([
     getExpenses(societyId!, month, year),
     getExpenseAnalytics(societyId!),
     isTreasurer ? getPendingContributions(societyId!) : Promise.resolve([]),
     isTreasurer ? getMemberCreditSummary(societyId!) : Promise.resolve(null),
     isTreasurer ? getMemberOptions(societyId!) : Promise.resolve([]),
+    isTreasurer ? getBankAccounts(societyId!) : Promise.resolve([]),
   ]);
 
   const expenses = rawExpenses.map((e) => ({
@@ -79,7 +81,7 @@ export default async function ExpensesPage({
 
       {isTreasurer && (
         <ToolSection title="Add expense" description="Record a new bill or payment" icon={Plus}>
-          <AddExpenseForm members={members} currentUserId={session.user.id} />
+          <AddExpenseForm members={members} currentUserId={session.user.id} accounts={bankAccounts.map((a) => ({ id: a.id, name: a.name, isPrimary: a.isPrimary }))} />
         </ToolSection>
       )}
 

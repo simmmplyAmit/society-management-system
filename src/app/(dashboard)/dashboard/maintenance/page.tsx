@@ -23,6 +23,7 @@ import { CashDepositPanel } from "@/components/maintenance/cash-deposit-panel";
 import { SpecialChargeForm } from "@/components/maintenance/special-charge-form";
 import { SpecialChargesList } from "@/components/maintenance/special-charges-list";
 import { RecordDepositForm, type MemberOption } from "@/components/maintenance/record-deposit-form";
+import { getBankAccounts } from "@/lib/queries/bank";
 import { ToolSection } from "@/components/ui/tool-section";
 import { Banknote, Plus, Wallet } from "lucide-react";
 import { ClaimsList } from "@/components/maintenance/claims-list";
@@ -107,6 +108,7 @@ export default async function MaintenancePage({
           status,
         })
       : [];
+  const bankAccounts = isManager ? (await getBankAccounts(societyId!)).map((a) => ({ id: a.id, name: a.name, isPrimary: a.isPrimary })) : [];
   const claimsToVerify = tab === "verify" && isManager ? await getPendingClaims(societyId!) : [];
   const verifyCount = isManager ? await countPendingClaims(societyId!) : 0;
   // Members who can receive credit: anyone linked to a flat, listed with their flats
@@ -144,7 +146,7 @@ export default async function MaintenancePage({
               description="Cheque, transfer or UPI already in the society account, any amount (for cash use the Cash tab)"
               icon={Wallet}
             >
-              <RecordDepositForm members={members} />
+              <RecordDepositForm members={members} accounts={bankAccounts} />
             </ToolSection>
           )}
         </>
@@ -202,6 +204,7 @@ export default async function MaintenancePage({
           </ToolSection>
 
           <CashDepositPanel
+            accounts={bankAccounts}
             currentUserId={userId}
             staleDays={CASH_STALE_DAYS}
             inHand={cash.inHand.map((c) => ({

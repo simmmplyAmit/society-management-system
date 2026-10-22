@@ -59,6 +59,8 @@ model Society {
   maintenancePayments MaintenancePayment[]
   expenses            Expense[]
   incomes             Income[]
+  bankAccounts        BankAccount[]
+  bankBalanceChecks   BankBalanceCheck[]
   notificationLogs    NotificationLog[]
   paymentClaims       PaymentClaim[]
   creditEntries       CreditEntry[]
@@ -149,6 +151,7 @@ model User {
   tenantRecords TenantRecord[]
   expenses      Expense[]
   incomesAdded  Income[]
+  bankBalanceChecks BankBalanceCheck[]
   accounts      Account[]      // ready for future OAuth providers
   otpCodes      OtpCode[]
   paymentClaims PaymentClaim[]
@@ -306,11 +309,14 @@ model Expense {
   description String?
   receiptUrl  String?
   addedById   String   // userId of TREASURER who added it
+  paidVia     MoneyChannel @default(BANK) // how the society's own share was paid (member-paid parts are in contributions)
+  bankAccountId String?    // null = the primary account
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
   addedBy User    @relation(fields: [addedById], references: [id])
+  bankAccount BankAccount? @relation(fields: [bankAccountId], references: [id])
   contributions ExpenseContribution[]
 
   @@index([societyId])
@@ -328,14 +334,68 @@ model Income {
   description String?
   reference   String?  // bank reference / receipt no.
   addedById   String
+  receivedVia MoneyChannel @default(BANK)
+  bankAccountId String?    // null = the primary account
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
   addedBy User    @relation(fields: [addedById], references: [id])
+  bankAccount BankAccount? @relation(fields: [bankAccountId], references: [id])
 
   @@index([societyId])
   @@index([societyId, date])
+}
+
+// ─────────────────────────────────────────────
+// Bank accounts and balance checks
+// ─────────────────────────────────────────────
+
+enum MoneyChannel {
+  BANK // UPI, cheque, transfer, or cash that has been banked
+  CASH // physical cash held by the committee
+}
+
+model BankAccount {
+  id             String   @id @default(cuid())
+  societyId      String
+  name           String   // e.g. "Maintenance savings"
+  bankName       String?
+  last4          String?
+  openingBalance Decimal  @db.Decimal(12, 2) // balance at the start of openingDate; nothing earlier is tallied
+  openingDate    DateTime
+  isPrimary      Boolean  @default(false) // receives anything not tagged with an account (UPI, reports)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  society  Society       @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  expenses Expense[]
+  incomes  Income[]
+  creditEntries CreditEntry[]
+  cashDeposits  CashDeposit[]
+  checks   BankBalanceCheck[]
+
+  @@index([societyId])
+}
+
+// Append-only log of "the bank statement said X; our records said Y".
+model BankBalanceCheck {
+  id               String   @id @default(cuid())
+  societyId        String
+  bankAccountId    String
+  asOf             DateTime
+  statementBalance Decimal  @db.Decimal(12, 2)
+  expectedBalance  Decimal  @db.Decimal(12, 2) // computed on the server at the time
+  difference       Decimal  @db.Decimal(12, 2) // statement - expected
+  note             String?
+  recordedById     String
+  createdAt        DateTime @default(now())
+
+  society     Society     @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  bankAccount BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  recordedBy  User        @relation(fields: [recordedById], references: [id])
+
+  @@index([societyId, bankAccountId, asOf])
 }
 
 // ─────────────────────────────────────────────
@@ -499,10 +559,13 @@ model CreditEntry {
   reference   String?         // UTR
   note        String?
   createdById String?
+  channel     MoneyChannel    @default(BANK) // DEPOSIT only: CASH = received as cash (banked later via CashDeposit)
+  bankAccountId String?       // DEPOSIT only; null = the primary account
   createdAt   DateTime        @default(now())
 
   society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bankAccount BankAccount? @relation(fields: [bankAccountId], references: [id])
 
   @@index([societyId, userId])
   @@index([paymentId])
@@ -601,9 +664,11 @@ model CashDeposit {
   note          String?
   confirmedById String?   // a different admin/treasurer checked it against the bank statement
   confirmedAt   DateTime?
+  bankAccountId String?   // null = the primary account
   createdAt     DateTime  @default(now())
 
   society     Society          @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  bankAccount BankAccount?     @relation(fields: [bankAccountId], references: [id])
   depositedBy User             @relation("CashDepositor", fields: [depositedById], references: [id])
   confirmedBy User?            @relation("CashConfirmer", fields: [confirmedById], references: [id])
   collections CashCollection[]

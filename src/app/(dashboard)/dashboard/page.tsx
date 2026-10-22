@@ -217,6 +217,12 @@ export default async function DashboardPage() {
           sub="All-time, yearly, monthly and by type"
           icon={TrendingDown}
         />
+        <ActionRow
+          href="/dashboard/bank"
+          title="Bank balance"
+          sub="Expected balance and tally with the statement"
+          icon={Landmark}
+        />
         {canReviewUpi && (
           <ActionRow
             href="/dashboard/upi"

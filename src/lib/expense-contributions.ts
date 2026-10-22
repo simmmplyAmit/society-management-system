@@ -17,6 +17,8 @@ export interface NewExpense {
   date: Date;
   description: string | null;
   receiptUrl: string | null;
+  paidVia?: "BANK" | "CASH";
+  bankAccountId?: string | null;
 }
 
 export interface CreateResult {
@@ -46,6 +48,7 @@ export async function createExpenseWithContributions(
       data: {
         societyId: e.societyId, title: e.title, category: e.category, amount: e.amount, date: e.date,
         description: e.description, receiptUrl: e.receiptUrl, addedById: e.actorId,
+        paidVia: e.paidVia ?? "BANK", bankAccountId: e.bankAccountId ?? null,
       },
       select: { id: true },
     });

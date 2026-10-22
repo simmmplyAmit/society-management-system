@@ -6,6 +6,7 @@ import { recordDeposit } from "@/actions/credit";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AccountFields, type AccountOption } from "@/components/bank/account-fields";
 import { formatCurrency } from "@/lib/utils/month";
 
 export interface MemberOption {
@@ -14,7 +15,7 @@ export interface MemberOption {
 }
 
 /** Treasurer records money received directly (cash, cheque, UPI) in any amount. */
-export function RecordDepositForm({ members }: { members: MemberOption[] }) {
+export function RecordDepositForm({ members, accounts = [] }: { members: MemberOption[]; accounts?: AccountOption[] }) {
   const [pending, startTransition] = useTransition();
   const today = new Date().toISOString().split("T")[0];
 
@@ -65,6 +66,7 @@ export function RecordDepositForm({ members }: { members: MemberOption[] }) {
           <Input id="dep-date" name="paidOn" type="date" defaultValue={today} max={today} required />
         </div>
       </div>
+      <AccountFields accounts={accounts} showChannel={false} />
       <div className="space-y-1.5">
         <Label htmlFor="dep-ref">UTR / reference (optional)</Label>
         <Input id="dep-ref" name="reference" autoComplete="off" placeholder="e.g. 412345678901" />

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Plus, X } from "lucide-react";
 import { formatCurrency } from "@/lib/utils/month";
+import { AccountFields, type AccountOption } from "@/components/bank/account-fields";
 import type { MemberOption } from "@/components/maintenance/record-deposit-form";
 
 export const EXPENSE_CATEGORIES = [
@@ -37,9 +38,11 @@ const field =
 export function AddExpenseForm({
   members = [],
   currentUserId,
+  accounts = [],
 }: {
   members?: MemberOption[];
   currentUserId?: string;
+  accounts?: AccountOption[];
 }) {
   const [isPending, startTransition] = useTransition();
   const [amount, setAmount] = useState("");
@@ -119,6 +122,8 @@ export function AddExpenseForm({
           <Label htmlFor="date">Date *</Label>
           <Input id="date" name="date" type="date" defaultValue={today} required />
         </div>
+
+        <AccountFields accounts={accounts} channelLabel="Paid from" />
 
         <div className="space-y-1.5">
           <Label htmlFor="description">Notes</Label>

@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/session";
 import { createExpenseWithContributions, deleteExpenseWithContributions } from "@/lib/expense-contributions";
 import { notifyApplied } from "@/lib/credit-service";
 import { notifyExpenseCredit } from "@/lib/notify/expense-credit";
+import { resolveBankAccountId } from "@/lib/queries/bank";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 
@@ -17,6 +18,7 @@ const expenseSchema = z.object({
   amount: z.coerce.number().positive("Amount must be positive").max(MAX_AMOUNT, "That amount is too large"),
   date: z.string().min(1, "Date is required"),
   description: z.string().optional(),
+  channel: z.enum(["BANK", "CASH"]).default("BANK"),
   receiptUrl: z
     .string()
     .trim()
@@ -38,6 +40,7 @@ const paise = (n: number) => Math.round(n * 100);
 
 function paths() {
   revalidatePath("/dashboard/expenses");
+  revalidatePath("/dashboard/bank");
   revalidatePath("/dashboard/maintenance");
 }
 
@@ -63,8 +66,13 @@ export async function addExpense(formData: FormData) {
     contributions = c.data;
   }
 
+  const account = parsed.data.channel === "CASH" ? { id: null } : await resolveBankAccountId(societyId, formData.get("bankAccountId"));
+  if ("error" in account) return { error: account.error };
+
   const base = {
     societyId,
+    paidVia: parsed.data.channel,
+    bankAccountId: account.id,
     title: parsed.data.title,
     category: parsed.data.category,
     amount: parsed.data.amount,

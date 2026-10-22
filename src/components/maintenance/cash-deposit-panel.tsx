@@ -1,5 +1,6 @@
 "use client";
 
+import { AccountFields, type AccountOption } from "@/components/bank/account-fields";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { confirmCashDeposit, depositCash } from "@/actions/cash";
@@ -38,10 +39,12 @@ export function CashDepositPanel({
   deposits,
   currentUserId,
   staleDays,
+  accounts = [],
 }: {
   inHand: InHandRow[];
   deposits: DepositRow[];
   currentUserId: string;
+  accounts?: AccountOption[];
   staleDays: number;
 }) {
   const [pending, startTransition] = useTransition();
@@ -133,6 +136,7 @@ export function CashDepositPanel({
               <Label htmlFor="dep-ref">Bank slip no. / reference</Label>
               <Input id="dep-ref" name="reference" required minLength={4} maxLength={40} autoComplete="off" placeholder="Slip no. or reference" />
             </div>
+            <AccountFields accounts={accounts} showChannel={false} />
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="dep-on">Deposited on</Label>

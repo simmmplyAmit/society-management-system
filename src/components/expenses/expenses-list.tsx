@@ -16,6 +16,7 @@ interface Expense {
   description: string | null;
   addedBy: { name: string };
   receiptUrl?: string | null;
+  paidVia?: "BANK" | "CASH";
   contributions?: { id: string; amount: number; status: "APPROVED" | "PENDING" | "REJECTED" | "CANCELLED" | "REVERSED"; member: { name: string } }[];
 }
 
@@ -66,6 +67,7 @@ export function ExpensesList({ expenses, canDelete }: ExpensesListProps) {
               {formatDate(expense.date)}
               {" · "}
               {expense.addedBy.name}
+              {expense.paidVia === "CASH" ? " · Cash" : ""}
             </p>
             {expense.description && (
               <p className="mt-0.5 truncate text-xs text-muted-foreground">{expense.description}</p>

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { AddIncomeForm } from "@/components/income/add-income-form";
+import type { AccountOption } from "@/components/bank/account-fields";
 import { deleteIncome } from "@/actions/income";
 import { Button } from "@/components/ui/button";
 import { Pencil, Trash2 } from "lucide-react";
@@ -17,6 +18,8 @@ interface Income {
   description: string | null;
   reference: string | null;
   addedBy: { name: string };
+  receivedVia?: "BANK" | "CASH";
+  bankAccountId?: string | null;
 }
 
 function DeleteIncomeButton({ id }: { id: string }) {
@@ -42,12 +45,12 @@ function DeleteIncomeButton({ id }: { id: string }) {
   );
 }
 
-function IncomeRow({ i, canEdit }: { i: Income; canEdit: boolean }) {
+function IncomeRow({ i, canEdit, accounts }: { i: Income; canEdit: boolean; accounts: AccountOption[] }) {
   const [editing, setEditing] = useState(false);
   if (editing) {
     return (
       <div className="bg-muted/30 px-4 py-3">
-        <AddIncomeForm initial={i} onDone={() => setEditing(false)} />
+        <AddIncomeForm initial={i} accounts={accounts} onDone={() => setEditing(false)} />
       </div>
     );
   }
@@ -62,6 +65,7 @@ function IncomeRow({ i, canEdit }: { i: Income; canEdit: boolean }) {
           {" · "}
           {i.addedBy.name}
           {i.reference ? ` · Ref ${i.reference}` : ""}
+          {i.receivedVia === "CASH" ? " · Cash" : ""}
         </p>
         {i.description && <p className="mt-0.5 truncate text-xs text-muted-foreground">{i.description}</p>}
       </div>
@@ -78,7 +82,7 @@ function IncomeRow({ i, canEdit }: { i: Income; canEdit: boolean }) {
   );
 }
 
-export function IncomeList({ incomes, canDelete }: { incomes: Income[]; canDelete: boolean }) {
+export function IncomeList({ incomes, canDelete, accounts = [] }: { incomes: Income[]; canDelete: boolean; accounts?: AccountOption[] }) {
   if (incomes.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
@@ -89,7 +93,7 @@ export function IncomeList({ incomes, canDelete }: { incomes: Income[]; canDelet
   return (
     <div className="divide-y divide-border overflow-hidden rounded-xl bg-card ring-1 ring-border shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
       {incomes.map((i) => (
-        <IncomeRow key={i.id} i={i} canEdit={canDelete} />
+        <IncomeRow key={i.id} i={i} canEdit={canDelete} accounts={accounts} />
       ))}
     </div>
   );

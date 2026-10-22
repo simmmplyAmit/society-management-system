@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { AccountFields, type AccountOption } from "@/components/bank/account-fields";
 
 export const INCOME_CATEGORIES = [
   "Bank interest",
@@ -32,9 +33,19 @@ export interface IncomeInitial {
   date: Date;
   description: string | null;
   reference: string | null;
+  receivedVia?: "BANK" | "CASH";
+  bankAccountId?: string | null;
 }
 
-export function AddIncomeForm({ initial, onDone }: { initial?: IncomeInitial; onDone?: () => void }) {
+export function AddIncomeForm({
+  initial,
+  onDone,
+  accounts = [],
+}: {
+  initial?: IncomeInitial;
+  onDone?: () => void;
+  accounts?: AccountOption[];
+}) {
   const [isPending, startTransition] = useTransition();
   const today = new Date().toISOString().split("T")[0];
   const d = initial?.date ? new Date(initial.date) : null;
@@ -88,6 +99,12 @@ export function AddIncomeForm({ initial, onDone }: { initial?: IncomeInitial; on
           <Input id="inc-ref" name="reference" defaultValue={initial?.reference ?? ""} placeholder="Optional" maxLength={100} />
         </div>
       </div>
+      <AccountFields
+        accounts={accounts}
+        channelLabel="Received in"
+        defaultChannel={initial?.receivedVia ?? "BANK"}
+        defaultAccountId={initial?.bankAccountId}
+      />
       <div className="space-y-1.5">
         <Label htmlFor="inc-notes">Notes</Label>
         <Input id="inc-notes" name="description" defaultValue={initial?.description ?? ""} placeholder="Optional details" maxLength={500} />

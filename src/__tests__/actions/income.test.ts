@@ -94,3 +94,21 @@ describe("updateIncome", () => {
     expect(prisma.income.updateMany).not.toHaveBeenCalled();
   });
 });
+
+describe("income money channel", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("stores cash income with no bank account, whatever account was sent", async () => {
+    await addIncome(fd({ ...valid, channel: "CASH", bankAccountId: "b1" }));
+    expect(vi.mocked(prisma.income.create).mock.calls[0][0].data).toMatchObject({ receivedVia: "CASH", bankAccountId: null });
+  });
+
+  it("defaults to the bank and the primary account", async () => {
+    await addIncome(fd(valid));
+    expect(vi.mocked(prisma.income.create).mock.calls[0][0].data).toMatchObject({ receivedVia: "BANK", bankAccountId: null });
+  });
+
+  it("rejects an unknown channel", async () => {
+    expect(await addIncome(fd({ ...valid, channel: "CHEQUE" }))).toHaveProperty("error");
+  });
+});

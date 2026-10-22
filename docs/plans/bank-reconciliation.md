@@ -1,6 +1,6 @@
 # Plan: bank balance tally and bank statement import
 
-Status: **plan only, nothing built.** Decisions are settled in section 9; one input is still needed (a sample Kotak PDF, section 4.6).
+Status: **Phase 1 built (2026-10-22); phases 2-4 are plan only.** Decisions are settled in section 9; one input is still needed (a sample Kotak PDF, section 4.6).
 Last updated: 2026-10-22.
 
 ## 1. Goals
@@ -139,6 +139,13 @@ model ReconciliationPeriod { id, societyId, bankAccountId, month, year, statemen
 ```
 
 All tenant-scoped with `societyId`. Money columns `Decimal(12,2)`; arithmetic in paise like `ledger.ts`.
+
+## 5b. Phase 1 as built
+
+- Tables: `BankAccount`, `BankBalanceCheck`; `MoneyChannel` on `Expense.paidVia`, `Income.receivedVia`, `CreditEntry.channel`; `bankAccountId` on expenses, income, deposits and cash deposits (null = primary account).
+- Existing cash receipts were back-filled to `CASH` by their "Cash received" note. Existing expenses and income default to `BANK`.
+- UI: `/dashboard/bank` (expected balance with breakdown, cash in hand, tally form, check log), linked from Home and Income; "Paid from"/"Received in" on Add expense and Add income; account picker on "Record a payment" and cash deposits when there are several accounts.
+- Differences from the plan: deposits are counted by the date they were recorded (no separate payment date yet); unconfirmed cash deposits are counted and flagged rather than excluded; no month lock yet (Phase 3).
 
 ## 6. Phases
 

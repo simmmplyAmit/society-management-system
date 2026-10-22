@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
+import { resolveBankAccountId } from "@/lib/queries/bank";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 
@@ -14,10 +15,12 @@ const incomeSchema = z.object({
   date: z.string().min(1, "Date is required"),
   description: z.string().trim().max(500).optional(),
   reference: z.string().trim().max(100).optional(),
+  channel: z.enum(["BANK", "CASH"]).default("BANK"),
 });
 
 function paths() {
   revalidatePath("/dashboard/income");
+  revalidatePath("/dashboard/bank");
   revalidatePath("/dashboard/income/statement");
   revalidatePath("/dashboard");
 }
@@ -32,9 +35,14 @@ export async function addIncome(formData: FormData) {
   const date = new Date(parsed.data.date);
   if (Number.isNaN(date.getTime())) return { error: "Enter a valid date" };
 
+  const account = parsed.data.channel === "CASH" ? { id: null } : await resolveBankAccountId(societyId, formData.get("bankAccountId"));
+  if ("error" in account) return { error: account.error };
+
   await prisma.income.create({
     data: {
       societyId,
+      receivedVia: parsed.data.channel,
+      bankAccountId: account.id,
       title: parsed.data.title,
       category: parsed.data.category,
       amount: parsed.data.amount,
@@ -58,6 +66,9 @@ export async function updateIncome(incomeId: string, formData: FormData) {
   const date = new Date(parsed.data.date);
   if (Number.isNaN(date.getTime())) return { error: "Enter a valid date" };
 
+  const account = parsed.data.channel === "CASH" ? { id: null } : await resolveBankAccountId(societyId, formData.get("bankAccountId"));
+  if ("error" in account) return { error: account.error };
+
   const { count } = await prisma.income.updateMany({
     where: { id: incomeId, societyId },
     data: {
@@ -67,6 +78,8 @@ export async function updateIncome(incomeId: string, formData: FormData) {
       date,
       description: parsed.data.description || null,
       reference: parsed.data.reference || null,
+      receivedVia: parsed.data.channel,
+      bankAccountId: account.id,
     },
   });
   if (count === 0) return { error: "Income entry not found" };

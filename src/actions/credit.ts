@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/session";
 import { depositAndApply } from "@/lib/ledger";
 import { notifyApplied } from "@/lib/credit-service";
 import { normalizeUtr } from "@/lib/utils/utr";
+import { resolveBankAccountId } from "@/lib/queries/bank";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 
@@ -48,6 +49,9 @@ export async function recordDeposit(formData: FormData) {
   const paidOn = parsed.data.paidOn ? new Date(parsed.data.paidOn) : new Date();
   if (Number.isNaN(paidOn.getTime())) return { error: "Enter a valid date" };
 
+  const account = await resolveBankAccountId(societyId, formData.get("bankAccountId"));
+  if ("error" in account) return { error: account.error };
+
   // The member must belong to this society and be linked to at least one flat
   const member = await prisma.user.findFirst({
     where: { id: userId, societyId, isActive: true, flatResidents: { some: {} } },
@@ -58,7 +62,7 @@ export async function recordDeposit(formData: FormData) {
   try {
     const { applied, balance } = await depositAndApply({
       societyId, userId: member.id, actorId: session.user.id, amount,
-      reference, paidOn, note: note || "Recorded by committee",
+      reference, paidOn, note: note || "Recorded by committee", bankAccountId: account.id,
     });
     await notifyApplied(societyId, applied);
 

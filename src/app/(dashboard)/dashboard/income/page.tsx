@@ -4,9 +4,10 @@ import { formatCurrency } from "@/lib/utils/month";
 import { AddIncomeForm } from "@/components/income/add-income-form";
 import { IncomeList } from "@/components/income/income-list";
 import { YearSelector } from "@/components/expenses/year-selector";
+import { getBankAccounts } from "@/lib/queries/bank";
 import { ToolSection } from "@/components/ui/tool-section";
 import Link from "next/link";
-import { Plus, FileText } from "lucide-react";
+import { Plus, FileText, Landmark } from "lucide-react";
 
 export default async function IncomePage({
   searchParams,
@@ -20,7 +21,12 @@ export default async function IncomePage({
   const year = Number.isFinite(parsedYear) ? parsedYear : new Date().getFullYear();
   const canEdit = role === "TREASURER" || role === "ADMIN";
 
-  const [rows, summary] = await Promise.all([getIncomes(societyId!, year), getIncomeSummary(societyId!, year)]);
+  const [rows, summary, accountRows] = await Promise.all([
+    getIncomes(societyId!, year),
+    getIncomeSummary(societyId!, year),
+    getBankAccounts(societyId!),
+  ]);
+  const accounts = accountRows.map((a) => ({ id: a.id, name: a.name, isPrimary: a.isPrimary }));
   const incomes = rows.map((i) => ({ ...i, amount: Number(i.amount) }));
   const net = summary.incomeTotal - summary.expenseTotal;
 
@@ -40,6 +46,14 @@ export default async function IncomePage({
       >
         <span className="flex items-center gap-2"><FileText className="size-4 text-primary" /> Full statement for {year}</span>
         <span className="text-xs text-muted-foreground">Dues + income vs expenses</span>
+      </Link>
+
+      <Link
+        href="/dashboard/bank"
+        className="flex items-center justify-between rounded-xl bg-card px-4 py-3 text-sm font-medium ring-1 ring-border hover:bg-muted/40"
+      >
+        <span className="flex items-center gap-2"><Landmark className="size-4 text-primary" /> Bank balance</span>
+        <span className="text-xs text-muted-foreground">Tally with the statement</span>
       </Link>
 
       <div className="grid grid-cols-2 gap-3">
@@ -73,11 +87,11 @@ export default async function IncomePage({
 
       {canEdit && (
         <ToolSection title="Add income" description="Interest, rent, donations and other receipts" icon={Plus}>
-          <AddIncomeForm />
+          <AddIncomeForm accounts={accounts} />
         </ToolSection>
       )}
 
-      <IncomeList incomes={incomes} canDelete={canEdit} />
+      <IncomeList incomes={incomes} canDelete={canEdit} accounts={accounts} />
     </div>
   );
 }

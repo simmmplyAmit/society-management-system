@@ -44,6 +44,15 @@ Built: record bank interest, rent, donations etc. with category, date and bank r
 - [ ] Charts like the expenses analytics; export the statement to CSV/PDF.
 - [ ] Recurring income (for example a monthly hall rental or FD interest) and attaching a receipt link.
 
+## 2e. Bank tally follow-ups (Phase 1 built)
+
+- [ ] Opening balance and date can't be corrected after creation; add a reviewed correction (second person) or a deactivate-and-recreate flow.
+- [ ] Deactivate or rename a bank account; move an expense/income/deposit to another account.
+- [ ] Member payments are dated by when they were recorded, not when the money arrived. Add a received date so the tally matches statement dates.
+- [ ] Approved UPI reports always go to the primary account; let the approver choose when there are several accounts.
+- [ ] Phase 2: Kotak password-protected PDF import (needs a sample statement), then matching and month close.
+- [ ] Cheque bounce / reversal of a bank deposit.
+
 ## 2c. Cash handling follow-ups
 
 - [ ] **Void or correct a cash receipt** (wrong amount or payer). Needs a reversal of the credit and any dues it paid, with a second person's approval; today receipts cannot be edited.

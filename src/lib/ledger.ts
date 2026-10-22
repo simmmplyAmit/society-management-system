@@ -128,6 +128,10 @@ type DepositOptions = ApplyOptions & {
   claimId?: string | null;
   expenseId?: string | null;
   note?: string | null;
+  /** DEPOSIT only: CASH when received as cash (banked later); default BANK. */
+  channel?: "BANK" | "CASH";
+  /** DEPOSIT only: which bank account received it; null = the primary account. */
+  bankAccountId?: string | null;
   /** Runs inside the same transaction, right after the deposit entry is written. */
   inTx?: (tx: Prisma.TransactionClient) => Promise<void>;
 };
@@ -155,6 +159,8 @@ export async function depositAndApplyIn(
       reference: o.reference ?? null,
       note: o.note ?? null,
       createdById: o.actorId,
+      channel: o.channel ?? "BANK",
+      bankAccountId: o.bankAccountId ?? null,
     },
   });
   if (o.inTx) await o.inTx(tx);
