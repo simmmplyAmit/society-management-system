@@ -53,6 +53,17 @@ Built: record bank interest, rent, donations etc. with category, date and bank r
 - [ ] Phase 2: Kotak password-protected PDF import (needs a sample statement), then matching and month close.
 - [ ] Cheque bounce / reversal of a bank deposit.
 
+## 2f. Documents follow-ups (library built)
+
+- [ ] Attach files to an expense or income entry (replaces the `receiptUrl` link) and to payment reports and bank imports.
+- [ ] Renewal reminders (email to the committee) for documents with an expiry date.
+- [ ] Resize and compress phone photos in the browser before upload.
+- [ ] Virus scanning (not available on serverless; consider R2 + a scanning service, or restrict to committee uploads as now).
+- [ ] Edit title, type, visibility or expiry; replace a file with a new version; restore a deleted file from the UI.
+- [ ] Search by title; folders per year; bulk upload.
+- [ ] Per-society quota is a single env value; make it per plan.
+- [ ] Verify with a real R2 bucket: signed PUT/GET, CORS and the 'WHEN_REQUIRED' checksum setting have only been unit tested.
+
 ## 2c. Cash handling follow-ups
 
 - [ ] **Void or correct a cash receipt** (wrong amount or payer). Needs a reversal of the credit and any dues it paid, with a second person's approval; today receipts cannot be edited.

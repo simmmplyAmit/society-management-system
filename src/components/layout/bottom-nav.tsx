@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { NAV_ITEMS, isNavActive } from "./nav-items";
+import { mobileItems, isNavActive } from "./nav-items";
 import type { Role } from "@prisma/client";
 
 export function BottomNav({ role }: { role: Role }) {
   const pathname = usePathname();
-  const items = NAV_ITEMS.filter((i) => i.roles.includes(role));
+  const { items } = mobileItems(role);
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-white/90 backdrop-blur lg:hidden safe-area-pb">

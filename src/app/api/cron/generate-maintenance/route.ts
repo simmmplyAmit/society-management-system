@@ -3,6 +3,7 @@ import { generateAllSocietiesCurrentMonth } from "@/lib/queries/maintenance";
 import { sendNewDueNotices, sendScheduledReminders } from "@/lib/notify/schedule";
 import { applyCreditAllSocieties } from "@/lib/credit-service";
 import { generateAllSpecialCharges } from "@/lib/queries/special-charges";
+import { cleanupDocuments } from "@/lib/queries/documents";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,7 +38,12 @@ export async function GET(req: NextRequest) {
       console.error("[cron] reminders failed", e);
       return null;
     });
-    return NextResponse.json({ ok: true, ...result, specialCharges, creditApplied, notices, reminders });
+    // Remove abandoned uploads and long-deleted files
+    const documents = await cleanupDocuments().catch((e) => {
+      console.error("[cron] document cleanup failed", e);
+      return null;
+    });
+    return NextResponse.json({ ok: true, ...result, specialCharges, creditApplied, notices, reminders, documents });
   } catch (err) {
     console.error("[cron/generate-maintenance]", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

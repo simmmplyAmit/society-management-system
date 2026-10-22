@@ -61,6 +61,7 @@ model Society {
   incomes             Income[]
   bankAccounts        BankAccount[]
   bankBalanceChecks   BankBalanceCheck[]
+  documents           Document[]
   notificationLogs    NotificationLog[]
   paymentClaims       PaymentClaim[]
   creditEntries       CreditEntry[]
@@ -152,6 +153,8 @@ model User {
   expenses      Expense[]
   incomesAdded  Income[]
   bankBalanceChecks BankBalanceCheck[]
+  documentsUploaded Document[] @relation("DocumentUploader")
+  documentsDeleted  Document[] @relation("DocumentDeleter")
   accounts      Account[]      // ready for future OAuth providers
   otpCodes      OtpCode[]
   paymentClaims PaymentClaim[]
@@ -396,6 +399,62 @@ model BankBalanceCheck {
   recordedBy  User        @relation(fields: [recordedById], references: [id])
 
   @@index([societyId, bankAccountId, asOf])
+}
+
+// ─────────────────────────────────────────────
+// Documents (bills, tax receipts, agreements…) stored in a private R2/S3 bucket
+// ─────────────────────────────────────────────
+
+enum DocumentCategory {
+  BILL
+  TAX_RECEIPT
+  AGREEMENT   // contracts, AMC, vendor and rental agreements
+  INSURANCE
+  MINUTES
+  BYLAWS
+  NOTICE
+  AUDIT
+  OTHER
+}
+
+enum DocumentVisibility {
+  COMMITTEE // admin, secretary, treasurer
+  RESIDENTS // everyone in the society
+}
+
+enum DocumentStatus {
+  PENDING // upload link issued, file not confirmed yet
+  READY
+  DELETED // soft-deleted; the file is removed from storage after 30 days
+}
+
+model Document {
+  id           String             @id @default(cuid())
+  societyId    String
+  title        String
+  category     DocumentCategory
+  visibility   DocumentVisibility @default(COMMITTEE)
+  status       DocumentStatus     @default(PENDING)
+  storageKey   String             @unique // societies/<societyId>/<id>/<random>.<ext>; never shown to users
+  fileName     String             // original name, for display and downloads
+  mimeType     String
+  sizeBytes    Int
+  expiresOn    DateTime?          // insurance, AMC, agreements: used for renewal reminders
+  retainUntil  DateTime?          // cannot be deleted before this (tax and audit records)
+  uploadedById String
+  confirmedAt  DateTime?
+  deletedAt    DateTime?
+  deletedById  String?
+  purgedAt     DateTime?          // the stored file has been removed
+  createdAt    DateTime           @default(now())
+
+  society    Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  uploadedBy User    @relation("DocumentUploader", fields: [uploadedById], references: [id])
+  deletedBy  User?   @relation("DocumentDeleter", fields: [deletedById], references: [id])
+
+  @@index([societyId, status, category])
+  @@index([societyId, expiresOn])
+  @@index([status, createdAt])
 }
 
 // ─────────────────────────────────────────────
