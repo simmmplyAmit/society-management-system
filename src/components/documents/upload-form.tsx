@@ -13,23 +13,23 @@ import {
   EXPIRING_CATEGORIES,
   MAX_DOCUMENT_BYTES,
   defaultVisibility,
+  type LibraryCategory,
 } from "@/lib/utils/documents";
 import { TagInput } from "@/components/documents/tag-input";
-import type { DocumentCategory } from "@prisma/client";
 
 const field =
   "h-10 w-full rounded-lg border border-input bg-white px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
-export function DocumentUploadForm({ defaultCategory, tagSuggestions = [] }: { defaultCategory?: DocumentCategory; tagSuggestions?: string[] }) {
+export function DocumentUploadForm({ defaultCategory, tagSuggestions = [] }: { defaultCategory?: LibraryCategory; tagSuggestions?: string[] }) {
   const [busy, startTransition] = useTransition();
-  const [category, setCategory] = useState<DocumentCategory>(defaultCategory ?? "BILL");
+  const [category, setCategory] = useState<LibraryCategory>(defaultCategory ?? "BILL");
   const [visibility, setVisibility] = useState(defaultVisibility(category));
   const [title, setTitle] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState("");
 
-  function onCategory(c: DocumentCategory) {
+  function onCategory(c: LibraryCategory) {
     setCategory(c);
     setVisibility(defaultVisibility(c));
   }
@@ -104,7 +104,7 @@ export function DocumentUploadForm({ defaultCategory, tagSuggestions = [] }: { d
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label>Type *</Label>
-          <select name="category" value={category} onChange={(e) => onCategory(e.target.value as DocumentCategory)} className={field}>
+          <select name="category" value={category} onChange={(e) => onCategory(e.target.value as LibraryCategory)} className={field}>
             {CATEGORIES.map((c) => (
               <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
             ))}

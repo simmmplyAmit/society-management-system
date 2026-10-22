@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { flatLabel } from "@/lib/utils/flat";
 import { dueBalance } from "@/lib/utils/dues";
+import { Paperclip } from "lucide-react";
 import { formatCurrency, formatDate, MONTHS } from "@/lib/utils/month";
 
 interface Claim {
@@ -17,6 +18,7 @@ interface Claim {
   paidOn: Date;
   createdAt: Date;
   user: { name: string; phone: string | null };
+  documents?: { id: string; fileName: string; mimeType: string }[];
   payments: {
     id: string;
     month: number;
@@ -101,6 +103,27 @@ function ClaimCard({ claim, hasWings }: { claim: Claim; hasWings: boolean }) {
           <dd className="mt-0.5 font-semibold">{formatDate(claim.paidOn)}</dd>
         </div>
       </dl>
+
+      <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
+        <span className="font-medium text-muted-foreground">Proof:</span>
+        {(claim.documents ?? []).length === 0 ? (
+          <span className="text-muted-foreground">none attached</span>
+        ) : (
+          claim.documents!.map((d) => (
+            <a
+              key={d.id}
+              href={`/api/documents/${d.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex max-w-full items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary hover:bg-primary/20"
+              title={d.fileName}
+            >
+              <Paperclip className="size-3 shrink-0" />
+              <span className="truncate">{d.fileName}</span>
+            </a>
+          ))
+        )}
+      </div>
 
       <p className="mt-3 text-xs text-muted-foreground">
         Reported {formatCurrency(claim.amount)} against {claim.payments.length} due{claim.payments.length !== 1 ? "s" : ""} totalling{" "}

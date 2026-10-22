@@ -6,6 +6,7 @@ export async function getPendingClaims(societyId: string) {
     where: { societyId, status: "SUBMITTED" },
     include: {
       user: { select: { name: true, phone: true } },
+      documents: { where: { status: "READY" }, select: { id: true, fileName: true, mimeType: true }, orderBy: { createdAt: "asc" } },
       payments: {
         select: {
           id: true, month: true, year: true, amount: true, amountPaid: true, label: true,

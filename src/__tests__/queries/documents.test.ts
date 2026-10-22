@@ -11,24 +11,39 @@ import { prisma } from "@/lib/prisma";
 describe("document visibility", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("committee roles see everything, residents only shared files", () => {
-    for (const r of ["ADMIN", "SECRETARY", "TREASURER"] as const) expect(visibleTo(r)).toEqual({});
-    for (const r of ["OWNER", "TENANT"] as const) expect(visibleTo(r)).toEqual({ visibility: "RESIDENTS" });
+  it("committee roles see everything; residents see shared files and their own uploads", () => {
+    for (const r of ["ADMIN", "SECRETARY", "TREASURER"] as const) expect(visibleTo(r, "u1")).toEqual({});
+    for (const r of ["OWNER", "TENANT"] as const) {
+      expect(visibleTo(r, "u1")).toEqual({ OR: [{ visibility: "RESIDENTS" }, { uploadedById: "u1" }] });
+    }
   });
 
   it("scopes a download lookup by society, status and visibility", async () => {
-    await getDocumentForViewer("s1", "TENANT", "d1");
+    await getDocumentForViewer("s1", "TENANT", "u1", "d1");
     expect(prisma.document.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "d1", societyId: "s1", status: "READY", visibility: "RESIDENTS" } })
+      expect.objectContaining({
+        where: { id: "d1", societyId: "s1", status: "READY", OR: [{ visibility: "RESIDENTS" }, { uploadedById: "u1" }] },
+      })
     );
   });
 
   it("lists only ready documents of the society", async () => {
     vi.mocked(prisma.document.findMany).mockResolvedValue([]);
-    await listDocuments("s1", "OWNER", { category: "BILL" });
+    await listDocuments("s1", "OWNER", "u1", { category: "BILL" });
     expect(prisma.document.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { societyId: "s1", status: "READY", visibility: "RESIDENTS", category: "BILL" } })
+      expect.objectContaining({
+        where: {
+          societyId: "s1", status: "READY", category: "BILL",
+          AND: [{ OR: [{ visibility: "RESIDENTS" }, { uploadedById: "u1" }] }, {}],
+        },
+      })
     );
+  });
+
+  it("keeps payment proofs out of the library unless asked by category", async () => {
+    vi.mocked(prisma.document.findMany).mockResolvedValue([]);
+    await listDocuments("s1", "ADMIN", "u1");
+    expect(vi.mocked(prisma.document.findMany).mock.calls[0][0]!.where).toMatchObject({ category: { not: "PAYMENT_PROOF" } });
   });
 });
 
@@ -37,17 +52,24 @@ describe("document tags", () => {
 
   it("counts tags among visible documents only, most used first", async () => {
     vi.mocked(prisma.document.findMany).mockResolvedValue([{ tags: ["lift", "2026"] }, { tags: ["lift"] }, { tags: [] }] as never);
-    expect(await getTagCounts("s1", "TENANT")).toEqual([{ tag: "lift", count: 2 }, { tag: "2026", count: 1 }]);
+    expect(await getTagCounts("s1", "TENANT", "u1")).toEqual([{ tag: "lift", count: 2 }, { tag: "2026", count: 1 }]);
     expect(prisma.document.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { societyId: "s1", status: "READY", visibility: "RESIDENTS" } })
+      expect.objectContaining({
+        where: {
+          societyId: "s1", status: "READY", category: { not: "PAYMENT_PROOF" },
+          OR: [{ visibility: "RESIDENTS" }, { uploadedById: "u1" }],
+        },
+      })
     );
   });
 
   it("filters by an exact tag", async () => {
     vi.mocked(prisma.document.findMany).mockResolvedValue([]);
-    await listDocuments("s1", "ADMIN", { tag: "lift" });
+    await listDocuments("s1", "ADMIN", "u1", { tag: "lift" });
     expect(prisma.document.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { societyId: "s1", status: "READY", tags: { has: "lift" } } })
+      expect.objectContaining({
+        where: { societyId: "s1", status: "READY", category: { not: "PAYMENT_PROOF" }, tags: { has: "lift" }, AND: [{}, {}] },
+      })
     );
   });
 
@@ -55,10 +77,12 @@ describe("document tags", () => {
     vi.mocked(prisma.document.findMany)
       .mockResolvedValueOnce([{ tags: ["lift amc", "lifeguard", "water"] }] as never) // tag counts lookup
       .mockResolvedValueOnce([] as never);
-    await listDocuments("s1", "OWNER", { q: "  LIF " });
+    await listDocuments("s1", "OWNER", "u1", { q: "  LIF " });
     const where = vi.mocked(prisma.document.findMany).mock.calls[1][0]!.where as Record<string, unknown>;
-    expect(where).toMatchObject({ societyId: "s1", status: "READY", visibility: "RESIDENTS" });
-    expect(where.OR).toEqual([
+    expect(where).toMatchObject({ societyId: "s1", status: "READY" });
+    const [who, text] = where.AND as [object, { OR: unknown[] }];
+    expect(who).toEqual({ OR: [{ visibility: "RESIDENTS" }, { uploadedById: "u1" }] });
+    expect(text.OR).toEqual([
       { title: { contains: "lif", mode: "insensitive" } },
       { fileName: { contains: "lif", mode: "insensitive" } },
       { tags: { hasSome: ["lifeguard", "lift amc"] } },

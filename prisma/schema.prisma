@@ -416,6 +416,7 @@ enum DocumentCategory {
   BYLAWS
   NOTICE
   AUDIT
+  PAYMENT_PROOF // screenshot a resident attaches to a UPI payment report; not shown in the library
   OTHER
 }
 
@@ -446,6 +447,7 @@ model Document {
   retainUntil  DateTime?          // cannot be deleted before this (tax and audit records)
   expenseId    String?            // attached to an expense or an income entry (kept in the library if that is deleted)
   incomeId     String?
+  claimId      String?            // proof attached to a payment report
   uploadedById String
   confirmedAt  DateTime?
   deletedAt    DateTime?
@@ -458,6 +460,7 @@ model Document {
   deletedBy  User?   @relation("DocumentDeleter", fields: [deletedById], references: [id])
   expense    Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
   income     Income?  @relation(fields: [incomeId], references: [id], onDelete: SetNull)
+  claim      PaymentClaim? @relation(fields: [claimId], references: [id], onDelete: SetNull)
 
   @@index([societyId, status, category])
   @@index([societyId, expiresOn])
@@ -465,6 +468,7 @@ model Document {
   @@index([tags], type: Gin)
   @@index([expenseId])
   @@index([incomeId])
+  @@index([claimId])
 }
 
 // ─────────────────────────────────────────────
@@ -563,6 +567,7 @@ model PaymentClaim {
   society  Society             @relation(fields: [societyId], references: [id], onDelete: Cascade)
   user     User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   payments MaintenancePayment[]
+  documents Document[]
 
   @@index([societyId, status])
   @@index([userId])

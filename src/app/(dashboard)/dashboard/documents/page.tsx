@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/session";
 import { COMMITTEE_ROLES, getCategoryCounts, getStorageUsed, getTagCounts, listDocuments, quotaBytes } from "@/lib/queries/documents";
-import { CATEGORIES, CATEGORY_LABELS, formatBytes, normalizeTags } from "@/lib/utils/documents";
+import { CATEGORIES, CATEGORY_LABELS, formatBytes, normalizeTags, type LibraryCategory } from "@/lib/utils/documents";
 import { DocumentsList } from "@/components/documents/documents-list";
 import { DocumentUploadForm } from "@/components/documents/upload-form";
 import { ToolSection } from "@/components/ui/tool-section";
 import { storageConfigured } from "@/lib/storage";
 import { Search, Upload, X } from "lucide-react";
-import type { DocumentCategory } from "@prisma/client";
 
 export default async function DocumentsPage({
   searchParams,
@@ -17,16 +16,16 @@ export default async function DocumentsPage({
   const session = await requireRole(["ADMIN", "SECRETARY", "TREASURER", "OWNER", "TENANT"]);
   const { role, societyId, id: userId } = session.user;
   const sp = await searchParams;
-  const category = CATEGORIES.includes(sp.cat as DocumentCategory) ? (sp.cat as DocumentCategory) : undefined;
+  const category = CATEGORIES.includes(sp.cat as LibraryCategory) ? (sp.cat as LibraryCategory) : undefined;
   const q = (sp.q ?? "").trim().slice(0, 60);
   const tag = normalizeTags([sp.tag])[0];
   const isCommittee = COMMITTEE_ROLES.includes(role);
   const isManager = role === "ADMIN" || role === "TREASURER";
 
   const [rows, counts, tagCounts, used] = await Promise.all([
-    listDocuments(societyId!, role, { category, tag, q }),
-    getCategoryCounts(societyId!, role),
-    getTagCounts(societyId!, role),
+    listDocuments(societyId!, role, userId, { category, tag, q }),
+    getCategoryCounts(societyId!, role, userId),
+    getTagCounts(societyId!, role, userId),
     isCommittee ? getStorageUsed(societyId!) : Promise.resolve(0),
   ]);
   const total = Object.values(counts).reduce((n, c) => n + (c ?? 0), 0);

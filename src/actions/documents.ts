@@ -9,6 +9,7 @@ import {
   ALLOWED_TYPES,
   CATEGORIES,
   MAX_DOCUMENT_BYTES,
+  MAX_PROOFS_PER_CLAIM,
   normalizeTags,
   retainUntil,
   safeFileName,
@@ -16,8 +17,10 @@ import {
 } from "@/lib/utils/documents";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
+import type { DocumentCategory } from "@prisma/client";
 
 const UPLOADERS = ["ADMIN", "SECRETARY", "TREASURER"] as const;
+const MEMBERS = ["ADMIN", "SECRETARY", "TREASURER", "OWNER", "TENANT"] as const;
 
 const requestSchema = z.object({
   title: z.string().trim().min(2, "Give the document a title").max(120),
@@ -80,49 +83,118 @@ export async function requestDocumentUpload(formData: FormData) {
     if (Number.isNaN(expiresOn.getTime())) return { error: "Enter a valid expiry date" };
   }
 
-  if ((await getStorageUsed(societyId)) + d.sizeBytes > quotaBytes()) {
+  const category = d.category as (typeof CATEGORIES)[number];
+  return issueUpload({
+    societyId, userId: session.user.id, title: d.title, category, visibility: d.visibility,
+    fileName: d.fileName, mimeType: d.mimeType, ext, sizeBytes: d.sizeBytes, tags, expiresOn,
+    expenseId, incomeId, claimId: null, source: "requestDocumentUpload",
+  });
+}
+
+/** Quota check, signed link and the pending record: shared by every kind of upload. */
+async function issueUpload(o: {
+  societyId: string;
+  userId: string;
+  title: string;
+  category: DocumentCategory;
+  visibility: "COMMITTEE" | "RESIDENTS";
+  fileName: string;
+  mimeType: string;
+  ext: string;
+  sizeBytes: number;
+  tags: string[];
+  expiresOn: Date | null;
+  expenseId: string | null;
+  incomeId: string | null;
+  claimId: string | null;
+  source: string;
+}) {
+  if ((await getStorageUsed(o.societyId)) + o.sizeBytes > quotaBytes()) {
     return { error: "Your society's storage is full. Delete old files or ask for more space" };
   }
 
   const id = randomUUID();
-  const storageKey = `societies/${societyId}/${id}/${randomUUID()}.${ext}`;
-  const category = d.category as (typeof CATEGORIES)[number];
+  const storageKey = `societies/${o.societyId}/${id}/${randomUUID()}.${o.ext}`;
 
   let uploadUrl: string;
   try {
-    uploadUrl = await signUpload(storageKey, d.mimeType, d.sizeBytes);
+    uploadUrl = await signUpload(storageKey, o.mimeType, o.sizeBytes);
   } catch (err) {
     if (err instanceof StorageNotConfiguredError) return { error: NOT_CONFIGURED };
-    console.error("[requestDocumentUpload] sign failed:", err);
+    console.error(`[${o.source}] sign failed:`, err);
     return { error: "Could not start the upload. Please try again" };
   }
 
   await prisma.document.create({
     data: {
       id,
-      societyId,
-      title: d.title,
-      category,
-      visibility: d.visibility,
+      societyId: o.societyId,
+      title: o.title,
+      category: o.category,
+      visibility: o.visibility,
       status: "PENDING",
       storageKey,
-      fileName: safeFileName(d.fileName),
-      mimeType: d.mimeType,
-      sizeBytes: d.sizeBytes,
-      tags,
-      expenseId,
-      incomeId,
-      expiresOn,
-      retainUntil: retainUntil(category, new Date()),
-      uploadedById: session.user.id,
+      fileName: safeFileName(o.fileName),
+      mimeType: o.mimeType,
+      sizeBytes: o.sizeBytes,
+      tags: o.tags,
+      expenseId: o.expenseId,
+      incomeId: o.incomeId,
+      claimId: o.claimId,
+      expiresOn: o.expiresOn,
+      retainUntil: retainUntil(o.category, new Date()),
+      uploadedById: o.userId,
     },
   });
-  return { success: true as const, documentId: id, uploadUrl, contentType: d.mimeType };
+  return { success: true as const, documentId: id, uploadUrl, contentType: o.mimeType };
+}
+
+const proofSchema = z.object({
+  claimId: z.string().min(1).max(40),
+  fileName: z.string().min(1).max(255),
+  mimeType: z.string(),
+  sizeBytes: z.coerce.number().int().positive("The file is empty").max(MAX_DOCUMENT_BYTES, "Files can be at most 10 MB"),
+});
+
+/**
+ * A resident attaches proof (a UPI screenshot or receipt) to their own payment report. Only the
+ * resident who made the report can add to it, and only while it is awaiting verification.
+ */
+export async function requestProofUpload(formData: FormData) {
+  const session = await requireRole(["ADMIN", "SECRETARY", "TREASURER", "OWNER", "TENANT"]);
+  const { id: userId, societyId } = session.user;
+  if (!societyId) return { error: "No society found" };
+
+  const parsed = proofSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const d = parsed.data;
+
+  const ext = ALLOWED_TYPES[d.mimeType];
+  if (!ext) return { error: "Only PDF, JPG, PNG or WebP files can be uploaded" };
+
+  const claim = await prisma.paymentClaim.findFirst({
+    where: { id: d.claimId, societyId, userId, status: "SUBMITTED" },
+    select: { id: true, utrNumber: true },
+  });
+  if (!claim) return { error: "That payment report was not found" };
+
+  // Counts unconfirmed uploads too, so repeated requests can't pile up
+  const existing = await prisma.document.count({
+    where: { claimId: claim.id, societyId, status: { in: ["PENDING", "READY"] } },
+  });
+  if (existing >= MAX_PROOFS_PER_CLAIM) return { error: `You can attach at most ${MAX_PROOFS_PER_CLAIM} files to a report` };
+
+  return issueUpload({
+    societyId, userId, title: `Payment proof – ${claim.utrNumber}`, category: "PAYMENT_PROOF", visibility: "COMMITTEE",
+    fileName: d.fileName, mimeType: d.mimeType, ext, sizeBytes: d.sizeBytes, tags: [], expiresOn: null,
+    expenseId: null, incomeId: null, claimId: claim.id, source: "requestProofUpload",
+  });
 }
 
 /** Step 2: after the browser uploaded, check what actually arrived and publish the document. */
 export async function confirmDocumentUpload(documentId: string) {
-  const session = await requireRole([...UPLOADERS]);
+  // Open to every society member: it only publishes a pending upload the caller themselves started
+  const session = await requireRole([...MEMBERS]);
   const societyId = session.user.societyId!;
 
   const doc = await prisma.document.findFirst({

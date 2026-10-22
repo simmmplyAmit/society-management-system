@@ -1,9 +1,9 @@
 "use client";
 
-import { requestDocumentUpload, confirmDocumentUpload } from "@/actions/documents";
+import { requestDocumentUpload, requestProofUpload, confirmDocumentUpload } from "@/actions/documents";
 import { ALLOWED_TYPES, MAX_DOCUMENT_BYTES } from "@/lib/utils/documents";
 
-export type AttachTarget = { expenseId: string } | { incomeId: string };
+export type AttachTarget = { expenseId: string } | { incomeId: string } | { claimId: string };
 
 /** Why a file can't be uploaded, or null if it looks fine. */
 export function fileProblem(f: File): string | null {
@@ -32,9 +32,19 @@ export async function uploadAttachments(
       fd.set("fileName", file.name);
       fd.set("mimeType", file.type);
       fd.set("sizeBytes", String(file.size));
-      fd.set("expenseId" in target ? "expenseId" : "incomeId", "expenseId" in target ? target.expenseId : target.incomeId);
-
-      const r = await requestDocumentUpload(fd);
+      let r;
+      if ("claimId" in target) {
+        // A resident's proof for their own payment report
+        const proof = new FormData();
+        proof.set("claimId", target.claimId);
+        proof.set("fileName", file.name);
+        proof.set("mimeType", file.type);
+        proof.set("sizeBytes", String(file.size));
+        r = await requestProofUpload(proof);
+      } else {
+        fd.set("expenseId" in target ? "expenseId" : "incomeId", "expenseId" in target ? target.expenseId : target.incomeId);
+        r = await requestDocumentUpload(fd);
+      }
       if (!("success" in r) || !r.success) {
         errors.push(`${file.name}: ${(r as { error: string }).error}`);
         continue;

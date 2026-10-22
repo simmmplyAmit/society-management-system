@@ -102,7 +102,7 @@ export async function submitPaymentClaim(formData: FormData) {
   }
 
   revalidatePath("/dashboard/maintenance");
-  return { success: true as const };
+  return { success: true as const, claimId: claim.id };
 }
 
 const approveSchema = z.object({

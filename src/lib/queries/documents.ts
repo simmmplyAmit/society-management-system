@@ -14,15 +14,23 @@ export function quotaBytes(): number {
   return (Number.isFinite(mb) && mb > 0 ? mb : DEFAULT_QUOTA_MB) * 1024 * 1024;
 }
 
-/** What this role may see: committee sees everything, residents only what was shared with them. */
-export function visibleTo(role: Role) {
-  return COMMITTEE_ROLES.includes(role) ? {} : { visibility: "RESIDENTS" as const };
+/**
+ * What this person may see: the committee sees everything; others see what was shared with all
+ * residents plus anything they uploaded themselves (their own payment proofs).
+ */
+export function visibleTo(role: Role, userId: string) {
+  return COMMITTEE_ROLES.includes(role)
+    ? {}
+    : { OR: [{ visibility: "RESIDENTS" as const }, { uploadedById: userId }] };
 }
 
+/** The library lists real documents; payment proofs live on their payment reports. */
+const LIBRARY = { category: { not: "PAYMENT_PROOF" as const } };
+
 /** Tags in use (most used first) among the documents this role can see. */
-export async function getTagCounts(societyId: string, role: Role, limit = 50) {
+export async function getTagCounts(societyId: string, role: Role, userId: string, limit = 50) {
   const rows = await prisma.document.findMany({
-    where: { societyId, status: "READY", ...visibleTo(role) },
+    where: { societyId, status: "READY", ...LIBRARY, ...visibleTo(role, userId) },
     select: { tags: true },
   });
   const counts = new Map<string, number>();
@@ -41,7 +49,7 @@ export interface DocumentFilter {
   q?: string;
 }
 
-export async function listDocuments(societyId: string, role: Role, filter: DocumentFilter = {}) {
+export async function listDocuments(societyId: string, role: Role, userId: string, filter: DocumentFilter = {}) {
   const { category, tag } = filter;
   const q = filter.q?.trim().toLowerCase().slice(0, 60);
   const search = q
@@ -50,7 +58,7 @@ export async function listDocuments(societyId: string, role: Role, filter: Docum
           { title: { contains: q, mode: "insensitive" as const } },
           { fileName: { contains: q, mode: "insensitive" as const } },
           // tags are stored lowercase, so match every tag that contains the text
-          { tags: { hasSome: (await getTagCounts(societyId, role, 500)).map((t) => t.tag).filter((t) => t.includes(q)) } },
+          { tags: { hasSome: (await getTagCounts(societyId, role, userId, 500)).map((t) => t.tag).filter((t) => t.includes(q)) } },
         ],
       }
     : {};
@@ -58,10 +66,10 @@ export async function listDocuments(societyId: string, role: Role, filter: Docum
     where: {
       societyId,
       status: "READY",
-      ...visibleTo(role),
-      ...(category ? { category } : {}),
+      category: category ?? LIBRARY.category,
       ...(tag ? { tags: { has: tag } } : {}),
-      ...search,
+      // two separate OR groups (who may see it, and what matches the text), so combine with AND
+      AND: [visibleTo(role, userId), search],
     },
     select: {
       id: true, title: true, category: true, visibility: true, tags: true, fileName: true, mimeType: true, sizeBytes: true,
@@ -72,10 +80,10 @@ export async function listDocuments(societyId: string, role: Role, filter: Docum
   });
 }
 
-export async function getCategoryCounts(societyId: string, role: Role) {
+export async function getCategoryCounts(societyId: string, role: Role, userId: string) {
   const rows = await prisma.document.groupBy({
     by: ["category"],
-    where: { societyId, status: "READY", ...visibleTo(role) },
+    where: { societyId, status: "READY", ...LIBRARY, ...visibleTo(role, userId) },
     _count: { _all: true },
   });
   return Object.fromEntries(rows.map((r) => [r.category, r._count._all])) as Partial<Record<DocumentCategory, number>>;
@@ -91,9 +99,9 @@ export async function getStorageUsed(societyId: string): Promise<number> {
 }
 
 /** The document, only if this person may open it. */
-export async function getDocumentForViewer(societyId: string, role: Role, id: string) {
+export async function getDocumentForViewer(societyId: string, role: Role, userId: string, id: string) {
   return prisma.document.findFirst({
-    where: { id, societyId, status: "READY", ...visibleTo(role) },
+    where: { id, societyId, status: "READY", ...visibleTo(role, userId) },
     select: { id: true, storageKey: true, fileName: true, mimeType: true },
   });
 }

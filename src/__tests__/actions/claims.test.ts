@@ -67,7 +67,7 @@ describe("submitPaymentClaim", () => {
 
   it("records the amount the resident says they paid (any amount) and attaches the dues", async () => {
     const r = await submitPaymentClaim(fd({ ...valid, amount: "1200.50" }, ["p1", "p2"]));
-    expect(r).toEqual({ success: true });
+    expect(r).toEqual({ success: true, claimId: "c1" });
     expect(claim.create.mock.calls[0][0].data).toMatchObject({
       societyId: "s1", userId: "u1", utrNumber: "412345678901", amount: 1200.5,
     });

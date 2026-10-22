@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    document: { create: vi.fn(), findFirst: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn() },
+    document: { create: vi.fn(), findFirst: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn(), count: vi.fn() },
+    paymentClaim: { findFirst: vi.fn() },
     expense: { findFirst: vi.fn() },
     income: { findFirst: vi.fn() },
   },
@@ -24,7 +25,7 @@ vi.mock("@/lib/queries/documents", () => ({
   quotaBytes: vi.fn().mockReturnValue(1024 * 1024 * 1024),
 }));
 
-import { requestDocumentUpload, confirmDocumentUpload, deleteDocument, updateDocumentTags } from "@/actions/documents";
+import { requestDocumentUpload, requestProofUpload, confirmDocumentUpload, deleteDocument, updateDocumentTags } from "@/actions/documents";
 import { requireRole } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { signUpload, inspectObject, deleteObject, StorageNotConfiguredError } from "@/lib/storage";
@@ -254,5 +255,86 @@ describe("updateDocumentTags", () => {
   it("rejects malformed tags", async () => {
     expect(await updateDocumentTags("d1", fd({ tags: "nope" }))).toEqual({ error: "Invalid tags" });
     expect(prisma.document.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("requestProofUpload (resident proof for a payment report)", () => {
+  const proof = { claimId: "c1", fileName: "gpay.png", mimeType: "image/png", sizeBytes: "150000" };
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(requireRole).mockResolvedValue({ user: { id: "res1", role: "OWNER", societyId: "s1" } } as never);
+    vi.mocked(prisma.paymentClaim.findFirst).mockResolvedValue({ id: "c1", utrNumber: "UTR123456789" } as never);
+    vi.mocked(prisma.document.count).mockResolvedValue(0);
+    vi.mocked(getStorageUsed).mockResolvedValue(0);
+    vi.mocked(signUpload).mockResolvedValue("https://r2.example/put");
+  });
+
+  it("is open to every society member", async () => {
+    await requestProofUpload(fd(proof));
+    expect(requireRole).toHaveBeenCalledWith(["ADMIN", "SECRETARY", "TREASURER", "OWNER", "TENANT"]);
+  });
+
+  it("only finds the caller's own report in their society that is still awaiting review", async () => {
+    await requestProofUpload(fd({ ...proof, societyId: "other", userId: "someone-else" }));
+    expect(prisma.paymentClaim.findFirst).toHaveBeenCalledWith({
+      where: { id: "c1", societyId: "s1", userId: "res1", status: "SUBMITTED" },
+      select: { id: true, utrNumber: true },
+    });
+  });
+
+  it("stores the proof as a committee-only payment proof linked to the report", async () => {
+    const r = await requestProofUpload(fd(proof));
+    expect(r).toMatchObject({ success: true, contentType: "image/png" });
+    expect(vi.mocked(prisma.document.create).mock.calls[0][0].data).toMatchObject({
+      societyId: "s1", category: "PAYMENT_PROOF", visibility: "COMMITTEE", claimId: "c1",
+      uploadedById: "res1", status: "PENDING", retainUntil: null,
+    });
+  });
+
+  it("refuses a report that isn't theirs, is already reviewed, or doesn't exist", async () => {
+    vi.mocked(prisma.paymentClaim.findFirst).mockResolvedValue(null);
+    expect(await requestProofUpload(fd(proof))).toEqual({ error: "That payment report was not found" });
+    expect(prisma.document.create).not.toHaveBeenCalled();
+    expect(signUpload).not.toHaveBeenCalled();
+  });
+
+  it("allows at most 3 files per report, counting unconfirmed uploads", async () => {
+    vi.mocked(prisma.document.count).mockResolvedValue(3);
+    expect(await requestProofUpload(fd(proof))).toHaveProperty("error");
+    expect(prisma.document.count).toHaveBeenCalledWith({
+      where: { claimId: "c1", societyId: "s1", status: { in: ["PENDING", "READY"] } },
+    });
+    expect(prisma.document.create).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["an executable", { mimeType: "application/x-msdownload" }],
+    ["a file over 10 MB", { sizeBytes: String(11 * 1024 * 1024) }],
+    ["an empty file", { sizeBytes: "0" }],
+  ])("rejects %s", async (_n, patch) => {
+    expect(await requestProofUpload(fd({ ...proof, ...patch }))).toHaveProperty("error");
+    expect(prisma.document.create).not.toHaveBeenCalled();
+  });
+
+  it("lets a resident confirm their own pending upload", async () => {
+    vi.mocked(prisma.document.findFirst).mockResolvedValue({ id: "d1", storageKey: "k", mimeType: "image/png", sizeBytes: 150000 } as never);
+    vi.mocked(inspectObject).mockResolvedValue({ size: 150000, head: Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0, 0, 0, 0, 0]) });
+    vi.mocked(prisma.document.updateMany).mockResolvedValue({ count: 1 });
+    expect(await confirmDocumentUpload("d1")).toEqual({ success: true });
+    expect(prisma.document.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "d1", societyId: "s1", status: "PENDING", uploadedById: "res1" } })
+    );
+  });
+
+  it("does not let a resident upload library documents", async () => {
+    await requestDocumentUpload(fd({ title: "x y", category: "BILL", fileName: "a.pdf", mimeType: "application/pdf", sizeBytes: "10" }));
+    expect(requireRole).toHaveBeenCalledWith(["ADMIN", "SECRETARY", "TREASURER"]);
+  });
+
+  it("does not accept the proof category from the library upload form", async () => {
+    vi.mocked(requireRole).mockResolvedValue({ user: { id: "u1", role: "TREASURER", societyId: "s1" } } as never);
+    const r = await requestDocumentUpload(fd({ title: "x y", category: "PAYMENT_PROOF", fileName: "a.pdf", mimeType: "application/pdf", sizeBytes: "10" }));
+    expect(r).toHaveProperty("error");
+    expect(prisma.document.create).not.toHaveBeenCalled();
   });
 });

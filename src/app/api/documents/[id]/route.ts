@@ -9,11 +9,11 @@ export const dynamic = "force-dynamic";
 /** Checks who is asking, then redirects to a signed link that works for 60 seconds. */
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const session = await getSession();
-  const { societyId, role } = session.user;
+  const { societyId, role, id: userId } = session.user;
   if (!societyId) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const { id } = await ctx.params;
-  const doc = await getDocumentForViewer(societyId, role, id);
+  const doc = await getDocumentForViewer(societyId, role, userId, id);
   if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   try {

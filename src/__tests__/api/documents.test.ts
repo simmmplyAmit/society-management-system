@@ -24,7 +24,7 @@ describe("GET /api/documents/[id]", () => {
 
   it("looks the document up with the session's society and role", async () => {
     await call();
-    expect(getDocumentForViewer).toHaveBeenCalledWith("s1", "OWNER", "d1");
+    expect(getDocumentForViewer).toHaveBeenCalledWith("s1", "OWNER", "u1", "d1");
   });
 
   it("redirects to a short-lived signed link, never cached", async () => {
