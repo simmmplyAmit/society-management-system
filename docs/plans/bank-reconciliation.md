@@ -1,7 +1,7 @@
 # Plan: bank balance tally and bank statement import
 
-Status: **plan only, nothing built.** Decisions needed are in section 9.
-Last updated: 2026-10-21.
+Status: **plan only, nothing built.** Decisions are settled in section 9; one input is still needed (a sample Kotak PDF, section 4.6).
+Last updated: 2026-10-22.
 
 ## 1. Goals
 
@@ -70,19 +70,19 @@ Without Part B, the first release is "A vs B, with the difference shown and a li
 
 ## 4. Part B: read a bank statement
 
-### 4.1 Formats, in order of effort
+### 4.1 Formats
 
 | Format | Plan |
 |---|---|
-| **CSV / XLS(X)** from net banking | Phase 2. Reliable, every Indian bank offers it. |
-| Text PDF | Phase 4, per-bank parsers, brittle; offer only if users cannot get CSV. |
+| **Password-protected text PDF** (Kotak, and most banks) | **Phase 2, the primary path.** See 4.6. |
+| CSV / XLS(X) from net banking | Phase 2, same pipeline after parsing. Far more reliable than PDF, so offer it whenever the bank allows. |
 | Scanned PDF / photo | Out of scope (OCR is unreliable for money). |
-| Account Aggregator / bank feeds | Later. Needs a licensed partner (Finvu, Setu, OneMoney); consent flow; paid. Removes uploads entirely. |
+| Account Aggregator / bank feeds | Later. Needs a licensed partner (Finvu, Setu, OneMoney); removes uploads entirely. |
 
-### 4.2 Pipeline
+### 4.2 Pipeline (shared by every format)
 
-1. **Upload in the browser.** Parse CSV (Papaparse) or XLSX (exceljs, lazy-loaded) on the client, send only normalised rows to a server action in chunks. This avoids server body-size limits (Vercel's) and keeps unparsed spreadsheets (formulas, macros) off the server. The server re-validates every row with Zod.
-2. **Detect and map columns.** Auto-detect the header row; guess date, narration, reference, debit, credit (or one signed amount column) and balance. Show the guess for confirmation; save the mapping as a per-society **bank profile** so the next upload is one click. Ship presets for HDFC, SBI, ICICI, Axis, Kotak, Bank of Baroda, Canara, Union.
+1. **Upload in the browser.** Parse PDF (pdf.js, see 4.6), CSV (Papaparse) or XLSX (exceljs, lazy-loaded) on the client, send only normalised rows to a server action in chunks. This avoids server body-size limits (Vercel's) and keeps unparsed spreadsheets (formulas, macros) off the server. The server re-validates every row with Zod.
+2. **Detect and map columns** (CSV/XLSX; PDF uses the bank's parser in 4.6). Auto-detect the header row; guess date, narration, reference, debit, credit (or one signed amount column) and balance. Show the guess for confirmation; save the mapping as a per-society **bank profile** so the next upload is one click. Ship presets for HDFC, SBI, ICICI, Axis, Kotak, Bank of Baroda, Canara, Union.
 3. **Normalise** to `{ date, narration, reference, debit, credit, balance }` in whole paise. Parse `dd/mm/yy(yy)` and `dd-MMM-yyyy`; reject ambiguous dates unless the profile fixes the order.
 4. **Validate:** the running balance must follow from row to row (`prev + credit - debit = balance`). A break means a missing or misparsed row, so block the import and show where. The first row must agree with the opening balance or the previous import's last balance.
 5. **De-duplicate.** Fingerprint = account + date + amount + direction + reference/narration + running balance, with an occurrence counter for identical lines. Re-uploading an overlapping statement adds only new lines.
@@ -116,6 +116,15 @@ A created record is linked to its `BankTransaction` and carries the line's refer
 - Creating *credit for a member* from a bank line follows the existing rules: a person cannot credit themselves or their own flat's dues without another approver.
 - Locking a reconciled month needs a second person. Ignoring a line above a threshold (suggest ₹10,000) also needs one.
 - Do not keep the uploaded file; keep parsed rows. Narrations can contain names and account numbers, so restrict to the roles above and exclude them from logs.
+
+### 4.6 Password-protected PDF statements (Kotak first)
+
+- **Everything stays in the browser.** The PDF is opened with `pdfjs-dist` (`getDocument({ data, password })`). The password is typed by the user, used once in memory, and never stored, logged or sent to the server; only the extracted rows are sent. pdf.js reports `NEED_PASSWORD` / `INCORRECT_PASSWORD`, so the UI asks, retries and explains a wrong password. (Do not try to guess or derive the password; banks set it from customer data and we should not hold that.) Pin `pdfjs-dist` to an exact release at least two weeks old and load its worker from the bundle, not a CDN.
+- **Row extraction.** `getTextContent()` returns text pieces with x/y positions. Group pieces into lines by y, find the header line (Date, Narration, Chq/Ref No, Withdrawal, Deposit, Balance, wording to be confirmed), derive column x-ranges from the header, and assign each piece to a column. Narrations that wrap onto a second line belong to the row above (a line with no date continues the previous row). Repeat headers and footers on each page are dropped. Amounts and dates are parsed with the same normaliser as CSV.
+- **Bank parsers are isolated.** One module per bank behind `parse(pages) → rows`, plus a generic fallback that uses the header detection above. Kotak is built first; others are added when someone supplies a sample.
+- **Safety net.** The running-balance check (4.2 step 4) is the proof the parse is right. If any row fails it, nothing is imported and the screen shows the page and line to look at. The user can always fall back to CSV.
+- **Limits:** the PDF must have a text layer (selectable text). Scanned images are rejected with a clear message. File size cap ~10 MB and ~20 pages per upload; larger statements are split by month.
+- **Needs a sample.** The Kotak layout (column names and order, how debit/credit and balance are shown, date format, multi-line narrations) must be taken from a real statement. I will not guess it. Send one with names, account numbers and the password removed or replaced (a few pages is enough, or copy-paste of the selected text of one page), and I will write the parser and test against it. Check also whether Kotak net banking offers CSV/XLS: if it does, use it for reliability and keep PDF as the main path.
 
 ## 5. Data model additions (Prisma sketch)
 
@@ -156,12 +165,17 @@ Phase 1 is useful alone and is a prerequisite for the rest. I would not start Ph
 
 Pure functions with unit tests (like `buildStatement`): row normalisation, date parsing, running-balance validation, fingerprint and de-dupe, matching, tally arithmetic in paise. Action tests for `requireRole`, `societyId` scoping, the second-person rules and double-link guards. Fixture CSVs per bank (anonymised) under `src/__tests__/fixtures/bank/`.
 
-## 9. Decisions needed
+## 9. Decisions (settled 2026-10-22)
 
-1. **Bank(s)** and whether CSV/XLS exports are available (decides presets). *Default: CSV/XLSX only.*
-2. **One account or several** per society at first. *Default: several allowed, no transfers yet.*
-3. **Opening balance date.** *Default: first day of the month you start using it; nothing earlier is reconciled.*
-4. **Cash expenses** (petty cash) allowed? *Default: yes, `paidVia = CASH`, reported separately.*
-5. **Who can post and lock.** *Default: ADMIN/TREASURER post; a different one locks.*
-6. **Existing expenses:** mark as bank-paid (default) or review them first.
-7. **PDF statements:** needed, or is CSV enough? *Default: CSV first.*
+1. **Bank:** Kotak. Statements arrive as password-protected PDFs, so PDF is first-class (4.6). CSV/XLSX is kept as an option.
+2. One or several accounts: **several allowed, no inter-account transfers yet** (default).
+3. Opening balance date: **first day of the month you start using it**; nothing earlier is reconciled (default).
+4. Cash expenses (petty cash): **allowed**, `paidVia = CASH`, reported separately (default).
+5. Who posts and locks: **ADMIN/TREASURER post; a different one locks** (default).
+6. Existing expenses: **marked as bank-paid** (default).
+7. PDF statements: **required** (was "CSV first"; now PDF is in Phase 2 alongside CSV).
+
+## 10. Next step
+
+- **Phase 1 (tally basics) can start now.** It needs nothing more from you.
+- **Phase 2 (import) needs the sample Kotak PDF** described in 4.6 before the parser is written.

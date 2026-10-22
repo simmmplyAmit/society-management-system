@@ -50,7 +50,7 @@ Built: record bank interest, rent, donations etc. with category, date and bank r
 - [ ] Printable or shareable receipt (PDF) with the receipt number, and a receipt message to the payer that mentions "cash, receipt #N".
 - [ ] Alert (email/SMS) to admins and treasurers when cash has been in someone's hands for several days; today it is only highlighted on the Cash tab.
 - [ ] Hand-over of cash between committee members before banking (so a deposit is always made by the holder, or the transfer is recorded).
-- [ ] Reconcile deposits against the bank statement (import) instead of manual confirmation. Planned: see `docs/plans/bank-reconciliation.md` (bank balance tally + statement import).
+- [ ] Reconcile deposits against the bank statement (import) instead of manual confirmation. Planned: see `docs/plans/bank-reconciliation.md` (bank balance tally + statement import; Kotak password-protected PDF is required; needs a sample statement).
 - [ ] Cash report: collected vs deposited by month and by collector, for audits.
 - [ ] A treasurer collecting cash from themselves, or confirming their own deposit, is only partly blocked (confirmation needs another person; collection does not).
 
