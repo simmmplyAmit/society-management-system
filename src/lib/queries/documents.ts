@@ -24,8 +24,8 @@ export function visibleTo(role: Role, userId: string) {
     : { OR: [{ visibility: "RESIDENTS" as const }, { uploadedById: userId }] };
 }
 
-/** The library lists real documents; payment proofs live on their payment reports. */
-const LIBRARY = { category: { not: "PAYMENT_PROOF" as const } };
+/** The library lists real documents; proofs and complaint photos live on their own records. */
+const LIBRARY = { category: { notIn: ["PAYMENT_PROOF", "COMPLAINT_PHOTO"] as DocumentCategory[] } };
 
 /** Tags in use (most used first) among the documents this role can see. */
 export async function getTagCounts(societyId: string, role: Role, userId: string, limit = 50) {

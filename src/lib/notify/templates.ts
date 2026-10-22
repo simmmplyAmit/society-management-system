@@ -193,3 +193,57 @@ export function expenseCreditMessage(info: {
     ),
   };
 }
+
+type EmailOnly = { subject: string; html: string; text: string };
+
+export function noticeMessage(info: {
+  societyName: string;
+  title: string;
+  body: string;
+  categoryLabel: string;
+  emergency: boolean;
+}): EmailOnly {
+  const excerpt = info.body.length > 600 ? `${info.body.slice(0, 600)}…` : info.body;
+  return {
+    subject: `${info.emergency ? "URGENT: " : ""}${info.title} - ${info.societyName}`,
+    text: `${info.societyName} notice (${info.categoryLabel}): ${info.title}\n\n${excerpt}\n\nRead it in the app: ${appUrl()}/dashboard/notices`,
+    html: shell(
+      info.societyName,
+      info.title,
+      `<p style="margin:0 0 12px;font-size:12px;color:${info.emergency ? "#b91c1c" : "#6b7280"};font-weight:600">${escapeHtml(info.categoryLabel)}</p>
+<p style="font-size:14px;color:#374151;white-space:pre-line">${escapeHtml(excerpt)}</p>
+<a href="${appUrl()}/dashboard/notices" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-size:14px;font-weight:600">Open notices</a>`
+    ),
+  };
+}
+
+export function complaintMessage(info: {
+  societyName: string;
+  complaintId: string;
+  title: string;
+  kind: "raised" | "reply" | "status";
+  actorName: string;
+  detail: string; // the comment, or the new status wording
+  toCommittee: boolean;
+}): EmailOnly {
+  const heading =
+    info.kind === "raised"
+      ? "New complaint"
+      : info.kind === "reply"
+        ? "New reply on your complaint"
+        : "Your complaint was updated";
+  const link = `${appUrl()}/dashboard/complaints/${info.complaintId}`;
+  const detail = info.detail.length > 400 ? `${info.detail.slice(0, 400)}…` : info.detail;
+  return {
+    subject: `${heading}: ${info.title}`,
+    text: `${info.societyName}: ${heading} - "${info.title}". ${info.actorName}: ${detail}\n\nOpen it: ${link}`,
+    html: shell(
+      info.societyName,
+      heading,
+      `<p style="font-size:14px;color:#111827;margin:0 0 8px"><b>${escapeHtml(info.title)}</b></p>
+<p style="font-size:13px;color:#6b7280;margin:0 0 8px">${escapeHtml(info.actorName)}</p>
+<p style="font-size:14px;color:#374151;white-space:pre-line">${escapeHtml(detail)}</p>
+<a href="${link}" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-size:14px;font-weight:600">${info.toCommittee ? "Review complaint" : "View complaint"}</a>`
+    ),
+  };
+}

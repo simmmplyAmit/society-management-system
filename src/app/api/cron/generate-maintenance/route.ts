@@ -4,6 +4,7 @@ import { sendNewDueNotices, sendScheduledReminders } from "@/lib/notify/schedule
 import { applyCreditAllSocieties } from "@/lib/credit-service";
 import { generateAllSpecialCharges } from "@/lib/queries/special-charges";
 import { cleanupDocuments } from "@/lib/queries/documents";
+import { autoCloseResolvedComplaints } from "@/lib/queries/complaints";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,7 +44,11 @@ export async function GET(req: NextRequest) {
       console.error("[cron] document cleanup failed", e);
       return null;
     });
-    return NextResponse.json({ ok: true, ...result, specialCharges, creditApplied, notices, reminders, documents });
+    const complaintsClosed = await autoCloseResolvedComplaints().catch((e) => {
+      console.error("[cron] complaint auto-close failed", e);
+      return null;
+    });
+    return NextResponse.json({ ok: true, ...result, specialCharges, creditApplied, notices, reminders, documents, complaintsClosed });
   } catch (err) {
     console.error("[cron/generate-maintenance]", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

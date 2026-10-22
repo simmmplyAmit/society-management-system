@@ -43,7 +43,7 @@ describe("document visibility", () => {
   it("keeps payment proofs out of the library unless asked by category", async () => {
     vi.mocked(prisma.document.findMany).mockResolvedValue([]);
     await listDocuments("s1", "ADMIN", "u1");
-    expect(vi.mocked(prisma.document.findMany).mock.calls[0][0]!.where).toMatchObject({ category: { not: "PAYMENT_PROOF" } });
+    expect(vi.mocked(prisma.document.findMany).mock.calls[0][0]!.where).toMatchObject({ category: { notIn: ["PAYMENT_PROOF", "COMPLAINT_PHOTO"] } });
   });
 });
 
@@ -56,7 +56,7 @@ describe("document tags", () => {
     expect(prisma.document.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          societyId: "s1", status: "READY", category: { not: "PAYMENT_PROOF" },
+          societyId: "s1", status: "READY", category: { notIn: ["PAYMENT_PROOF", "COMPLAINT_PHOTO"] },
           OR: [{ visibility: "RESIDENTS" }, { uploadedById: "u1" }],
         },
       })
@@ -68,7 +68,7 @@ describe("document tags", () => {
     await listDocuments("s1", "ADMIN", "u1", { tag: "lift" });
     expect(prisma.document.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { societyId: "s1", status: "READY", category: { not: "PAYMENT_PROOF" }, tags: { has: "lift" }, AND: [{}, {}] },
+        where: { societyId: "s1", status: "READY", category: { notIn: ["PAYMENT_PROOF", "COMPLAINT_PHOTO"] }, tags: { has: "lift" }, AND: [{}, {}] },
       })
     );
   });

@@ -24,12 +24,17 @@ export const CATEGORY_LABELS: Record<DocumentCategory, string> = {
   NOTICE: "Notices",
   AUDIT: "Audit & statements",
   PAYMENT_PROOF: "Payment proof",
+  COMPLAINT_PHOTO: "Complaint photo",
   OTHER: "Other",
 };
 
 /** Categories a committee member can choose for a library document (proofs are attached to reports instead). */
-export type LibraryCategory = Exclude<DocumentCategory, "PAYMENT_PROOF">;
-export const CATEGORIES = (Object.keys(CATEGORY_LABELS) as DocumentCategory[]).filter((c): c is LibraryCategory => c !== "PAYMENT_PROOF");
+/** Attached to a record (payment report, complaint) instead of living in the library. */
+export const ATTACHMENT_CATEGORIES = ["PAYMENT_PROOF", "COMPLAINT_PHOTO"] as const;
+export type LibraryCategory = Exclude<DocumentCategory, (typeof ATTACHMENT_CATEGORIES)[number]>;
+export const CATEGORIES = (Object.keys(CATEGORY_LABELS) as DocumentCategory[]).filter(
+  (c): c is LibraryCategory => !(ATTACHMENT_CATEGORIES as readonly string[]).includes(c)
+);
 
 export const MAX_PROOFS_PER_CLAIM = 3;
 

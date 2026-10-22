@@ -64,6 +64,16 @@ Built: record bank interest, rent, donations etc. with category, date and bank r
 - [ ] Per-society quota is a single env value; make it per plan.
 - [ ] Verify with a real R2 bucket: signed PUT/GET, CORS and the 'WHEN_REQUIRED' checksum setting have only been unit tested.
 
+## 2g. Notices, community and complaints follow-ups (v1 built)
+
+- [ ] Notices: attach documents/images; SMS or WhatsApp for emergency notices (needs a DLT template); who has read a notice; scheduled posting.
+- [ ] Notice emails go out in one request and stop at 200 recipients; move to a queue/cron batch for large societies.
+- [ ] Community: report/flag button for residents, edit own post, images in posts, reactions, mute a member (the committee can only hide posts today), pagination beyond the latest 20 posts.
+- [ ] Complaints: committee-uploaded photos/work proof, SLA reminders for complaints open too long, assignment email to the assignee, category-based auto-assignment, a public "common area issue" board, vendor/ticket costs linked to an expense.
+- [ ] A complaint resolved by the resident's own committee member (they can both resolve and confirm); consider requiring a different person.
+- [ ] Complaint auto-close is not written to the complaint's thread.
+- [ ] Moderation and complaint abuse rules (rate limits are per user per day only).
+
 ## 2c. Cash handling follow-ups
 
 - [ ] **Void or correct a cash receipt** (wrong amount or payer). Needs a reversal of the credit and any dues it paid, with a second person's approval; today receipts cannot be edited.

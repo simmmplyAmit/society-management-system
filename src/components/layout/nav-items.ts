@@ -6,6 +6,9 @@ import {
   TrendingDown,
   TrendingUp,
   FolderOpen,
+  Megaphone,
+  MessagesSquare,
+  LifeBuoy,
   Menu,
   HelpCircle,
 } from "lucide-react";
@@ -24,13 +27,16 @@ const ALL: Role[] = ["SUPER_ADMIN", "ADMIN", "SECRETARY", "TREASURER", "OWNER", 
 
 export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard, roles: ALL, rank: 0 },
-  { href: "/dashboard/society", label: "Society", icon: Building2, roles: ["ADMIN", "SECRETARY"], rank: 4 },
-  { href: "/dashboard/residents", label: "Residents", icon: Users, roles: ["ADMIN", "SECRETARY"], rank: 5 },
+  { href: "/dashboard/society", label: "Society", icon: Building2, roles: ["ADMIN", "SECRETARY"], rank: 7 },
+  { href: "/dashboard/residents", label: "Residents", icon: Users, roles: ["ADMIN", "SECRETARY"], rank: 8 },
   { href: "/dashboard/maintenance", label: "Dues", icon: Receipt, roles: ["ADMIN", "SECRETARY", "TREASURER", "OWNER", "TENANT"], rank: 1 },
-  { href: "/dashboard/expenses", label: "Expenses", icon: TrendingDown, roles: ["ADMIN", "SECRETARY", "TREASURER"], rank: 2 },
-  { href: "/dashboard/documents", label: "Documents", icon: FolderOpen, roles: ["ADMIN", "SECRETARY", "TREASURER", "OWNER", "TENANT"], rank: 3 },
-  { href: "/dashboard/income", label: "Income", icon: TrendingUp, roles: ["ADMIN", "SECRETARY", "TREASURER"], rank: 6 },
-  { href: "/dashboard/help", label: "Help", icon: HelpCircle, roles: ALL, rank: 7 },
+  { href: "/dashboard/notices", label: "Notices", icon: Megaphone, roles: ["ADMIN", "SECRETARY", "TREASURER", "OWNER", "TENANT"], rank: 2 },
+  { href: "/dashboard/complaints", label: "Complaints", icon: LifeBuoy, roles: ["ADMIN", "SECRETARY", "TREASURER", "OWNER", "TENANT"], rank: 3 },
+  { href: "/dashboard/community", label: "Community", icon: MessagesSquare, roles: ["ADMIN", "SECRETARY", "TREASURER", "OWNER", "TENANT"], rank: 5 },
+  { href: "/dashboard/expenses", label: "Expenses", icon: TrendingDown, roles: ["ADMIN", "SECRETARY", "TREASURER"], rank: 4 },
+  { href: "/dashboard/documents", label: "Documents", icon: FolderOpen, roles: ["ADMIN", "SECRETARY", "TREASURER", "OWNER", "TENANT"], rank: 6 },
+  { href: "/dashboard/income", label: "Income", icon: TrendingUp, roles: ["ADMIN", "SECRETARY", "TREASURER"], rank: 9 },
+  { href: "/dashboard/help", label: "Help", icon: HelpCircle, roles: ALL, rank: 10 },
 ];
 
 export function isNavActive(href: string, pathname: string) {

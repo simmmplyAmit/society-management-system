@@ -4,6 +4,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     document: { create: vi.fn(), findFirst: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn(), count: vi.fn() },
     paymentClaim: { findFirst: vi.fn() },
+    complaint: { findFirst: vi.fn() },
     expense: { findFirst: vi.fn() },
     income: { findFirst: vi.fn() },
   },
@@ -25,7 +26,7 @@ vi.mock("@/lib/queries/documents", () => ({
   quotaBytes: vi.fn().mockReturnValue(1024 * 1024 * 1024),
 }));
 
-import { requestDocumentUpload, requestProofUpload, confirmDocumentUpload, deleteDocument, updateDocumentTags } from "@/actions/documents";
+import { requestDocumentUpload, requestProofUpload, requestComplaintPhotoUpload, confirmDocumentUpload, deleteDocument, updateDocumentTags } from "@/actions/documents";
 import { requireRole } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { signUpload, inspectObject, deleteObject, StorageNotConfiguredError } from "@/lib/storage";
@@ -336,5 +337,45 @@ describe("requestProofUpload (resident proof for a payment report)", () => {
     const r = await requestDocumentUpload(fd({ title: "x y", category: "PAYMENT_PROOF", fileName: "a.pdf", mimeType: "application/pdf", sizeBytes: "10" }));
     expect(r).toHaveProperty("error");
     expect(prisma.document.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("requestComplaintPhotoUpload", () => {
+  const photo = { complaintId: "c1", fileName: "leak.jpg", mimeType: "image/jpeg", sizeBytes: "200000" };
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(requireRole).mockResolvedValue({ user: { id: "res1", role: "TENANT", societyId: "s1" } } as never);
+    vi.mocked(prisma.complaint.findFirst).mockResolvedValue({ id: "c1", title: "Leak" } as never);
+    vi.mocked(prisma.document.count).mockResolvedValue(0);
+    vi.mocked(getStorageUsed).mockResolvedValue(0);
+    vi.mocked(signUpload).mockResolvedValue("https://r2.example/put");
+  });
+
+  it("only finds the caller's own complaint in their society that isn't closed", async () => {
+    await requestComplaintPhotoUpload(fd({ ...photo, societyId: "other" }));
+    expect(prisma.complaint.findFirst).toHaveBeenCalledWith({
+      where: { id: "c1", societyId: "s1", raisedById: "res1", status: { not: "CLOSED" } },
+      select: { id: true, title: true },
+    });
+  });
+
+  it("stores a committee-visible complaint photo linked to the complaint", async () => {
+    expect(await requestComplaintPhotoUpload(fd(photo))).toMatchObject({ success: true });
+    expect(vi.mocked(prisma.document.create).mock.calls[0][0].data).toMatchObject({
+      category: "COMPLAINT_PHOTO", visibility: "COMMITTEE", complaintId: "c1", claimId: null, uploadedById: "res1",
+    });
+  });
+
+  it("refuses someone else's complaint and a 4th file", async () => {
+    vi.mocked(prisma.complaint.findFirst).mockResolvedValue(null);
+    expect(await requestComplaintPhotoUpload(fd(photo))).toEqual({ error: "That complaint was not found" });
+    vi.mocked(prisma.complaint.findFirst).mockResolvedValue({ id: "c1", title: "Leak" } as never);
+    vi.mocked(prisma.document.count).mockResolvedValue(3);
+    expect(await requestComplaintPhotoUpload(fd(photo))).toHaveProperty("error");
+    expect(prisma.document.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects non-image/PDF files", async () => {
+    expect(await requestComplaintPhotoUpload(fd({ ...photo, mimeType: "text/html" }))).toHaveProperty("error");
   });
 });

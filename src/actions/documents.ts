@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { deleteObject, inspectObject, signUpload, StorageNotConfiguredError } from "@/lib/storage";
 import { getStorageUsed, quotaBytes } from "@/lib/queries/documents";
+import { MAX_COMPLAINT_PHOTOS } from "@/lib/utils/community";
 import {
   ALLOWED_TYPES,
   CATEGORIES,
@@ -107,6 +108,7 @@ async function issueUpload(o: {
   expenseId: string | null;
   incomeId: string | null;
   claimId: string | null;
+  complaintId?: string | null;
   source: string;
 }) {
   if ((await getStorageUsed(o.societyId)) + o.sizeBytes > quotaBytes()) {
@@ -141,6 +143,7 @@ async function issueUpload(o: {
       expenseId: o.expenseId,
       incomeId: o.incomeId,
       claimId: o.claimId,
+      complaintId: o.complaintId ?? null,
       expiresOn: o.expiresOn,
       retainUntil: retainUntil(o.category, new Date()),
       uploadedById: o.userId,
@@ -188,6 +191,44 @@ export async function requestProofUpload(formData: FormData) {
     societyId, userId, title: `Payment proof – ${claim.utrNumber}`, category: "PAYMENT_PROOF", visibility: "COMMITTEE",
     fileName: d.fileName, mimeType: d.mimeType, ext, sizeBytes: d.sizeBytes, tags: [], expiresOn: null,
     expenseId: null, incomeId: null, claimId: claim.id, source: "requestProofUpload",
+  });
+}
+
+const complaintPhotoSchema = z.object({
+  complaintId: z.string().min(1).max(40),
+  fileName: z.string().min(1).max(255),
+  mimeType: z.string(),
+  sizeBytes: z.coerce.number().int().positive("The file is empty").max(MAX_DOCUMENT_BYTES, "Files can be at most 10 MB"),
+});
+
+/** A resident adds a photo to their own complaint (up to 3), while it isn't closed. */
+export async function requestComplaintPhotoUpload(formData: FormData) {
+  const session = await requireRole(["ADMIN", "SECRETARY", "TREASURER", "OWNER", "TENANT"]);
+  const { id: userId, societyId } = session.user;
+  if (!societyId) return { error: "No society found" };
+
+  const parsed = complaintPhotoSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const d = parsed.data;
+
+  const ext = ALLOWED_TYPES[d.mimeType];
+  if (!ext) return { error: "Only PDF, JPG, PNG or WebP files can be uploaded" };
+
+  const complaint = await prisma.complaint.findFirst({
+    where: { id: d.complaintId, societyId, raisedById: userId, status: { not: "CLOSED" } },
+    select: { id: true, title: true },
+  });
+  if (!complaint) return { error: "That complaint was not found" };
+
+  const existing = await prisma.document.count({
+    where: { complaintId: complaint.id, societyId, status: { in: ["PENDING", "READY"] } },
+  });
+  if (existing >= MAX_COMPLAINT_PHOTOS) return { error: `You can attach at most ${MAX_COMPLAINT_PHOTOS} files to a complaint` };
+
+  return issueUpload({
+    societyId, userId, title: `Complaint photo – ${complaint.title}`.slice(0, 120), category: "COMPLAINT_PHOTO", visibility: "COMMITTEE",
+    fileName: d.fileName, mimeType: d.mimeType, ext, sizeBytes: d.sizeBytes, tags: [], expiresOn: null,
+    expenseId: null, incomeId: null, claimId: null, complaintId: complaint.id, source: "requestComplaintPhotoUpload",
   });
 }
 

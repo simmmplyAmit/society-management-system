@@ -1,3 +1,4 @@
+import { HomeCommunityCards } from "@/components/notices/home-cards";
 import { requireRole } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { StatTile, ActionRow } from "@/components/dashboard/stat-tile";
@@ -81,6 +82,8 @@ export default async function DashboardPage() {
         </Link>
 
         <MyFlatsList flats={myFlats} hasWings={hasWings} />
+
+        <HomeCommunityCards societyId={societyId!} role={role} userId={userId} />
       </div>
     );
   }
@@ -203,6 +206,8 @@ export default async function DashboardPage() {
           <MyFlatsList flats={myFlats} hasWings={mgrSoc?.hasWings ?? true} href="/dashboard/maintenance?tab=mine" />
         </div>
       )}
+
+      <HomeCommunityCards societyId={societyId!} role={role} userId={userId} />
 
       <div className="grid gap-3 lg:grid-cols-2">
         <ActionRow
