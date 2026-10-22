@@ -439,6 +439,7 @@ model Document {
   fileName     String             // original name, for display and downloads
   mimeType     String
   sizeBytes    Int
+  tags         String[]           @default([]) // lowercase, normalised; for search
   expiresOn    DateTime?          // insurance, AMC, agreements: used for renewal reminders
   retainUntil  DateTime?          // cannot be deleted before this (tax and audit records)
   uploadedById String
@@ -455,6 +456,7 @@ model Document {
   @@index([societyId, status, category])
   @@index([societyId, expiresOn])
   @@index([status, createdAt])
+  @@index([tags], type: Gin)
 }
 
 // ─────────────────────────────────────────────

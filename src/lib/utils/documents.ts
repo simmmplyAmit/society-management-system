@@ -82,3 +82,28 @@ export function formatBytes(n: number): string {
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+export const MAX_TAGS = 10;
+export const MAX_TAG_LENGTH = 30;
+
+/**
+ * Tidy tags for search: lowercase, letters/digits/spaces/dashes only, no duplicates, at most 10.
+ * Over-long tags are cut rather than rejected so a paste never fails.
+ */
+export function normalizeTags(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const item of raw) {
+    if (typeof item !== "string") continue;
+    const t = item
+      .toLowerCase()
+      .replace(/[^\p{L}\p{M}\p{N}\s&.-]/gu, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, MAX_TAG_LENGTH)
+      .trim();
+    if (t && !out.includes(t)) out.push(t);
+    if (out.length === MAX_TAGS) break;
+  }
+  return out;
+}

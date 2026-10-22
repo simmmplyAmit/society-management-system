@@ -19,11 +19,52 @@ export function visibleTo(role: Role) {
   return COMMITTEE_ROLES.includes(role) ? {} : { visibility: "RESIDENTS" as const };
 }
 
-export async function listDocuments(societyId: string, role: Role, category?: DocumentCategory) {
+/** Tags in use (most used first) among the documents this role can see. */
+export async function getTagCounts(societyId: string, role: Role, limit = 50) {
+  const rows = await prisma.document.findMany({
+    where: { societyId, status: "READY", ...visibleTo(role) },
+    select: { tags: true },
+  });
+  const counts = new Map<string, number>();
+  for (const r of rows) for (const t of r.tags) counts.set(t, (counts.get(t) ?? 0) + 1);
+  return [...counts]
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag))
+    .slice(0, limit);
+}
+
+export interface DocumentFilter {
+  category?: DocumentCategory;
+  /** Exact tag (lowercase). */
+  tag?: string;
+  /** Free text: matches title, file name or any tag containing it. */
+  q?: string;
+}
+
+export async function listDocuments(societyId: string, role: Role, filter: DocumentFilter = {}) {
+  const { category, tag } = filter;
+  const q = filter.q?.trim().toLowerCase().slice(0, 60);
+  const search = q
+    ? {
+        OR: [
+          { title: { contains: q, mode: "insensitive" as const } },
+          { fileName: { contains: q, mode: "insensitive" as const } },
+          // tags are stored lowercase, so match every tag that contains the text
+          { tags: { hasSome: (await getTagCounts(societyId, role, 500)).map((t) => t.tag).filter((t) => t.includes(q)) } },
+        ],
+      }
+    : {};
   return prisma.document.findMany({
-    where: { societyId, status: "READY", ...visibleTo(role), ...(category ? { category } : {}) },
+    where: {
+      societyId,
+      status: "READY",
+      ...visibleTo(role),
+      ...(category ? { category } : {}),
+      ...(tag ? { tags: { has: tag } } : {}),
+      ...search,
+    },
     select: {
-      id: true, title: true, category: true, visibility: true, fileName: true, mimeType: true, sizeBytes: true,
+      id: true, title: true, category: true, visibility: true, tags: true, fileName: true, mimeType: true, sizeBytes: true,
       expiresOn: true, retainUntil: true, createdAt: true, uploadedById: true,
       uploadedBy: { select: { name: true } },
     },

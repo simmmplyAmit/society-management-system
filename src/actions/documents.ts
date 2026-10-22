@@ -9,6 +9,7 @@ import {
   ALLOWED_TYPES,
   CATEGORIES,
   MAX_DOCUMENT_BYTES,
+  normalizeTags,
   retainUntil,
   safeFileName,
   sniffMime,
@@ -26,6 +27,7 @@ const requestSchema = z.object({
   mimeType: z.string(),
   sizeBytes: z.coerce.number().int().positive("The file is empty").max(MAX_DOCUMENT_BYTES, "Files can be at most 10 MB"),
   expiresOn: z.string().optional(),
+  tags: z.string().max(1000).optional(), // JSON array of strings
 });
 
 function paths() {
@@ -45,6 +47,15 @@ export async function requestDocumentUpload(formData: FormData) {
 
   const ext = ALLOWED_TYPES[d.mimeType];
   if (!ext) return { error: "Only PDF, JPG, PNG or WebP files can be uploaded" };
+
+  let tags: string[] = [];
+  if (d.tags) {
+    try {
+      tags = normalizeTags(JSON.parse(d.tags));
+    } catch {
+      return { error: "Invalid tags" };
+    }
+  }
 
   let expiresOn: Date | null = null;
   if (d.expiresOn) {
@@ -81,6 +92,7 @@ export async function requestDocumentUpload(formData: FormData) {
       fileName: safeFileName(d.fileName),
       mimeType: d.mimeType,
       sizeBytes: d.sizeBytes,
+      tags,
       expiresOn,
       retainUntil: retainUntil(category, new Date()),
       uploadedById: session.user.id,
@@ -153,4 +165,25 @@ export async function deleteDocument(documentId: string) {
   if (r.count !== 1) return { error: "Document not found" };
   paths();
   return { success: true as const, error: undefined };
+}
+
+/** Replace a document's tags. Any committee member can tidy tags; they only affect search. */
+export async function updateDocumentTags(documentId: string, formData: FormData) {
+  const session = await requireRole([...UPLOADERS]);
+  const societyId = session.user.societyId!;
+
+  let tags: string[];
+  try {
+    tags = normalizeTags(JSON.parse(String(formData.get("tags") ?? "[]")));
+  } catch {
+    return { error: "Invalid tags" };
+  }
+
+  const r = await prisma.document.updateMany({
+    where: { id: documentId, societyId, status: "READY" },
+    data: { tags },
+  });
+  if (r.count !== 1) return { error: "Document not found" };
+  paths();
+  return { success: true as const, tags };
 }

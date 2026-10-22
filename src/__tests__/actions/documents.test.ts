@@ -22,7 +22,7 @@ vi.mock("@/lib/queries/documents", () => ({
   quotaBytes: vi.fn().mockReturnValue(1024 * 1024 * 1024),
 }));
 
-import { requestDocumentUpload, confirmDocumentUpload, deleteDocument } from "@/actions/documents";
+import { requestDocumentUpload, confirmDocumentUpload, deleteDocument, updateDocumentTags } from "@/actions/documents";
 import { requireRole } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { signUpload, inspectObject, deleteObject, StorageNotConfiguredError } from "@/lib/storage";
@@ -56,6 +56,16 @@ describe("requestDocumentUpload", () => {
     expect(data.storageKey).toMatch(/^societies\/s1\/[0-9a-f-]+\/[0-9a-f-]+\.pdf$/);
     expect(data.storageKey).not.toContain("amc");
     expect(signUpload).toHaveBeenCalledWith(data.storageKey, "application/pdf", 2048);
+  });
+
+  it("stores tidied tags", async () => {
+    await requestDocumentUpload(fd({ ...valid, tags: JSON.stringify([" Lift ", "LIFT", "AMC 2026"]) }));
+    expect(vi.mocked(prisma.document.create).mock.calls[0][0].data.tags).toEqual(["lift", "amc 2026"]);
+  });
+
+  it("rejects malformed tags without creating a record", async () => {
+    expect(await requestDocumentUpload(fd({ ...valid, tags: "{not json" }))).toEqual({ error: "Invalid tags" });
+    expect(prisma.document.create).not.toHaveBeenCalled();
   });
 
   it("sets an 8-year retention on tax receipts", async () => {
@@ -176,5 +186,37 @@ describe("deleteDocument", () => {
   it("doesn't find a document of another society", async () => {
     vi.mocked(prisma.document.findFirst).mockResolvedValue(null);
     expect(await deleteDocument("x")).toEqual({ error: "Document not found" });
+  });
+});
+
+describe("updateDocumentTags", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.document.updateMany).mockResolvedValue({ count: 1 });
+  });
+
+  it("is limited to the committee and scoped to the society", async () => {
+    const r = await updateDocumentTags("d1", fd({ tags: JSON.stringify(["Lift", "2026"]) }));
+    expect(requireRole).toHaveBeenCalledWith(["ADMIN", "SECRETARY", "TREASURER"]);
+    expect(r).toEqual({ success: true, tags: ["lift", "2026"] });
+    expect(prisma.document.updateMany).toHaveBeenCalledWith({
+      where: { id: "d1", societyId: "s1", status: "READY" },
+      data: { tags: ["lift", "2026"] },
+    });
+  });
+
+  it("can clear all tags", async () => {
+    await updateDocumentTags("d1", fd({ tags: "[]" }));
+    expect(vi.mocked(prisma.document.updateMany).mock.calls[0][0].data).toEqual({ tags: [] });
+  });
+
+  it("reports a document that isn't in this society", async () => {
+    vi.mocked(prisma.document.updateMany).mockResolvedValue({ count: 0 });
+    expect(await updateDocumentTags("x", fd({ tags: "[]" }))).toEqual({ error: "Document not found" });
+  });
+
+  it("rejects malformed tags", async () => {
+    expect(await updateDocumentTags("d1", fd({ tags: "nope" }))).toEqual({ error: "Invalid tags" });
+    expect(prisma.document.updateMany).not.toHaveBeenCalled();
   });
 });

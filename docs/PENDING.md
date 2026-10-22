@@ -60,7 +60,7 @@ Built: record bank interest, rent, donations etc. with category, date and bank r
 - [ ] Resize and compress phone photos in the browser before upload.
 - [ ] Virus scanning (not available on serverless; consider R2 + a scanning service, or restrict to committee uploads as now).
 - [ ] Edit title, type, visibility or expiry; replace a file with a new version; restore a deleted file from the UI.
-- [ ] Search by title; folders per year; bulk upload.
+- [x] Tags and search (title, file name, tags) are built. [ ] Folders per year; bulk upload; rename/merge a tag across all documents.
 - [ ] Per-society quota is a single env value; make it per plan.
 - [ ] Verify with a real R2 bucket: signed PUT/GET, CORS and the 'WHEN_REQUIRED' checksum setting have only been unit tested.
 

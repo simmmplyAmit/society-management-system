@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { sniffMime, safeFileName, retainUntil, defaultVisibility, expiryState, formatBytes } from "@/lib/utils/documents";
+import { normalizeTags, sniffMime, safeFileName, retainUntil, defaultVisibility, expiryState, formatBytes } from "@/lib/utils/documents";
 
 const bytes = (...b: number[]) => Uint8Array.from([...b, ...Array(16 - b.length).fill(0)]);
 
@@ -63,5 +63,26 @@ describe("expiryState / formatBytes", () => {
     expect(formatBytes(500)).toBe("500 B");
     expect(formatBytes(2048)).toBe("2 KB");
     expect(formatBytes(5 * 1024 * 1024)).toBe("5.0 MB");
+  });
+});
+
+describe("normalizeTags", () => {
+  it("lowercases, trims, collapses spaces and removes duplicates", () => {
+    expect(normalizeTags(["  Lift ", "LIFT", "Vendor   Name", "2026"])).toEqual(["lift", "vendor name", "2026"]);
+  });
+  it("strips symbols that could break markup or searches", () => {
+    expect(normalizeTags(["<b>bold</b>", "a;b|c", "R&D", "x-ray"])).toEqual(["bbold/b".replace("/", ""), "abc", "r&d", "x-ray"]);
+  });
+  it("drops empty and non-string items and ignores non-arrays", () => {
+    expect(normalizeTags(["", "   ", 5, null, "ok"])).toEqual(["ok"]);
+    expect(normalizeTags("lift")).toEqual([]);
+    expect(normalizeTags(undefined)).toEqual([]);
+  });
+  it("caps the count at 10 and the length at 30", () => {
+    expect(normalizeTags(Array.from({ length: 15 }, (_, i) => `t${i}`))).toHaveLength(10);
+    expect(normalizeTags(["x".repeat(80)])[0]).toHaveLength(30);
+  });
+  it("keeps non-English letters", () => {
+    expect(normalizeTags(["बिजली", "Café"])).toEqual(["बिजली", "café"]);
   });
 });

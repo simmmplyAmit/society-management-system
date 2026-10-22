@@ -14,16 +14,18 @@ import {
   MAX_DOCUMENT_BYTES,
   defaultVisibility,
 } from "@/lib/utils/documents";
+import { TagInput } from "@/components/documents/tag-input";
 import type { DocumentCategory } from "@prisma/client";
 
 const field =
   "h-10 w-full rounded-lg border border-input bg-white px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
-export function DocumentUploadForm({ defaultCategory }: { defaultCategory?: DocumentCategory }) {
+export function DocumentUploadForm({ defaultCategory, tagSuggestions = [] }: { defaultCategory?: DocumentCategory; tagSuggestions?: string[] }) {
   const [busy, startTransition] = useTransition();
   const [category, setCategory] = useState<DocumentCategory>(defaultCategory ?? "BILL");
   const [visibility, setVisibility] = useState(defaultVisibility(category));
   const [title, setTitle] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState("");
 
@@ -50,6 +52,7 @@ export function DocumentUploadForm({ defaultCategory }: { defaultCategory?: Docu
     fd.set("fileName", file.name);
     fd.set("mimeType", file.type);
     fd.set("sizeBytes", String(file.size));
+    fd.set("tags", JSON.stringify(tags));
 
     startTransition(async () => {
       try {
@@ -68,6 +71,7 @@ export function DocumentUploadForm({ defaultCategory }: { defaultCategory?: Docu
         toast.success("Document uploaded");
         form.reset();
         setTitle("");
+        setTags([]);
         setCategory(defaultCategory ?? "BILL");
         setVisibility(defaultVisibility(defaultCategory ?? "BILL"));
       } catch {
@@ -120,6 +124,10 @@ export function DocumentUploadForm({ defaultCategory }: { defaultCategory?: Docu
           <Input id="doc-exp" name="expiresOn" type="date" />
         </div>
       )}
+      <div className="space-y-1.5">
+        <Label htmlFor="doc-tags">Tags (for search)</Label>
+        <TagInput id="doc-tags" value={tags} onChange={setTags} suggestions={tagSuggestions} />
+      </div>
       {visibility === "RESIDENTS" && (
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 ring-1 ring-amber-600/20">
           Every owner and tenant in the society will be able to open this file.
