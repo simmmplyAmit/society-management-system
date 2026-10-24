@@ -45,7 +45,7 @@ export async function generateForMonth(
 
   for (const charge of activeCharges) {
     const existing = await prisma.maintenancePayment.findUnique({
-      where: { flatId_month_year: { flatId: charge.flatId, month, year } },
+      where: { flatId_month_year_chargeKey: { flatId: charge.flatId, month, year, chargeKey: "MAINTENANCE" } },
     });
 
     if (existing) { skipped++; continue; }
@@ -167,6 +167,7 @@ export async function getPayments(societyId: string, filters: PaymentFilters = {
       ...(statuses ? { status: { in: statuses } } : {}),
     },
     include: {
+      claim: { select: { status: true, utrNumber: true } },
       flat: {
         include: {
           floor: { include: { wing: { select: { name: true } } } },
@@ -198,6 +199,7 @@ export async function getResidentPayments(societyId: string, userId: string) {
   return prisma.maintenancePayment.findMany({
     where: { flatId: { in: flatIds } },
     include: {
+      claim: { select: { id: true, status: true } },
       flat: {
         include: {
           floor: { include: { wing: { select: { name: true } } } },

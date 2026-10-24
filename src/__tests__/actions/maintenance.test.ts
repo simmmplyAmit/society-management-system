@@ -10,10 +10,18 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/session", () => ({
   requireRole: vi.fn().mockResolvedValue({ user: { id: "a1", role: "ADMIN", societyId: "s1" } }),
 }));
+vi.mock("@/lib/notify/dispatch", () => ({ notifyPayments: vi.fn().mockResolvedValue({ sent: 2, failed: 0, skipped: 0 }) }));
+vi.mock("@/lib/ledger", () => ({ hasCreditAllocations: vi.fn().mockResolvedValue(false) }));
+vi.mock("@/lib/credit-service", () => ({ applyCreditAndNotify: vi.fn().mockResolvedValue(0) }));
+vi.mock("@/lib/notify/schedule", () => ({ sendNewDueNotices: vi.fn().mockResolvedValue({ sent: 3, failed: 0, skipped: 0 }) }));
 vi.mock("@/lib/queries/maintenance", () => ({ generateForMonth: vi.fn().mockResolvedValue({ created: 1, skipped: 0 }) }));
 
 import { setMaintenanceCharge, markPaymentPaid, markPaymentPending, generateMonthlyPayments, generateDuesForRange } from "@/actions/maintenance";
 import { generateForMonth } from "@/lib/queries/maintenance";
+import { notifyPayments } from "@/lib/notify/dispatch";
+import { sendNewDueNotices } from "@/lib/notify/schedule";
+import { hasCreditAllocations } from "@/lib/ledger";
+import { applyCreditAndNotify } from "@/lib/credit-service";
 import { requireRole } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 
@@ -148,8 +156,21 @@ describe("markPaymentPaid / markPaymentPending", () => {
     await markPaymentPending("p1");
     expect(prisma.maintenancePayment.updateMany).toHaveBeenCalledWith({
       where: { id: "p1", societyId: "s1" },
-      data: { status: "PENDING", paidAt: null, paidBy: null, utrNumber: null },
+      data: { status: "PENDING", amountPaid: 0, paidAt: null, paidBy: null, utrNumber: null },
     });
+  });
+
+  it("refuses to undo a due that was paid from the resident's credit", async () => {
+    vi.mocked(hasCreditAllocations).mockResolvedValueOnce(true);
+    const r = await markPaymentPending("p1");
+    expect(r.error).toMatch(/credit/);
+    expect(prisma.maintenancePayment.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("marks the due paid in full when recorded by hand", async () => {
+    vi.mocked(prisma.maintenancePayment.findFirst).mockResolvedValue({ id: "p1", amount: 2500 } as never);
+    await markPaymentPaid(fd({ paymentId: "p1" }));
+    expect(vi.mocked(prisma.maintenancePayment.update).mock.calls[0][0].data).toMatchObject({ status: "PAID", amountPaid: 2500 });
   });
 });
 
@@ -172,5 +193,59 @@ describe("generate actions", () => {
     const r = await generateDuesForRange(fd({ fromMonth: "5", fromYear: "2026", toMonth: "1", toYear: "2026" }));
     expect(r.error).toBeDefined();
     expect(generateForMonth).not.toHaveBeenCalled();
+  });
+});
+
+describe("notifications from maintenance actions", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.maintenancePayment.findFirst).mockResolvedValue({ id: "p1", societyId: "s1" } as never);
+    vi.mocked(generateForMonth).mockResolvedValue({ created: 1, skipped: 0 });
+  });
+
+  it("sends a receipt, scoped to the society, when a payment is marked paid", async () => {
+    await markPaymentPaid(fd({ paymentId: "p1", paidAt: "2026-10-05" }));
+    expect(notifyPayments).toHaveBeenCalledWith(
+      "PAYMENT_RECEIPT",
+      [{ paymentId: "p1", keySuffix: String(new Date("2026-10-05").getTime()) }],
+      "s1"
+    );
+  });
+
+  it("still records the payment when messaging fails", async () => {
+    vi.mocked(notifyPayments).mockRejectedValueOnce(new Error("provider down"));
+    const r = await markPaymentPaid(fd({ paymentId: "p1" }));
+    expect(r.success).toBe(true);
+  });
+
+  it("announces new dues only when the box is ticked and the month is recent", async () => {
+    const now = new Date();
+    const cur = { month: String(now.getMonth() + 1), year: String(now.getFullYear()) };
+    const r = await generateMonthlyPayments(fd({ ...cur, notify: "on" }));
+    expect(sendNewDueNotices).toHaveBeenCalledWith({ societyId: "s1" });
+    expect(r).toMatchObject({ success: true, notified: { sent: 3 } });
+
+    vi.clearAllMocks();
+    await generateMonthlyPayments(fd(cur));
+    expect(sendNewDueNotices).not.toHaveBeenCalled();
+
+    await generateMonthlyPayments(fd({ month: "1", year: "2020", notify: "on" }));
+    expect(sendNewDueNotices).not.toHaveBeenCalled();
+  });
+});
+
+describe("existing credit and new dues", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("applies members' credit right after dues are generated", async () => {
+    vi.mocked(generateForMonth).mockResolvedValue({ created: 3, skipped: 0 });
+    await generateMonthlyPayments(fd({ month: "10", year: "2026" }));
+    expect(applyCreditAndNotify).toHaveBeenCalledWith("s1");
+  });
+
+  it("does not bother when nothing new was created", async () => {
+    vi.mocked(generateForMonth).mockResolvedValue({ created: 0, skipped: 3 });
+    await generateMonthlyPayments(fd({ month: "10", year: "2026" }));
+    expect(applyCreditAndNotify).not.toHaveBeenCalled();
   });
 });

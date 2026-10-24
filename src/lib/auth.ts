@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { refreshToken } from "@/lib/auth-token";
 import { isRateLimited, recordFailure, resetAttempts } from "@/lib/rate-limit";
+import { isFullyVerified } from "@/lib/verification";
 import type { Role } from "@prisma/client";
 
 const loginSchema = z.object({
@@ -41,6 +42,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             societyId: true,
             isActive: true,
             avatarUrl: true,
+            emailVerifiedAt: true,
+            phoneVerifiedAt: true,
           },
         });
 
@@ -63,6 +66,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           role: user.role,
           societyId: user.societyId,
           image: user.avatarUrl,
+          verified: isFullyVerified(user),
         };
       },
     }),
@@ -73,6 +77,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.id = user.id;
         token.role = (user as { role: Role }).role;
         token.societyId = (user as { societyId: string | null }).societyId;
+        token.verified = (user as { verified?: boolean }).verified ?? false;
         token.checkedAt = Date.now();
         return token;
       }
@@ -80,7 +85,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return refreshToken(token, Date.now(), (id) =>
         prisma.user.findUnique({
           where: { id },
-          select: { isActive: true, role: true, societyId: true },
+          select: {
+            isActive: true, role: true, societyId: true,
+            emailVerifiedAt: true, phoneVerifiedAt: true,
+          },
         })
       );
     },
@@ -89,6 +97,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.id = token.id as string;
         session.user.role = token.role as Role;
         session.user.societyId = token.societyId as string | null;
+        session.user.verified = Boolean(token.verified);
       }
       return session;
     },

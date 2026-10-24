@@ -4,6 +4,7 @@ import { useTransition, useState } from "react";
 import { createUser } from "@/actions/users";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -56,7 +57,7 @@ export function CreateUserForm() {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="user-password">Temporary Password *</Label>
-            <Input id="user-password" name="password" type="password" placeholder="Min 8 characters" required />
+            <PasswordInput id="user-password" name="password" autoComplete="new-password" placeholder="Min 8 characters" required />
           </div>
           <div className="space-y-1.5">
             <Label>Role *</Label>

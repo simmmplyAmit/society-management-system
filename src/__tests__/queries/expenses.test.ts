@@ -71,3 +71,15 @@ describe("getExpenseAnalytics", () => {
     expect(a).toEqual({ years: [], total: 0, yearly: [], monthly: [], byCategory: [] });
   });
 });
+
+describe("member credit queries", () => {
+  it("sums only positive balances into what the society owes members", async () => {
+    const { getMemberCreditSummary } = await import("@/lib/queries/expenses");
+    const p = (await import("@/lib/prisma")).prisma as unknown as { creditEntry: { groupBy: ReturnType<typeof vi.fn> } };
+    p.creditEntry = { groupBy: vi.fn().mockResolvedValue([
+      { userId: "u1", _sum: { amount: "1200.50" } }, { userId: "u2", _sum: { amount: "0" } }, { userId: "u3", _sum: { amount: "300" } },
+    ]) };
+    expect(await getMemberCreditSummary("s1")).toEqual({ total: 1500.5, members: 2 });
+    expect(p.creditEntry.groupBy.mock.calls[0][0].where).toEqual({ societyId: "s1" });
+  });
+});

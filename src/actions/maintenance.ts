@@ -6,6 +6,11 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { toIdx, periodsOverlap } from "@/lib/utils/maintenance";
 import { generateForMonth } from "@/lib/queries/maintenance";
+import { applyCreditAndNotify } from "@/lib/credit-service";
+import { hasCreditAllocations } from "@/lib/ledger";
+import { notifyPayments } from "@/lib/notify/dispatch";
+import { sendNewDueNotices } from "@/lib/notify/schedule";
+import { previousMonth } from "@/lib/utils/maintenance";
 
 // ─────────────────────────────────────────────
 // Schemas
@@ -162,8 +167,29 @@ export async function generateMonthlyPayments(formData: FormData) {
     return { error: "No active maintenance charges found for this month" };
   }
 
+  // Members' existing credit pays the new dues first, so nobody is told to pay what credit covers
+  if (result.created > 0) await applyCreditAndNotify(societyId);
+
+  // Announce the new dues, but only for the current/previous month (never a back-fill)
+  let notified: { sent: number; failed: number; skipped: number } | undefined;
+  if (formData.get("notify") === "on" && result.created > 0) {
+    const now = new Date();
+    const prev = previousMonth(now.getMonth() + 1, now.getFullYear());
+    const { month, year } = parsed.data;
+    const recent =
+      (month === now.getMonth() + 1 && year === now.getFullYear()) ||
+      (month === prev.month && year === prev.year);
+    if (recent) {
+      try {
+        notified = await sendNewDueNotices({ societyId });
+      } catch (err) {
+        console.error("[generateMonthlyPayments] notify failed:", err);
+      }
+    }
+  }
+
   revalidatePath("/dashboard/maintenance");
-  return { success: true, ...result };
+  return { success: true, ...result, notified };
 }
 
 // ─────────────────────────────────────────────
@@ -217,6 +243,8 @@ export async function generateDuesForRange(formData: FormData) {
     }
   }
 
+  if (totalCreated > 0) await applyCreditAndNotify(societyId);
+
   revalidatePath("/dashboard/maintenance");
   return {
     success: true,
@@ -243,16 +271,29 @@ export async function markPaymentPaid(formData: FormData) {
   });
   if (!payment) return { error: "Payment not found" };
 
+  const paidAt = parsed.data.paidAt ? new Date(parsed.data.paidAt) : new Date();
   await prisma.maintenancePayment.update({
     where: { id: parsed.data.paymentId },
     data: {
       status: "PAID",
-      paidAt: parsed.data.paidAt ? new Date(parsed.data.paidAt) : new Date(),
+      amountPaid: payment.amount, // marked paid in full (cash/bank received outside credit)
+      paidAt,
       paidBy: session.user.id,
       utrNumber: parsed.data.utrNumber || null,
       notes: parsed.data.notes || null,
     },
   });
+
+  // Receipt to the residents; a messaging failure must not undo the payment
+  try {
+    await notifyPayments(
+      "PAYMENT_RECEIPT",
+      [{ paymentId: payment.id, keySuffix: String(paidAt.getTime()) }],
+      societyId
+    );
+  } catch (err) {
+    console.error("[markPaymentPaid] receipt failed:", err);
+  }
 
   revalidatePath("/dashboard/maintenance");
   return { success: true };
@@ -262,9 +303,14 @@ export async function markPaymentPending(paymentId: string) {
   const session = await requireRole(["ADMIN", "TREASURER"]);
   const societyId = session.user.societyId!;
 
+  // Credit spent on a due is part of the member's ledger; it is not silently taken back
+  if (await hasCreditAllocations(societyId, paymentId)) {
+    return { error: "This due was paid from the resident's credit, so it can't be undone here" };
+  }
+
   await prisma.maintenancePayment.updateMany({
     where: { id: paymentId, societyId },
-    data: { status: "PENDING", paidAt: null, paidBy: null, utrNumber: null },
+    data: { status: "PENDING", amountPaid: 0, paidAt: null, paidBy: null, utrNumber: null },
   });
 
   revalidatePath("/dashboard/maintenance");

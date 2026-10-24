@@ -4,6 +4,12 @@ import {
   Users,
   Receipt,
   TrendingDown,
+  TrendingUp,
+  FolderOpen,
+  Megaphone,
+  MessagesSquare,
+  LifeBuoy,
+  Menu,
   HelpCircle,
 } from "lucide-react";
 import type { Role } from "@prisma/client";
@@ -13,19 +19,35 @@ export interface NavItem {
   label: string;
   icon: React.ElementType;
   roles: Role[];
+  /** Lower = shown first in the phone's bottom bar; the rest go under "More". */
+  rank: number;
 }
 
 const ALL: Role[] = ["SUPER_ADMIN", "ADMIN", "SECRETARY", "TREASURER", "OWNER", "TENANT"];
 
 export const NAV_ITEMS: NavItem[] = [
-  { href: "/dashboard", label: "Home", icon: LayoutDashboard, roles: ALL },
-  { href: "/dashboard/society", label: "Society", icon: Building2, roles: ["ADMIN", "SECRETARY"] },
-  { href: "/dashboard/residents", label: "Residents", icon: Users, roles: ["ADMIN", "SECRETARY"] },
-  { href: "/dashboard/maintenance", label: "Dues", icon: Receipt, roles: ["ADMIN", "TREASURER", "OWNER", "TENANT"] },
-  { href: "/dashboard/expenses", label: "Expenses", icon: TrendingDown, roles: ["ADMIN", "SECRETARY", "TREASURER"] },
-  { href: "/dashboard/help", label: "Help", icon: HelpCircle, roles: ALL },
+  { href: "/dashboard", label: "Home", icon: LayoutDashboard, roles: ALL, rank: 0 },
+  { href: "/dashboard/society", label: "Society", icon: Building2, roles: ["ADMIN", "SECRETARY"], rank: 7 },
+  { href: "/dashboard/residents", label: "Residents", icon: Users, roles: ["ADMIN", "SECRETARY"], rank: 8 },
+  { href: "/dashboard/maintenance", label: "Dues", icon: Receipt, roles: ["ADMIN", "SECRETARY", "TREASURER", "OWNER", "TENANT"], rank: 1 },
+  { href: "/dashboard/notices", label: "Notices", icon: Megaphone, roles: ["ADMIN", "SECRETARY", "TREASURER", "OWNER", "TENANT"], rank: 2 },
+  { href: "/dashboard/complaints", label: "Complaints", icon: LifeBuoy, roles: ["ADMIN", "SECRETARY", "TREASURER", "OWNER", "TENANT"], rank: 3 },
+  { href: "/dashboard/community", label: "Community", icon: MessagesSquare, roles: ["ADMIN", "SECRETARY", "TREASURER", "OWNER", "TENANT"], rank: 5 },
+  { href: "/dashboard/expenses", label: "Expenses", icon: TrendingDown, roles: ["ADMIN", "SECRETARY", "TREASURER"], rank: 4 },
+  { href: "/dashboard/documents", label: "Documents", icon: FolderOpen, roles: ["ADMIN", "SECRETARY", "TREASURER", "OWNER", "TENANT"], rank: 6 },
+  { href: "/dashboard/income", label: "Income", icon: TrendingUp, roles: ["ADMIN", "SECRETARY", "TREASURER"], rank: 9 },
+  { href: "/dashboard/help", label: "Help", icon: HelpCircle, roles: ALL, rank: 10 },
 ];
 
 export function isNavActive(href: string, pathname: string) {
   return href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
+}
+
+export const MORE_ITEM = { href: "/dashboard/more", label: "More", icon: Menu };
+
+/** Bottom bar: the 4 most important items for the role, then "More" if anything is left over. */
+export function mobileItems(role: Role): { items: Pick<NavItem, "href" | "label" | "icon">[]; hasMore: boolean } {
+  const all = NAV_ITEMS.filter((i) => i.roles.includes(role)).sort((a, b) => a.rank - b.rank);
+  if (all.length <= 5) return { items: all, hasMore: false };
+  return { items: [...all.slice(0, 4), MORE_ITEM], hasMore: true };
 }

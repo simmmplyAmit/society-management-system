@@ -9,12 +9,14 @@ declare module "next-auth" {
       image?: string | null;
       role: Role;
       societyId: string | null;
+      verified: boolean;
     };
   }
 
   interface User {
     role: Role;
     societyId: string | null;
+    verified?: boolean;
   }
 }
 
@@ -23,6 +25,7 @@ declare module "next-auth/jwt" {
     id: string;
     role: Role;
     societyId: string | null;
+    verified?: boolean;
     checkedAt?: number;
   }
 }

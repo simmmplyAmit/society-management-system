@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import type { Role } from "@prisma/client";
 
 // Routes accessible without authentication
-const PUBLIC_ROUTES = ["/login", "/"];
+const PUBLIC_ROUTES = ["/login", "/forgot-password", "/reset-password", "/"];
 
 // Role → allowed route prefixes
 const ROLE_ROUTES: Record<Role, string[]> = {

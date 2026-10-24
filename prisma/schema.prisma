@@ -45,6 +45,8 @@ model Society {
   state     String?
   pincode   String?
   upiId     String?  // society bank UPI ID for maintenance payments
+  upiChangedAt DateTime? // set when an approved change is applied; drives the resident notice
+  cashReceiptSeq Int @default(0) // last cash receipt number issued
   logoUrl   String?
   hasWings  Boolean  @default(true) // false = single-building, no wing concept
   isActive  Boolean  @default(true)
@@ -56,6 +58,23 @@ model Society {
   maintenanceCharges  MaintenanceCharge[]
   maintenancePayments MaintenancePayment[]
   expenses            Expense[]
+  incomes             Income[]
+  bankAccounts        BankAccount[]
+  bankBalanceChecks   BankBalanceCheck[]
+  documents           Document[]
+  notices             Notice[]
+  posts               Post[]
+  postComments        PostComment[]
+  complaints          Complaint[]
+  complaintUpdates    ComplaintUpdate[]
+  notificationLogs    NotificationLog[]
+  paymentClaims       PaymentClaim[]
+  creditEntries       CreditEntry[]
+  upiChangeRequests   UpiChangeRequest[]
+  specialCharges      SpecialCharge[]
+  cashCollections     CashCollection[]
+  expenseContributions ExpenseContribution[]
+  cashDeposits        CashDeposit[]
 
   @@index([isActive])
 }
@@ -98,10 +117,13 @@ model Flat {
   floorId    String
   societyId  String   // denormalized for fast filtering
   isOccupied Boolean  @default(false)
+  configuration String? // e.g. "2 BHK"; used to target other charges
+  areaSqFt   Decimal?  @db.Decimal(8, 2)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
   floor               Floor              @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  complaints Complaint[]
   residents           FlatResident[]
   tenantRecords       TenantRecord[]
   maintenanceCharges  MaintenanceCharge[]
@@ -126,6 +148,8 @@ model User {
   role         Role     @default(TENANT)
   societyId    String?  // null only for SUPER_ADMIN
   isActive     Boolean  @default(true)
+  emailVerifiedAt DateTime?
+  phoneVerifiedAt DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -133,7 +157,32 @@ model User {
   flatResidents FlatResident[]
   tenantRecords TenantRecord[]
   expenses      Expense[]
+  incomesAdded  Income[]
+  bankBalanceChecks BankBalanceCheck[]
+  documentsUploaded Document[] @relation("DocumentUploader")
+  documentsDeleted  Document[] @relation("DocumentDeleter")
+  noticesPosted     Notice[]   @relation("NoticeAuthor")
+  posts             Post[]     @relation("PostAuthor")
+  postsHidden       Post[]     @relation("PostHider")
+  postComments      PostComment[] @relation("CommentAuthor")
+  commentsHidden    PostComment[] @relation("CommentHider")
+  complaintsRaised  Complaint[] @relation("ComplaintRaiser")
+  complaintsAssigned Complaint[] @relation("ComplaintAssignee")
+  complaintUpdates  ComplaintUpdate[] @relation("ComplaintUpdateAuthor")
   accounts      Account[]      // ready for future OAuth providers
+  otpCodes      OtpCode[]
+  paymentClaims PaymentClaim[]
+  creditEntries CreditEntry[]
+  specialChargesCreated SpecialCharge[]
+  expenseContributed  ExpenseContribution[] @relation("ContributionMember")
+  expenseContributionsRequested ExpenseContribution[] @relation("ContributionRequester")
+  expenseContributionsReviewed  ExpenseContribution[] @relation("ContributionReviewer")
+  cashPaid            CashCollection[] @relation("CashPayer")
+  cashCollected       CashCollection[] @relation("CashCollector")
+  cashDeposited       CashDeposit[]    @relation("CashDepositor")
+  cashDepositsConfirmed CashDeposit[]  @relation("CashConfirmer")
+  upiChangesRequested UpiChangeRequest[] @relation("UpiChangeRequester")
+  upiChangesReviewed  UpiChangeRequest[] @relation("UpiChangeReviewer")
 
   @@index([societyId])
   @@index([email])
@@ -232,7 +281,10 @@ model MaintenancePayment {
   id        String            @id @default(cuid())
   societyId String
   flatId    String
-  chargeId  String
+  chargeId  String?           // set for monthly maintenance, null for other charges
+  chargeKey String            @default("MAINTENANCE") // "MAINTENANCE" or the SpecialCharge id
+  label     String            @default("Maintenance") // what this due is for, shown to residents
+  specialChargeId String?
   month     Int               // 1–12
   year      Int
   amount    Decimal           @db.Decimal(10, 2)
@@ -241,17 +293,23 @@ model MaintenancePayment {
   paidBy    String?           // userId
   utrNumber String?           // UPI transaction reference
   notes     String?
+  claimId   String?           // resident-reported payment awaiting/after review
+  amountPaid Decimal          @default(0) @db.Decimal(10, 2) // part-payments accumulate here; PAID once it reaches amount
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
 
   society Society           @relation(fields: [societyId], references: [id], onDelete: Cascade)
   flat    Flat              @relation(fields: [flatId], references: [id], onDelete: Cascade)
-  charge  MaintenanceCharge @relation(fields: [chargeId], references: [id], onDelete: Cascade)
+  charge  MaintenanceCharge? @relation(fields: [chargeId], references: [id], onDelete: Cascade)
+  specialCharge SpecialCharge? @relation(fields: [specialChargeId], references: [id], onDelete: SetNull)
+  claim   PaymentClaim?     @relation(fields: [claimId], references: [id], onDelete: SetNull)
 
-  @@unique([flatId, month, year])
+  @@unique([flatId, month, year, chargeKey])
   @@index([societyId, month, year])
   @@index([flatId])
   @@index([status])
+  @@index([claimId])
+  @@index([specialChargeId])
 }
 
 // ─────────────────────────────────────────────
@@ -268,12 +326,653 @@ model Expense {
   description String?
   receiptUrl  String?
   addedById   String   // userId of TREASURER who added it
+  paidVia     MoneyChannel @default(BANK) // how the society's own share was paid (member-paid parts are in contributions)
+  bankAccountId String?    // null = the primary account
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
   addedBy User    @relation(fields: [addedById], references: [id])
+  bankAccount BankAccount? @relation(fields: [bankAccountId], references: [id])
+  contributions ExpenseContribution[]
+  documents Document[]
 
   @@index([societyId])
   @@index([societyId, date])
+}
+
+// Money the society receives apart from dues: bank interest, hall rent, scrap sale, donations…
+model Income {
+  id          String   @id @default(cuid())
+  societyId   String
+  title       String
+  category    String   // e.g. "Bank interest", "Hall rental"
+  amount      Decimal  @db.Decimal(10, 2)
+  date        DateTime
+  description String?
+  reference   String?  // bank reference / receipt no.
+  addedById   String
+  receivedVia MoneyChannel @default(BANK)
+  bankAccountId String?    // null = the primary account
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  addedBy User    @relation(fields: [addedById], references: [id])
+  bankAccount BankAccount? @relation(fields: [bankAccountId], references: [id])
+  documents Document[]
+
+  @@index([societyId])
+  @@index([societyId, date])
+}
+
+// ─────────────────────────────────────────────
+// Bank accounts and balance checks
+// ─────────────────────────────────────────────
+
+enum MoneyChannel {
+  BANK // UPI, cheque, transfer, or cash that has been banked
+  CASH // physical cash held by the committee
+}
+
+model BankAccount {
+  id             String   @id @default(cuid())
+  societyId      String
+  name           String   // e.g. "Maintenance savings"
+  bankName       String?
+  last4          String?
+  openingBalance Decimal  @db.Decimal(12, 2) // balance at the start of openingDate; nothing earlier is tallied
+  openingDate    DateTime
+  isPrimary      Boolean  @default(false) // receives anything not tagged with an account (UPI, reports)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  society  Society       @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  expenses Expense[]
+  incomes  Income[]
+  creditEntries CreditEntry[]
+  cashDeposits  CashDeposit[]
+  checks   BankBalanceCheck[]
+
+  @@index([societyId])
+}
+
+// Append-only log of "the bank statement said X; our records said Y".
+model BankBalanceCheck {
+  id               String   @id @default(cuid())
+  societyId        String
+  bankAccountId    String
+  asOf             DateTime
+  statementBalance Decimal  @db.Decimal(12, 2)
+  expectedBalance  Decimal  @db.Decimal(12, 2) // computed on the server at the time
+  difference       Decimal  @db.Decimal(12, 2) // statement - expected
+  note             String?
+  recordedById     String
+  createdAt        DateTime @default(now())
+
+  society     Society     @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  bankAccount BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  recordedBy  User        @relation(fields: [recordedById], references: [id])
+
+  @@index([societyId, bankAccountId, asOf])
+}
+
+// ─────────────────────────────────────────────
+// Documents (bills, tax receipts, agreements…) stored in a private R2/S3 bucket
+// ─────────────────────────────────────────────
+
+enum DocumentCategory {
+  BILL
+  TAX_RECEIPT
+  AGREEMENT   // contracts, AMC, vendor and rental agreements
+  INSURANCE
+  MINUTES
+  BYLAWS
+  NOTICE
+  AUDIT
+  PAYMENT_PROOF // screenshot a resident attaches to a UPI payment report; not shown in the library
+  COMPLAINT_PHOTO // photo a resident attaches to their complaint; not shown in the library
+  OTHER
+}
+
+enum DocumentVisibility {
+  COMMITTEE // admin, secretary, treasurer
+  RESIDENTS // everyone in the society
+}
+
+enum DocumentStatus {
+  PENDING // upload link issued, file not confirmed yet
+  READY
+  DELETED // soft-deleted; the file is removed from storage after 30 days
+}
+
+model Document {
+  id           String             @id @default(cuid())
+  societyId    String
+  title        String
+  category     DocumentCategory
+  visibility   DocumentVisibility @default(COMMITTEE)
+  status       DocumentStatus     @default(PENDING)
+  storageKey   String             @unique // societies/<societyId>/<id>/<random>.<ext>; never shown to users
+  fileName     String             // original name, for display and downloads
+  mimeType     String
+  sizeBytes    Int
+  tags         String[]           @default([]) // lowercase, normalised; for search
+  expiresOn    DateTime?          // insurance, AMC, agreements: used for renewal reminders
+  retainUntil  DateTime?          // cannot be deleted before this (tax and audit records)
+  expenseId    String?            // attached to an expense or an income entry (kept in the library if that is deleted)
+  incomeId     String?
+  claimId      String?            // proof attached to a payment report
+  complaintId  String?            // photo attached to a complaint
+  uploadedById String
+  confirmedAt  DateTime?
+  deletedAt    DateTime?
+  deletedById  String?
+  purgedAt     DateTime?          // the stored file has been removed
+  createdAt    DateTime           @default(now())
+
+  society    Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  uploadedBy User    @relation("DocumentUploader", fields: [uploadedById], references: [id])
+  deletedBy  User?   @relation("DocumentDeleter", fields: [deletedById], references: [id])
+  expense    Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+  income     Income?  @relation(fields: [incomeId], references: [id], onDelete: SetNull)
+  claim      PaymentClaim? @relation(fields: [claimId], references: [id], onDelete: SetNull)
+  complaint  Complaint? @relation(fields: [complaintId], references: [id], onDelete: SetNull)
+
+  @@index([societyId, status, category])
+  @@index([societyId, expiresOn])
+  @@index([status, createdAt])
+  @@index([tags], type: Gin)
+  @@index([expenseId])
+  @@index([incomeId])
+  @@index([claimId])
+  @@index([complaintId])
+}
+
+// ─────────────────────────────────────────────
+// Notices, community posts and complaints
+// ─────────────────────────────────────────────
+
+enum NoticeCategory {
+  GENERAL
+  MEETING
+  MAINTENANCE_WORK
+  EVENT
+  RULES
+  EMERGENCY
+}
+
+// Official announcements from the committee to every resident.
+model Notice {
+  id        String         @id @default(cuid())
+  societyId String
+  title     String
+  body      String
+  category  NoticeCategory @default(GENERAL)
+  pinned    Boolean        @default(false)
+  expiresOn DateTime?      // hidden from the main list after this date
+  authorId  String
+  emailedAt DateTime?      // set once when residents were emailed, so it never goes out twice
+  deletedAt DateTime?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  author  User    @relation("NoticeAuthor", fields: [authorId], references: [id])
+
+  @@index([societyId, createdAt])
+}
+
+enum PostCategory {
+  GENERAL
+  RECOMMENDATION
+  BUY_SELL
+  LOST_FOUND
+  EVENT
+  HELP
+}
+
+enum ContentStatus {
+  ACTIVE
+  HIDDEN // removed by the committee; kept as a record
+}
+
+// Resident-to-resident community board.
+model Post {
+  id           String        @id @default(cuid())
+  societyId    String
+  authorId     String
+  category     PostCategory  @default(GENERAL)
+  body         String
+  status       ContentStatus @default(ACTIVE)
+  hiddenById   String?
+  hiddenReason String?
+  hiddenAt     DateTime?
+  createdAt    DateTime      @default(now())
+
+  society  Society       @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  author   User          @relation("PostAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  hiddenBy User?         @relation("PostHider", fields: [hiddenById], references: [id])
+  comments PostComment[]
+
+  @@index([societyId, status, createdAt])
+  @@index([authorId, createdAt])
+}
+
+model PostComment {
+  id         String        @id @default(cuid())
+  societyId  String
+  postId     String
+  authorId   String
+  body       String
+  status     ContentStatus @default(ACTIVE)
+  hiddenById String?
+  createdAt  DateTime      @default(now())
+
+  society  Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  post     Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author   User    @relation("CommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  hiddenBy User?   @relation("CommentHider", fields: [hiddenById], references: [id])
+
+  @@index([postId, createdAt])
+  @@index([authorId, createdAt])
+}
+
+enum ComplaintCategory {
+  PLUMBING
+  ELECTRICAL
+  LIFT
+  SECURITY
+  CLEANING
+  PARKING
+  NOISE
+  WATER
+  GARDEN
+  OTHER
+}
+
+enum ComplaintStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED // the committee says it is fixed; the resident can confirm or reopen
+  CLOSED
+}
+
+enum ComplaintPriority {
+  NORMAL
+  URGENT
+}
+
+// Private between the resident who raised it and the committee.
+model Complaint {
+  id             String            @id @default(cuid())
+  societyId      String
+  raisedById     String
+  flatId         String?
+  category       ComplaintCategory
+  title          String
+  description    String
+  priority       ComplaintPriority @default(NORMAL)
+  status         ComplaintStatus   @default(OPEN)
+  assignedToId   String?
+  resolutionNote String?
+  resolvedAt     DateTime?
+  closedAt       DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  society    Society           @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  raisedBy   User              @relation("ComplaintRaiser", fields: [raisedById], references: [id], onDelete: Cascade)
+  assignedTo User?             @relation("ComplaintAssignee", fields: [assignedToId], references: [id])
+  flat       Flat?             @relation(fields: [flatId], references: [id], onDelete: SetNull)
+  updates    ComplaintUpdate[]
+  documents  Document[]
+
+  @@index([societyId, status, createdAt])
+  @@index([raisedById, createdAt])
+  @@index([assignedToId])
+}
+
+enum ComplaintUpdateKind {
+  COMMENT
+  STATUS
+  ASSIGNED
+}
+
+model ComplaintUpdate {
+  id          String              @id @default(cuid())
+  societyId   String
+  complaintId String
+  authorId    String
+  kind        ComplaintUpdateKind @default(COMMENT)
+  body        String
+  internal    Boolean             @default(false) // committee-only note, hidden from the resident
+  fromStatus  ComplaintStatus?
+  toStatus    ComplaintStatus?
+  createdAt   DateTime            @default(now())
+
+  society   Society   @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  complaint Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  author    User      @relation("ComplaintUpdateAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([complaintId, createdAt])
+}
+
+// ─────────────────────────────────────────────
+// Verification (OTP) and outbound notifications
+// ─────────────────────────────────────────────
+
+enum Channel {
+  EMAIL
+  SMS
+}
+
+enum OtpPurpose {
+  VERIFY_EMAIL
+  VERIFY_PHONE
+  RESET_PASSWORD
+}
+
+model OtpCode {
+  id         String     @id @default(cuid())
+  userId     String?    // null when the target is not (yet) a known user
+  purpose    OtpPurpose
+  channel    Channel
+  target     String     // normalized email or phone the code was sent to
+  codeHash   String     // HMAC of the code; the plain code is never stored
+  attempts   Int        @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime   @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([target, purpose, createdAt])
+  @@index([userId])
+}
+
+enum NotificationKind {
+  DUE_CREATED
+  DUE_REMINDER
+  MANUAL_REMINDER
+  PAYMENT_RECEIPT
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+// One row per message attempt. dedupeKey makes sends idempotent across cron reruns.
+model NotificationLog {
+  id        String             @id @default(cuid())
+  societyId String
+  userId    String?
+  paymentId String?
+  kind      NotificationKind
+  channel   Channel
+  to        String
+  status    NotificationStatus @default(PENDING)
+  error     String?
+  dedupeKey String             @unique
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+
+  @@index([societyId, createdAt])
+  @@index([paymentId])
+}
+
+
+// ─────────────────────────────────────────────
+// Resident-reported UPI payments, verified by a treasurer/admin
+// ─────────────────────────────────────────────
+
+enum ClaimStatus {
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+model PaymentClaim {
+  id           String      @id @default(cuid())
+  societyId    String
+  userId       String      // the resident who reported the payment
+  utrNumber    String      // UPI/bank reference, stored uppercase
+  amount       Decimal     @db.Decimal(10, 2) // computed on the server from the linked dues
+  paidOn       DateTime
+  status       ClaimStatus @default(SUBMITTED)
+  reviewNote   String?
+  reviewedById String?
+  reviewedAt   DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  society  Society             @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  user     User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payments MaintenancePayment[]
+  documents Document[]
+
+  @@index([societyId, status])
+  @@index([userId])
+  @@index([societyId, utrNumber])
+}
+
+
+// ─────────────────────────────────────────────
+// UPI ID changes need a second person's approval. Rows double as the audit log.
+// ─────────────────────────────────────────────
+
+enum UpiChangeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model UpiChangeRequest {
+  id            String          @id @default(cuid())
+  societyId     String
+  oldUpiId      String?
+  newUpiId      String
+  status        UpiChangeStatus @default(PENDING)
+  requestedById String
+  reviewedById  String?         // null for the initial set-up, which needs no approval
+  reviewedAt    DateTime?
+  reviewNote    String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  society     Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  requestedBy User    @relation("UpiChangeRequester", fields: [requestedById], references: [id])
+  reviewedBy  User?   @relation("UpiChangeReviewer", fields: [reviewedById], references: [id])
+
+  @@index([societyId, status])
+  @@index([societyId, createdAt])
+}
+
+
+// ─────────────────────────────────────────────
+// Member credit: an append-only ledger. Balance = sum(amount) per (society, user).
+// Credit is only ever spent against that society's dues; entries are never edited.
+// ─────────────────────────────────────────────
+
+enum CreditEntryType {
+  DEPOSIT     // money received (approved report or recorded by the treasurer): +
+  APPLIED     // spent against a due: -
+  REVERSAL    // a spend that was undone: +
+  EXPENSE_CREDIT          // the society owes the member for an expense they paid: +
+  EXPENSE_CREDIT_REVERSAL // that credit taken back (expense deleted): -
+}
+
+model CreditEntry {
+  id          String          @id @default(cuid())
+  societyId   String
+  userId      String
+  type        CreditEntryType
+  amount      Decimal         @db.Decimal(10, 2) // signed
+  paymentId   String?         // the due an APPLIED/REVERSAL entry relates to
+  claimId     String?         // the report a DEPOSIT came from
+  expenseId   String?         // the expense an EXPENSE_CREDIT(_REVERSAL) relates to
+  reference   String?         // UTR
+  note        String?
+  createdById String?
+  channel     MoneyChannel    @default(BANK) // DEPOSIT only: CASH = received as cash (banked later via CashDeposit)
+  bankAccountId String?       // DEPOSIT only; null = the primary account
+  createdAt   DateTime        @default(now())
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bankAccount BankAccount? @relation(fields: [bankAccountId], references: [id])
+
+  @@index([societyId, userId])
+  @@index([paymentId])
+  @@index([claimId])
+  @@index([expenseId])
+}
+
+
+// ─────────────────────────────────────────────
+// Other charges (sinking fund, water, festival, repairs…): one-time or recurring and time
+// bound, targeted by flat configuration and/or area. Each billing creates ordinary
+// MaintenancePayment rows (label = name), so credit, part-payments, claims and
+// reminders work for them unchanged.
+// ─────────────────────────────────────────────
+
+enum ChargeBasis {
+  FIXED     // `rate` rupees per flat
+  PER_SQFT  // `rate` rupees per sq ft of the flat's area
+}
+
+enum ChargeSchedule {
+  ONE_TIME
+  RECURRING
+}
+
+enum ChargeFrequency {
+  MONTHLY
+  QUARTERLY
+  HALF_YEARLY
+  YEARLY
+}
+
+model SpecialCharge {
+  id             String           @id @default(cuid())
+  societyId      String
+  name           String
+  description    String?
+  basis          ChargeBasis
+  rate           Decimal          @db.Decimal(10, 2)
+  schedule       ChargeSchedule
+  frequency      ChargeFrequency? // recurring only
+  startMonth     Int              // billing month (one-time) or first billing month
+  startYear      Int
+  endMonth       Int?             // recurring: last billing month, inclusive
+  endYear        Int?
+  configurations String[]         // normalized (e.g. "2BHK"); empty = every configuration
+  minArea        Decimal?         @db.Decimal(8, 2)
+  maxArea        Decimal?         @db.Decimal(8, 2)
+  isActive       Boolean          @default(true)
+  createdById    String
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  society   Society              @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  createdBy User                 @relation(fields: [createdById], references: [id])
+  payments  MaintenancePayment[]
+
+  @@index([societyId, isActive])
+}
+
+
+// ─────────────────────────────────────────────
+// Cash: money handed to a committee member (numbered receipt, credited to the payer at once)
+// and later banked in a batch. Cash "in hand" = collections with no deposit yet.
+// ─────────────────────────────────────────────
+
+model CashCollection {
+  id            String   @id @default(cuid())
+  societyId     String
+  receiptNo     Int      // sequential per society
+  userId        String   // who paid (their credit was topped up)
+  collectedById String   // committee member holding the cash
+  amount        Decimal  @db.Decimal(10, 2)
+  receivedOn    DateTime
+  note          String?
+  depositId     String?  // null = still in hand
+  createdAt     DateTime @default(now())
+
+  society     Society      @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  payer       User         @relation("CashPayer", fields: [userId], references: [id])
+  collectedBy User         @relation("CashCollector", fields: [collectedById], references: [id])
+  deposit     CashDeposit? @relation(fields: [depositId], references: [id], onDelete: SetNull)
+
+  @@unique([societyId, receiptNo])
+  @@index([societyId, depositId])
+  @@index([collectedById])
+}
+
+model CashDeposit {
+  id            String    @id @default(cuid())
+  societyId     String
+  depositedById String
+  amount        Decimal   @db.Decimal(10, 2) // sum of the collections, computed on the server
+  depositedOn   DateTime
+  reference     String    // bank slip number or transaction reference
+  note          String?
+  confirmedById String?   // a different admin/treasurer checked it against the bank statement
+  confirmedAt   DateTime?
+  bankAccountId String?   // null = the primary account
+  createdAt     DateTime  @default(now())
+
+  society     Society          @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  bankAccount BankAccount?     @relation(fields: [bankAccountId], references: [id])
+  depositedBy User             @relation("CashDepositor", fields: [depositedById], references: [id])
+  confirmedBy User?            @relation("CashConfirmer", fields: [confirmedById], references: [id])
+  collections CashCollection[]
+
+  @@index([societyId, depositedOn])
+}
+
+
+// ─────────────────────────────────────────────
+// Expenses a member paid out of pocket. The society owes the member, so they are credited
+// (credit can only be used against dues). Crediting yourself needs another admin/treasurer.
+// ─────────────────────────────────────────────
+
+enum ContributionStatus {
+  PENDING    // awaiting a second person (the requester tagged themselves)
+  APPROVED   // credited
+  REJECTED
+  CANCELLED  // withdrawn, or the expense was deleted before approval
+  REVERSED   // credited, then taken back when the expense was deleted
+}
+
+model ExpenseContribution {
+  id            String             @id @default(cuid())
+  societyId     String
+  expenseId     String?            // null once the expense is deleted; the title below keeps the record readable
+  expenseTitle  String
+  userId        String             // the member who paid and is credited
+  amount        Decimal            @db.Decimal(10, 2)
+  status        ContributionStatus @default(PENDING)
+  requestedById String             // who recorded the expense
+  reviewedById  String?
+  reviewedAt    DateTime?
+  note          String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  society     Society  @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  expense     Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+  member      User     @relation("ContributionMember", fields: [userId], references: [id])
+  requestedBy User     @relation("ContributionRequester", fields: [requestedById], references: [id])
+  reviewedBy  User?    @relation("ContributionReviewer", fields: [reviewedById], references: [id])
+
+  @@index([societyId, status])
+  @@index([expenseId])
+  @@index([userId])
 }

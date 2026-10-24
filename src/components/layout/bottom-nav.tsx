@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { NAV_ITEMS, isNavActive } from "./nav-items";
+import { mobileItems, isNavActive } from "./nav-items";
 import type { Role } from "@prisma/client";
 
 export function BottomNav({ role }: { role: Role }) {
   const pathname = usePathname();
-  const items = NAV_ITEMS.filter((i) => i.roles.includes(role));
+  const { items } = mobileItems(role);
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-white/90 backdrop-blur lg:hidden safe-area-pb">
@@ -20,11 +20,11 @@ export function BottomNav({ role }: { role: Role }) {
             <Link
               key={item.href}
               href={item.href}
-              className="flex min-w-[56px] flex-col items-center gap-0.5 text-[10px] font-medium"
+              className="flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[10px] font-medium"
             >
               <span
                 className={cn(
-                  "flex h-7 w-12 items-center justify-center rounded-full transition-colors",
+                  "flex h-7 w-11 items-center justify-center rounded-full transition-colors",
                   active ? "bg-primary/10 text-primary" : "text-muted-foreground"
                 )}
               >

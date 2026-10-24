@@ -2,7 +2,9 @@
 
 import { Badge } from "@/components/ui/badge";
 import { MONTHS } from "@/lib/utils/month";
+import { dueBalance } from "@/lib/utils/dues";
 import { MarkPaidForm } from "./mark-paid-form";
+import { RemindButton } from "./remind-button";
 import { formatCurrency, formatDate } from "@/lib/utils/month";
 import { flatLabel } from "@/lib/utils/flat";
 
@@ -20,6 +22,8 @@ const STATUS_CONFIG: Record<
 
 interface Payment {
   id: string;
+  label?: string | null;
+  amountPaid?: string | number | null;
   month: number;
   year: number;
   amount: string | number;
@@ -27,6 +31,7 @@ interface Payment {
   paidAt: Date | null;
   utrNumber: string | null;
   notes: string | null;
+  claim?: { status: "SUBMITTED" | "APPROVED" | "REJECTED"; utrNumber: string } | null;
   flat: {
     number: string;
     floor: { number: number; wing: { name: string } };
@@ -50,19 +55,21 @@ export function PaymentsTable({ payments, canManage, societyUpiId, hasWings, lim
       <div className="rounded-xl border border-dashed border-border bg-card px-4 py-10 text-center">
         <p className="text-sm font-medium">No dues match these filters</p>
         <p className="mt-1 text-xs text-muted-foreground">
-          Try another month or flat, or generate dues from the &ldquo;Generate dues&rdquo; tab.
+          Try another month or flat, or generate dues from the &ldquo;Generate&rdquo; tab.
         </p>
       </div>
     );
   }
 
-  const total = payments.reduce((t, p) => t + Number(p.amount), 0);
+  // Money still owed on unpaid dues (part-payments already deducted); paid dues count in full
+  const total = payments.reduce((t, p) => t + (p.status === "PAID" ? Number(p.amount) : dueBalance(p)), 0);
+  const unpaidIds = payments.filter((p) => p.status !== "PAID").map((p) => p.id);
   const flatCount = new Set(payments.map((p) => `${p.flat.floor.wing.name}-${p.flat.floor.number}-${p.flat.number}`)).size;
 
   return (
     <div className="space-y-4">
       <div className="rounded-xl bg-card p-4 ring-1 ring-border shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-        <p className="text-xs font-medium text-muted-foreground">Total shown</p>
+        <p className="text-xs font-medium text-muted-foreground">Total shown (still owed)</p>
         <p className="text-2xl font-semibold">{formatCurrency(total)}</p>
         <p className="text-xs text-muted-foreground">
           {payments.length} due{payments.length !== 1 ? "s" : ""} · {flatCount} flat{flatCount !== 1 ? "s" : ""}
@@ -71,6 +78,15 @@ export function PaymentsTable({ payments, canManage, societyUpiId, hasWings, lim
           <p className="mt-3 text-xs text-muted-foreground">
             Pay to UPI: <span className="font-semibold text-foreground">{societyUpiId}</span>
           </p>
+        )}
+        {canManage && unpaidIds.length > 0 && (
+          <RemindButton
+            paymentIds={unpaidIds}
+            label={`Send reminders (${unpaidIds.length})`}
+            variant="outline"
+            className="mt-3 h-9"
+            confirmMessage={`Email and SMS ${unpaidIds.length} unpaid due${unpaidIds.length !== 1 ? "s" : ""} to their residents?`}
+          />
         )}
       </div>
 
@@ -87,7 +103,7 @@ export function PaymentsTable({ payments, canManage, societyUpiId, hasWings, lim
                   </p>
                   <p className="truncate text-xs text-muted-foreground">
                     <span className="font-medium text-foreground/70">
-                      {MONTHS[payment.month - 1].slice(0, 3)} {payment.year}
+                      {payment.label && payment.label !== "Maintenance" ? `${payment.label} · ` : ""}{MONTHS[payment.month - 1].slice(0, 3)} {payment.year}
                     </span>
                     {" · "}
                     {resident
@@ -96,19 +112,41 @@ export function PaymentsTable({ payments, canManage, societyUpiId, hasWings, lim
                   </p>
                 </div>
                 <div className="shrink-0 text-right">
-                  <p className="text-sm font-semibold">{formatCurrency(payment.amount)}</p>
-                  <Badge variant={config.variant} className="mt-1">
-                    {config.label}
+                  <p className="text-sm font-semibold">
+                    {formatCurrency(payment.status === "PAID" ? payment.amount : dueBalance(payment))}
+                  </p>
+                  {payment.status !== "PAID" && Number(payment.amountPaid ?? 0) > 0 && (
+                    <p className="text-[11px] text-muted-foreground">
+                      {formatCurrency(Number(payment.amountPaid))} of {formatCurrency(payment.amount)} paid
+                    </p>
+                  )}
+                  <Badge
+                    variant={payment.status !== "PAID" && Number(payment.amountPaid ?? 0) > 0 ? "info" : config.variant}
+                    className="mt-1"
+                  >
+                    {payment.status !== "PAID" && Number(payment.amountPaid ?? 0) > 0 ? "Part paid" : config.label}
                   </Badge>
                 </div>
               </div>
+              {payment.claim?.status === "SUBMITTED" && payment.status !== "PAID" && (
+                <p className="mt-1.5 text-xs text-sky-700">
+                  Resident reported paid · UTR {payment.claim.utrNumber}. Check the <span className="font-semibold">To verify</span> tab.
+                </p>
+              )}
               {payment.status === "PAID" && (
                 <p className="mt-1.5 text-xs text-muted-foreground">
                   {formatDate(payment.paidAt)}
                   {payment.utrNumber && ` · UTR ${payment.utrNumber}`}
                 </p>
               )}
-              {canManage && <MarkPaidForm paymentId={payment.id} status={payment.status} />}
+              {canManage && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <MarkPaidForm paymentId={payment.id} status={payment.status} />
+                  {payment.status !== "PAID" && (
+                    <RemindButton paymentIds={[payment.id]} className="mt-2 h-8 text-xs text-muted-foreground" />
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
