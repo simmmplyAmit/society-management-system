@@ -20,10 +20,11 @@ npx vitest run src/__tests__/actions/expenses.test.ts   # single file
 npx vitest run -t "rejects non-positive"                # single test by name
 npx prisma migrate dev --name <name>                    # new migration after editing prisma/schema.prisma
 npx prisma migrate deploy
+npm run vercel-build        # what Vercel runs: prisma migrate deploy (production only) then next build
 npm run seed                 # demo society; set SUPER_ADMIN_EMAIL / SUPER_ADMIN_PASSWORD to also create a super-admin
 ```
 
-Env (`.env`, see `.env.example`): `DATABASE_URL`, `AUTH_SECRET`, `CRON_SECRET`. Prisma's datasource URL lives in `prisma.config.ts`, not the schema.
+Env (`.env`, see `.env.example`): `DATABASE_URL`, `AUTH_SECRET`, `CRON_SECRET`. Optional `DIRECT_URL` (Neon's non-pooled URL) is what the Prisma CLI and migrations use when set; the app always uses `DATABASE_URL`. Prisma's datasource URL lives in `prisma.config.ts`, not the schema.
 
 ## Architecture
 
