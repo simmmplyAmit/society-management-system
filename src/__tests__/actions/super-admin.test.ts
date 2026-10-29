@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("@/lib/prisma", () => ({ prisma: { user: { findUnique: vi.fn() }, society: { create: vi.fn() } } }));
+vi.mock("@/lib/prisma", () => ({ prisma: { user: { findFirst: vi.fn() }, society: { create: vi.fn() } } }));
 vi.mock("@/lib/session", () => ({
   requireRole: vi.fn().mockResolvedValue({ user: { id: "sa", role: "SUPER_ADMIN", societyId: null } }),
 }));
@@ -23,7 +23,7 @@ const valid = {
 describe("createSociety", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.user.findFirst).mockResolvedValue(null);
   });
 
   it("is SUPER_ADMIN only", async () => {
@@ -55,9 +55,13 @@ describe("createSociety", () => {
   });
 
   it("rejects an already-registered admin email", async () => {
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "x" } as never);
+    vi.mocked(prisma.user.findFirst).mockResolvedValue({ id: "x" } as never);
     const r = await createSociety(fd(valid));
     expect(r).toMatchObject({ error: expect.stringMatching(/already exists/) });
+    expect(prisma.user.findFirst).toHaveBeenCalledWith({
+      where: { email: { equals: "asha@example.com", mode: "insensitive" } },
+      select: { id: true },
+    });
     expect(prisma.society.create).not.toHaveBeenCalled();
   });
 

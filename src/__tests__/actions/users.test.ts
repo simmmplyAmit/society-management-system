@@ -23,7 +23,7 @@ describe("createUser", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("requires the ADMIN role", async () => {
-    vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.user.findFirst).mockResolvedValue(null);
     await createUser(fd(valid));
     expect(requireRole).toHaveBeenCalledWith(["ADMIN"]);
   });
@@ -40,18 +40,22 @@ describe("createUser", () => {
     expect(prisma.user.create).not.toHaveBeenCalled();
   });
 
-  it("rejects duplicate emails", async () => {
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "x" } as never);
-    const r = await createUser(fd(valid));
+  it("rejects duplicate emails whatever their case", async () => {
+    vi.mocked(prisma.user.findFirst).mockResolvedValue({ id: "x" } as never);
+    const r = await createUser(fd({ ...valid, email: " Rahul@X.com " }));
     expect(r.error).toMatch(/already exists/);
+    expect(prisma.user.findFirst).toHaveBeenCalledWith({
+      where: { email: { equals: "rahul@x.com", mode: "insensitive" } },
+      select: { id: true },
+    });
   });
 
   it("creates the user in the admin's society with a hashed password", async () => {
-    vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.user.findFirst).mockResolvedValue(null);
     const r = await createUser(fd(valid));
     expect(r.success).toBe(true);
     expect(prisma.user.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ societyId: "s1", passwordHash: "hashed-pw", role: "OWNER" }),
+      data: expect.objectContaining({ societyId: "s1", passwordHash: "hashed-pw", role: "OWNER", email: "rahul@x.com" }),
     });
   });
 });

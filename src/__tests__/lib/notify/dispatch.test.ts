@@ -8,6 +8,10 @@ vi.mock("@/lib/prisma", () => ({
 }));
 vi.mock("@/lib/notify/email", () => ({ sendEmail: vi.fn() }));
 vi.mock("@/lib/notify/sms", () => ({ sendSms: vi.fn() }));
+vi.mock("@/lib/notify/sender", () => ({
+  societySender: vi.fn().mockResolvedValue({ fromName: "Sunrise", replyTo: ["treasurer@x.com"] }),
+  senderCache: vi.fn(() => vi.fn().mockResolvedValue({ fromName: "Sunrise", replyTo: ["treasurer@x.com"] })),
+}));
 
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/notify/email";
@@ -42,7 +46,8 @@ describe("notifyPayments", () => {
     findPayments.mockResolvedValue([payment([resident(user())])] as never);
     const r = await notifyPayments("DUE_CREATED", items, "s1");
     expect(r).toEqual({ sent: 2, failed: 0, skipped: 0 });
-    expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({ to: "r@x.com" }));
+    // Sent as the society, with replies going to its treasurer
+    expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({ to: "r@x.com", fromName: "Sunrise", replyTo: ["treasurer@x.com"] }));
     expect(sendSms).toHaveBeenCalledWith(expect.objectContaining({ to: "+919876543210", template: "due" }));
     expect(log.update).toHaveBeenCalledTimes(2);
     expect(log.update.mock.calls[0][0].data).toEqual({ status: "SENT" });

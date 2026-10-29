@@ -6,10 +6,11 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import type { Role } from "@prisma/client";
+import { emailWhere } from "@/lib/utils/email";
 
 const createUserSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Enter a valid email"),
+  email: z.string().trim().toLowerCase().pipe(z.string().email("Enter a valid email")),
   phone: z.string().optional(),
   role: z.enum(["ADMIN", "SECRETARY", "TREASURER", "OWNER", "TENANT"]),
   password: z.string().min(8, "Password must be at least 8 characters"),
@@ -23,9 +24,7 @@ export async function createUser(formData: FormData) {
   const parsed = createUserSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
-  const existing = await prisma.user.findUnique({
-    where: { email: parsed.data.email },
-  });
+  const existing = await prisma.user.findFirst({ where: emailWhere(parsed.data.email), select: { id: true } });
   if (existing) return { error: "A user with this email already exists" };
 
   const passwordHash = await bcrypt.hash(parsed.data.password, 12);

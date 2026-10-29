@@ -1,6 +1,7 @@
 // Server-only. Emails for notices and complaints. Never throws: a failed email must not undo the action.
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "./email";
+import { societySender } from "./sender";
 import { complaintMessage, noticeMessage } from "./templates";
 import { NOTICE_LABELS } from "@/lib/utils/community";
 import type { NoticeCategory } from "@prisma/client";
@@ -16,8 +17,9 @@ export async function emailNotice(n: {
   category: NoticeCategory;
 }): Promise<{ sent: number; failed: number; capped: boolean }> {
   try {
-    const [society, people] = await Promise.all([
+    const [society, sender, people] = await Promise.all([
       prisma.society.findUnique({ where: { id: n.societyId }, select: { name: true } }),
+      societySender(n.societyId, "general"),
       prisma.user.findMany({
         where: { societyId: n.societyId, isActive: true, emailVerifiedAt: { not: null } },
         select: { email: true },
@@ -36,7 +38,7 @@ export async function emailNotice(n: {
     let sent = 0;
     let failed = 0;
     for (let i = 0; i < recipients.length; i += CHUNK) {
-      const results = await Promise.all(recipients.slice(i, i + CHUNK).map((p) => sendEmail({ to: p.email, ...msg })));
+      const results = await Promise.all(recipients.slice(i, i + CHUNK).map((p) => sendEmail({ to: p.email, ...msg, ...sender })));
       for (const r of results) {
         if (r.ok) sent++;
         else {
@@ -69,8 +71,10 @@ export async function notifyComplaint(c: {
 }): Promise<void> {
   try {
     const toCommittee = c.kind === "raised";
-    const [society, people] = await Promise.all([
+    const [society, sender, people] = await Promise.all([
       prisma.society.findUnique({ where: { id: c.societyId }, select: { name: true } }),
+      // Residents' replies go to the committee; a new complaint is already addressed to the committee
+      societySender(c.societyId, toCommittee ? null : "general"),
       prisma.user.findMany({
         where: {
           societyId: c.societyId,
@@ -93,7 +97,7 @@ export async function notifyComplaint(c: {
       detail: c.detail,
       toCommittee,
     });
-    const results = await Promise.all(people.map((p) => sendEmail({ to: p.email, ...msg })));
+    const results = await Promise.all(people.map((p) => sendEmail({ to: p.email, ...msg, ...sender })));
     results.forEach((r) => {
       if (!r.ok) console.error("[complaint] email failed:", r.error);
     });

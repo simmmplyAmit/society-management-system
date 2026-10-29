@@ -5,6 +5,7 @@ import { issueOtp, verifyOtp } from "@/lib/otp";
 import { sendEmail } from "@/lib/notify/email";
 import { otpMessage } from "@/lib/notify/templates";
 import { resetAttempts } from "@/lib/rate-limit";
+import { emailWhere } from "@/lib/utils/email";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 
@@ -22,8 +23,8 @@ export async function requestPasswordReset(formData: FormData) {
   const parsed = requestSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
-  const user = await prisma.user.findUnique({
-    where: { email: parsed.data.email },
+  const user = await prisma.user.findFirst({
+    where: emailWhere(parsed.data.email),
     select: { id: true, email: true, isActive: true },
   });
 
@@ -65,6 +66,6 @@ export async function resetPassword(formData: FormData) {
       ...(user?.emailVerifiedAt ? {} : { emailVerifiedAt: new Date() }),
     },
   });
-  resetAttempts(email);
+  await resetAttempts(email);
   return { success: true as const };
 }

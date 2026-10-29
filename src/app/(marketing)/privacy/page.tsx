@@ -98,8 +98,11 @@ export default function PrivacyPage() {
           <li>
             <strong>Our service providers,</strong> who process data on our behalf under contract:
             cloud hosting (Vercel), database hosting (Neon), file storage (Cloudflare R2), email
-            delivery (Resend) and SMS delivery (MSG91). They may store or process data outside
-            India, in countries the Government of India has not restricted.
+            delivery (Resend), SMS delivery (MSG91), error monitoring (Sentry, which receives
+            technical details of errors but not cookies, IP addresses or form contents) and counting
+            failed sign-in attempts (Upstash, which stores a one-way hash of the email, never the
+            email itself). They may store or process data outside India, in countries the
+            Government of India has not restricted.
           </li>
           <li>
             <strong>Authorities,</strong> when the law requires it, for example under a court order

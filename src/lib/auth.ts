@@ -6,10 +6,12 @@ import { z } from "zod";
 import { refreshToken } from "@/lib/auth-token";
 import { isRateLimited, recordFailure, resetAttempts } from "@/lib/rate-limit";
 import { isFullyVerified } from "@/lib/verification";
+import { emailWhere } from "@/lib/utils/email";
 import type { Role } from "@prisma/client";
 
 const loginSchema = z.object({
-  email: z.string().email(),
+  // Phones often capitalise the first letter; sign-in ignores case
+  email: z.string().trim().toLowerCase().pipe(z.string().email()),
   password: z.string().min(6),
 });
 
@@ -29,10 +31,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (!parsed.success) return null;
 
         const { email, password } = parsed.data;
-        if (isRateLimited(email)) return null;
+        if (await isRateLimited(email)) return null;
 
-        const user = await prisma.user.findUnique({
-          where: { email },
+        const user = await prisma.user.findFirst({
+          where: emailWhere(email),
           select: {
             id: true,
             email: true,
@@ -48,16 +50,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         });
 
         if (!user || !user.isActive) {
-          recordFailure(email);
+          await recordFailure(email);
           return null;
         }
 
         const isValid = await bcrypt.compare(password, user.passwordHash);
         if (!isValid) {
-          recordFailure(email);
+          await recordFailure(email);
           return null;
         }
-        resetAttempts(email);
+        await resetAttempts(email);
 
         return {
           id: user.id,

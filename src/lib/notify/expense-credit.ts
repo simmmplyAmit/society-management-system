@@ -1,6 +1,7 @@
 // Server-only. Tells a member their expense credit arrived. Email only; never throws.
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "./email";
+import { societySender } from "./sender";
 import { expenseCreditMessage } from "./templates";
 import { formatCurrency } from "@/lib/utils/month";
 
@@ -10,8 +11,9 @@ export async function notifyExpenseCredit(
 ): Promise<void> {
   if (items.length === 0) return;
   try {
-    const [society, users] = await Promise.all([
+    const [society, sender, users] = await Promise.all([
       prisma.society.findUnique({ where: { id: societyId }, select: { name: true } }),
+      societySender(societyId, "dues"),
       prisma.user.findMany({
         where: { id: { in: items.map((i) => i.userId) }, societyId, isActive: true, emailVerifiedAt: { not: null } },
         select: { id: true, name: true, email: true },
@@ -28,7 +30,7 @@ export async function notifyExpenseCredit(
           amount: formatCurrency(i.amount),
           expenseTitle: i.expenseTitle,
         });
-        return sendEmail({ to: u.email, ...msg });
+        return sendEmail({ to: u.email, ...msg, ...sender });
       })
     );
     results.forEach((r) => {

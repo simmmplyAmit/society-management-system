@@ -2,10 +2,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/prisma", () => ({ prisma: { society: { findUnique: vi.fn() }, user: { findMany: vi.fn() } } }));
 vi.mock("@/lib/notify/email", () => ({ sendEmail: vi.fn().mockResolvedValue({ ok: true }) }));
+vi.mock("@/lib/notify/sender", () => ({
+  societySender: vi.fn().mockResolvedValue({ fromName: "Sunrise", replyTo: ["treasurer@x.com"] }),
+  senderCache: vi.fn(() => vi.fn().mockResolvedValue({ fromName: "Sunrise", replyTo: ["treasurer@x.com"] })),
+}));
 
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/notify/email";
 import { notifyExpenseCredit } from "@/lib/notify/expense-credit";
+import { societySender } from "@/lib/notify/sender";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -20,7 +25,10 @@ describe("notifyExpenseCredit", () => {
       id: { in: ["u1", "gone"] }, societyId: "s1", isActive: true, emailVerifiedAt: { not: null },
     });
     expect(sendEmail).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(sendEmail).mock.calls[0][0]).toMatchObject({ to: "a@x.com", subject: expect.stringContaining("₹600") });
+    expect(vi.mocked(sendEmail).mock.calls[0][0]).toMatchObject({
+      to: "a@x.com", subject: expect.stringContaining("₹600"), fromName: "Sunrise", replyTo: ["treasurer@x.com"],
+    });
+    expect(societySender).toHaveBeenCalledWith("s1", "dues");
   });
 
   it("does nothing for an empty list and never throws", async () => {

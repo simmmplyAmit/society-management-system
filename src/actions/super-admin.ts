@@ -6,6 +6,7 @@ import { isValidUpiId } from "@/lib/utils/upi";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
+import { emailWhere } from "@/lib/utils/email";
 
 const createSocietySchema = z.object({
   societyName: z.string().trim().min(2, "Society name must be at least 2 characters"),
@@ -29,7 +30,7 @@ export async function createSociety(formData: FormData) {
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const d = parsed.data;
 
-  const existing = await prisma.user.findUnique({ where: { email: d.adminEmail } });
+  const existing = await prisma.user.findFirst({ where: emailWhere(d.adminEmail), select: { id: true } });
   if (existing) return { error: "A user with this email already exists" };
 
   const passwordHash = await bcrypt.hash(d.adminPassword, 12);

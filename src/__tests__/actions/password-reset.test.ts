@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("@/lib/prisma", () => ({ prisma: { user: { findUnique: vi.fn(), update: vi.fn() } } }));
+vi.mock("@/lib/prisma", () => ({ prisma: { user: { findFirst: vi.fn(), findUnique: vi.fn(), update: vi.fn() } } }));
 vi.mock("@/lib/otp", () => ({ issueOtp: vi.fn(), verifyOtp: vi.fn() }));
 vi.mock("@/lib/notify/email", () => ({ sendEmail: vi.fn().mockResolvedValue({ ok: true }) }));
 vi.mock("@/lib/rate-limit", () => ({ resetAttempts: vi.fn() }));
@@ -26,22 +26,22 @@ beforeEach(() => {
 
 describe("requestPasswordReset", () => {
   it("emails a code to an active user", async () => {
-    vi.mocked(user.findUnique).mockResolvedValue({ id: "u1", email: "a@b.com", isActive: true } as never);
+    vi.mocked(user.findFirst).mockResolvedValue({ id: "u1", email: "a@b.com", isActive: true } as never);
     vi.mocked(issueOtp).mockResolvedValue({ ok: true, code: "111222" });
     expect(await requestPasswordReset(fd({ email: " A@B.com " }))).toEqual({ success: true });
-    expect(user.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { email: "a@b.com" } }));
+    expect(user.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { email: { equals: "a@b.com", mode: "insensitive" } } }));
     expect(issueOtp).toHaveBeenCalledWith({ userId: "u1", purpose: "RESET_PASSWORD", channel: "EMAIL", target: "a@b.com" });
     expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({ to: "a@b.com" }));
   });
 
   it("gives the same answer for unknown, inactive and throttled emails, and sends nothing", async () => {
-    vi.mocked(user.findUnique).mockResolvedValueOnce(null);
+    vi.mocked(user.findFirst).mockResolvedValueOnce(null);
     expect(await requestPasswordReset(fd({ email: "nobody@b.com" }))).toEqual({ success: true });
 
-    vi.mocked(user.findUnique).mockResolvedValueOnce({ id: "u2", email: "x@b.com", isActive: false } as never);
+    vi.mocked(user.findFirst).mockResolvedValueOnce({ id: "u2", email: "x@b.com", isActive: false } as never);
     expect(await requestPasswordReset(fd({ email: "x@b.com" }))).toEqual({ success: true });
 
-    vi.mocked(user.findUnique).mockResolvedValueOnce({ id: "u3", email: "y@b.com", isActive: true } as never);
+    vi.mocked(user.findFirst).mockResolvedValueOnce({ id: "u3", email: "y@b.com", isActive: true } as never);
     vi.mocked(issueOtp).mockResolvedValueOnce({ ok: false, error: "Please wait a minute" });
     expect(await requestPasswordReset(fd({ email: "y@b.com" }))).toEqual({ success: true });
 

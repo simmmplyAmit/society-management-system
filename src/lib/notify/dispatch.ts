@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { flatLabel } from "@/lib/utils/flat";
 import { formatCurrency, formatDate, MONTHS } from "@/lib/utils/month";
 import { sendEmail } from "./email";
+import { senderCache } from "./sender";
 import { sendSms } from "./sms";
 import { dueMessage, receiptMessage, type DueInfo, type Rendered } from "./templates";
 import type { Channel, NotificationKind } from "@prisma/client";
@@ -99,6 +100,7 @@ export async function notifyPayments(
   });
 
   const tasks: (() => Promise<void>)[] = [];
+  const senderFor = senderCache("dues"); // replies to these go to the society's treasurer/admin
 
   for (const p of payments) {
     // The owner is responsible for the dues. Fall back to the tenants only when no owner is linked,
@@ -131,6 +133,7 @@ export async function notifyPayments(
       utr: p.utrNumber,
     };
 
+    const sender = await senderFor(p.societyId);
     for (const user of recipients) {
       const rendered: Rendered =
         kind === "PAYMENT_RECEIPT"
@@ -139,7 +142,7 @@ export async function notifyPayments(
 
       const targets: { channel: Channel; to: string; send: () => Promise<{ ok: boolean; error?: string }> }[] = [];
       if (user.emailVerifiedAt) {
-        targets.push({ channel: "EMAIL", to: user.email, send: () => sendEmail({ to: user.email, ...rendered.email }) });
+        targets.push({ channel: "EMAIL", to: user.email, send: () => sendEmail({ to: user.email, ...rendered.email, ...sender }) });
       }
       if (user.phone && user.phoneVerifiedAt) {
         const phone = user.phone;

@@ -14,6 +14,8 @@ const withPWA = withPWAInit({
 
 const nextConfig: NextConfig = {
   turbopack: {},
+  // Sentry loads this at runtime by package name; bundling it breaks that lookup
+  serverExternalPackages: ["@sentry/server-runtime-injection"],
 };
 
 export default withPWA(nextConfig);

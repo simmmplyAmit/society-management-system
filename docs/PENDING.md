@@ -86,6 +86,10 @@ Built: record bank interest, rent, donations etc. with category, date and bank r
 
 ## 3. Notifications and messaging gaps
 
+- [x] Emails show the society as sender ("<Society> via Society MS") and replies go to its committee (Reply-To).
+- [ ] Send notice blasts from a separate subdomain (e.g. `news.`) so a spam complaint can't hurt OTP and dues delivery; add a one-click unsubscribe (`List-Unsubscribe`) to notice emails.
+- [ ] Track bounces and spam complaints with Resend webhooks; stop emailing addresses that bounce.
+
 - [ ] Notify the treasurer or admin when a resident reports a payment (today they only see the "To verify" badge).
 - [ ] Notify the resident when their report is rejected (today they see a banner in the app).
 - [ ] SMS alerts for UPI ID changes (needs another DLT-approved template; email only today).
@@ -103,7 +107,8 @@ Built: record bank interest, rent, donations etc. with category, date and bank r
 ## 5. Security and operations
 
 - [ ] **UPI ID break-glass:** a society whose only admin loses access cannot change its UPI ID. Add a super-admin override, or document the manual database fix.
-- [ ] Login rate limiting is in memory (per serverless instance). Move to a shared store (for example Upstash) before real traffic.
+- [x] Login rate limiting uses Upstash when configured (falls back to in memory). [ ] Create the Upstash database and set `UPSTASH_REDIS_REST_URL`/`_TOKEN` in Vercel.
+- [x] Sentry error monitoring (server + browser, lazy). [ ] Create the Sentry project and set `SENTRY_DSN`/`NEXT_PUBLIC_SENTRY_DSN`; browser stack traces are minified until source maps are uploaded (`withSentryConfig` + `SENTRY_AUTH_TOKEN`); add alert rules.
 - [ ] A real second factor, or lockout alerts, for admin accounts (email and mobile verification helps but is not a second factor).
 - [ ] Review the `SECRETARY` role's permissions across all actions.
 - [ ] Run `/security-review` on the full branch before launch.
@@ -129,7 +134,7 @@ Built: record bank interest, rent, donations etc. with category, date and bank r
 - [ ] Import other income, and bank opening balances.
 - [ ] Email or SMS invites to imported residents (today the wizard shows a WhatsApp message to share; residents use "Forgot password").
 - [ ] Residents without an email can't be imported (email is required to sign in); decide on mobile-only accounts.
-- [ ] Login is case-sensitive on email (`loginSchema` doesn't lowercase) while password reset lowercases; imports store emails lowercase. Make sign-in case-insensitive.
+- [x] Sign-in, password reset and account creation now ignore email case.
 
 ## 6b. Public website and policies (built)
 

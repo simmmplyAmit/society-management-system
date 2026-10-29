@@ -4,11 +4,13 @@ vi.mock("@/lib/prisma", () => ({
   prisma: { society: { findUnique: vi.fn() }, user: { findMany: vi.fn() } },
 }));
 vi.mock("@/lib/notify/email", () => ({ sendEmail: vi.fn().mockResolvedValue({ ok: true }) }));
+vi.mock("@/lib/notify/sender", () => ({ societySender: vi.fn().mockResolvedValue({ fromName: "Sunrise" }) }));
 
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/notify/email";
 import { notifyUpiChange } from "@/lib/notify/upi";
 import { upiChangeMessage } from "@/lib/notify/templates";
+import { societySender } from "@/lib/notify/sender";
 
 const base = {
   societyId: "s1", oldUpiId: "old@bank", newUpiId: "new@bank",
@@ -22,6 +24,13 @@ beforeEach(() => {
 });
 
 describe("notifyUpiChange", () => {
+  it("names the society as sender but gives no reply address on a security alert", async () => {
+    await notifyUpiChange({ ...base, kind: "requested" });
+    expect(societySender).toHaveBeenCalledWith("s1", null);
+    expect(vi.mocked(sendEmail).mock.calls[0][0]).toMatchObject({ fromName: "Sunrise" });
+    expect(vi.mocked(sendEmail).mock.calls[0][0]).not.toHaveProperty("replyTo");
+  });
+
   it("asks every other verified admin/treasurer to approve, excluding the requester", async () => {
     await notifyUpiChange({ ...base, kind: "requested" });
     expect(vi.mocked(prisma.user.findMany).mock.calls[0][0]!.where).toEqual({
