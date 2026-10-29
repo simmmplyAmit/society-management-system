@@ -1,4 +1,5 @@
 import type { SmsTemplate } from "./sms";
+import { emailText, type EmailText } from "./email-text";
 
 export interface Rendered {
   email: { subject: string; html: string; text: string };
@@ -29,7 +30,7 @@ ${body}
 </div></div>`;
 }
 
-export function otpMessage(code: string, reason: string): Rendered {
+function otpMessageEn(code: string, reason: string): Rendered {
   const text = `Your Society MS code is ${code}. It is valid for 10 minutes. Do not share it with anyone.`;
   return {
     email: {
@@ -44,6 +45,28 @@ export function otpMessage(code: string, reason: string): Rendered {
       ),
     },
     sms: { template: "otp", vars: { otp: code }, preview: text },
+  };
+}
+
+/** `locale` picks the email's language; SMS stays English (DLT-approved templates). */
+export function otpMessage(code: string, reason: string, locale?: string | null): Rendered {
+  const r = otpMessageEn(code, reason);
+  const L = emailText(locale);
+  if (!L) return r;
+  const heading = L.otp.reasons[reason] ?? reason;
+  return {
+    ...r,
+    email: {
+      subject: L.otp.subject(code),
+      text: `${heading}\n\n${L.otp.text(code)}`,
+      html: shell(
+        "Society MS",
+        heading,
+        `<p style="font-size:14px;color:#374151">${escapeHtml(L.otp.intro)}</p>
+<p style="font-size:32px;letter-spacing:6px;font-weight:700;color:#4f46e5;margin:16px 0">${escapeHtml(code)}</p>
+<p style="font-size:12px;color:#6b7280">${escapeHtml(L.otp.ignore)}</p>`
+      ),
+    },
   };
 }
 
@@ -74,7 +97,7 @@ function smsPeriod(info: DueInfo): string {
   return info.label && info.label !== "Maintenance" ? `${info.period} (${info.label})` : info.period;
 }
 
-export function dueMessage(info: DueInfo, reminder: boolean): Rendered {
+function dueMessageEn(info: DueInfo, reminder: boolean): Rendered {
   const upi = info.upiId ?? "-";
   const what = whatFor(info);
   const subject = reminder
@@ -106,7 +129,7 @@ ${info.upiId ? `<tr><td style="color:#6b7280;padding-right:16px">Pay to UPI</td>
   };
 }
 
-export function receiptMessage(info: DueInfo): Rendered {
+function receiptMessageEn(info: DueInfo): Rendered {
   const text = `Hi ${info.name}, we received ${info.amount} ${whatFor(info)} for ${info.period} (${info.flat}) on ${info.paidOn ?? "today"}${info.utr ? `, ref ${info.utr}` : ""}.${info.balance ? ` Balance due: ${info.balance}.` : ""} Thank you! - ${info.societyName}`;
   return {
     email: {
@@ -128,6 +151,67 @@ ${info.utr ? `<tr><td style="color:#6b7280;padding-right:16px">Reference</td><td
       template: "receipt",
       vars: { name: info.name, amount: info.amount, period: smsPeriod(info), flat: info.flat },
       preview: text,
+    },
+  };
+}
+
+const localWhat = (L: EmailText, info: DueInfo) => (info.label && info.label !== "Maintenance" ? info.label : L.maintenance);
+const row = (label: string, value: string, bold = false) =>
+  `<tr><td style="color:#6b7280;padding-right:16px">${escapeHtml(label)}</td><td>${bold ? `<b>${escapeHtml(value)}</b>` : escapeHtml(value)}</td></tr>`;
+const button = (href: string, label: string) =>
+  `<a href="${href}" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-size:14px;font-weight:600">${escapeHtml(label)}</a>`;
+
+export function dueMessage(info: DueInfo, reminder: boolean, locale?: string | null): Rendered {
+  const r = dueMessageEn(info, reminder);
+  const L = emailText(locale);
+  if (!L) return r;
+  const what = localWhat(L, info);
+  const link = `${appUrl()}/dashboard/maintenance`;
+  const line = (reminder ? L.due.lineReminder : L.due.lineNew)(escapeHtml(what), escapeHtml(info.period));
+  const part = info.paidSoFar ? L.due.paidSoFar(info.paidSoFar) : "";
+  const pay = info.upiId ? L.due.payUpi(info.upiId) : L.due.payOther;
+  return {
+    ...r,
+    email: {
+      subject: (reminder ? L.due.subjectReminder : L.due.subjectNew)(what, info.amount, info.period),
+      text: `${L.greeting(info.name)} ${line.replace(/<\/?b>/g, "")}${part}. ${info.flat}: ${info.amount}. ${pay} ${L.due.seeDues(link)}`,
+      html: shell(
+        info.societyName,
+        (reminder ? L.due.headingReminder : L.due.headingNew)(what),
+        `<p style="font-size:14px;color:#374151">${escapeHtml(L.greeting(info.name))}</p>
+<p style="font-size:14px;color:#374151">${line}${escapeHtml(part)}.</p>
+<table style="font-size:14px;margin:12px 0;color:#111827">${row(L.labels.flat, info.flat)}
+${row(L.labels.amount, info.amount, true)}
+${info.upiId ? row(L.labels.payTo, info.upiId) : ""}</table>
+${button(link, L.due.button)}`
+      ),
+    },
+  };
+}
+
+export function receiptMessage(info: DueInfo, locale?: string | null): Rendered {
+  const r = receiptMessageEn(info);
+  const L = emailText(locale);
+  if (!L) return r;
+  return {
+    ...r,
+    email: {
+      subject: L.receipt.subject(info.amount, info.period),
+      text: L.receipt.text({
+        name: info.name, amount: info.amount, what: localWhat(L, info), period: info.period, flat: info.flat,
+        paidOn: info.paidOn ?? L.receipt.today, utr: info.utr, balance: info.balance, society: info.societyName,
+      }),
+      html: shell(
+        info.societyName,
+        L.receipt.heading,
+        `<p style="font-size:14px;color:#374151">${escapeHtml(L.receipt.intro(info.name))}</p>
+<table style="font-size:14px;margin:12px 0;color:#111827">${row(L.labels.flat, info.flat)}
+${row(L.labels.period, info.period)}
+${row(L.labels.amount, info.amount, true)}
+${info.balance ? row(L.labels.balance, info.balance, true) : ""}
+${row(L.labels.paidOn, info.paidOn ?? "-")}
+${info.utr ? row(L.labels.reference, info.utr) : ""}</table>`
+      ),
     },
   };
 }
@@ -173,12 +257,26 @@ ${info.note ? `<tr><td style="color:#6b7280;padding-right:16px">Note</td><td>${e
   };
 }
 
-export function expenseCreditMessage(info: {
-  societyName: string;
-  name: string;
-  amount: string;
-  expenseTitle: string;
-}): { subject: string; html: string; text: string } {
+export function expenseCreditMessage(
+  info: { societyName: string; name: string; amount: string; expenseTitle: string },
+  locale?: string | null
+): { subject: string; html: string; text: string } {
+  const L = emailText(locale);
+  if (L) {
+    const link = `${appUrl()}/dashboard/maintenance`;
+    return {
+      subject: L.credit.subject(info.amount, info.expenseTitle),
+      text: L.credit.text({ name: info.name, amount: info.amount, expense: info.expenseTitle, society: info.societyName, link }),
+      html: shell(
+        info.societyName,
+        L.credit.heading,
+        `<p style="font-size:14px;color:#374151">${escapeHtml(L.greeting(info.name))}</p>
+<p style="font-size:14px;color:#374151">${L.credit.body(escapeHtml(info.amount), escapeHtml(info.expenseTitle))}</p>
+<p style="font-size:13px;color:#6b7280">${escapeHtml(L.credit.note)}</p>
+${button(link, L.credit.button)}`
+      ),
+    };
+  }
   const text = `Hi ${info.name}, ${info.amount} has been credited to your ${info.societyName} account because you paid for "${info.expenseTitle}" on the society's behalf. It will be adjusted against your maintenance dues automatically. Open ${appUrl()}/dashboard/maintenance to see your credit.`;
   return {
     subject: `${info.amount} credited for "${info.expenseTitle}"`,
@@ -196,14 +294,26 @@ export function expenseCreditMessage(info: {
 
 type EmailOnly = { subject: string; html: string; text: string };
 
-export function noticeMessage(info: {
-  societyName: string;
-  title: string;
-  body: string;
-  categoryLabel: string;
-  emergency: boolean;
-}): EmailOnly {
+export function noticeMessage(
+  info: { societyName: string; title: string; body: string; categoryLabel: string; emergency: boolean },
+  locale?: string | null
+): EmailOnly {
   const excerpt = info.body.length > 600 ? `${info.body.slice(0, 600)}…` : info.body;
+  const L = emailText(locale);
+  if (L) {
+    const link = `${appUrl()}/dashboard/notices`;
+    return {
+      subject: `${info.emergency ? L.notice.urgentPrefix : ""}${info.title} - ${info.societyName}`,
+      text: L.notice.text({ society: info.societyName, category: info.categoryLabel, title: info.title, excerpt, link }),
+      html: shell(
+        info.societyName,
+        info.title,
+        `<p style="margin:0 0 12px;font-size:12px;color:${info.emergency ? "#b91c1c" : "#6b7280"};font-weight:600">${escapeHtml(info.categoryLabel)}</p>
+<p style="font-size:14px;color:#374151;white-space:pre-line">${escapeHtml(excerpt)}</p>
+${button(link, L.notice.button)}`
+      ),
+    };
+  }
   return {
     subject: `${info.emergency ? "URGENT: " : ""}${info.title} - ${info.societyName}`,
     text: `${info.societyName} notice (${info.categoryLabel}): ${info.title}\n\n${excerpt}\n\nRead it in the app: ${appUrl()}/dashboard/notices`,
@@ -225,7 +335,29 @@ export function complaintMessage(info: {
   actorName: string;
   detail: string; // the comment, or the new status wording
   toCommittee: boolean;
-}): EmailOnly {
+  /** For status emails in another language: the new status already translated, and the optional note. */
+  statusLabel?: string;
+  note?: string | null;
+}, locale?: string | null): EmailOnly {
+  const L = emailText(locale);
+  if (L) {
+    const heading = L.complaint[info.kind];
+    const link = `${appUrl()}/dashboard/complaints/${info.complaintId}`;
+    const raw = info.kind === "status" && info.statusLabel ? L.complaint.statusDetail(info.statusLabel, info.note) : info.detail;
+    const detail = raw.length > 400 ? `${raw.slice(0, 400)}…` : raw;
+    return {
+      subject: `${heading}: ${info.title}`,
+      text: L.complaint.text({ society: info.societyName, heading, title: info.title, actor: info.actorName, detail, link }),
+      html: shell(
+        info.societyName,
+        heading,
+        `<p style="font-size:14px;color:#111827;margin:0 0 8px"><b>${escapeHtml(info.title)}</b></p>
+<p style="font-size:13px;color:#6b7280;margin:0 0 8px">${escapeHtml(info.actorName)}</p>
+<p style="font-size:14px;color:#374151;white-space:pre-line">${escapeHtml(detail)}</p>
+${button(link, info.toCommittee ? L.complaint.review : L.complaint.view)}`
+      ),
+    };
+  }
   const heading =
     info.kind === "raised"
       ? "New complaint"

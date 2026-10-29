@@ -40,8 +40,8 @@ export default function PrivacyPage() {
         <ul>
           <li>
             <strong>Account details:</strong> name, email address, mobile number, role in the
-            society (for example admin, treasurer, owner or tenant) and a password, which is stored
-            only as a one-way hash.
+            society (for example admin, treasurer, owner or tenant), the language you choose for the app
+            and emails, and a password, which is stored only as a one-way hash.
           </li>
           <li>
             <strong>Flat details:</strong> the flats you are linked to as an owner or tenant, and
@@ -171,7 +171,8 @@ export default function PrivacyPage() {
 
       <LegalSection title="10. Cookies">
         <p>
-          We use only the cookies needed to keep you signed in and to protect sign-in forms. We do
+          We use only the cookies needed to keep you signed in, to protect sign-in forms and to
+          remember your language. We do
           not use analytics, advertising or third-party tracking cookies.
         </p>
       </LegalSection>

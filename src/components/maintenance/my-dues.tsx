@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { prisma } from "@/lib/prisma";
 import { getResidentPayments } from "@/lib/queries/maintenance";
 import { getCreditActivity, getResidentClaims } from "@/lib/queries/claims";
@@ -27,13 +28,13 @@ export async function MyDues({
     getCreditBalance(societyId, userId),
     getCreditActivity(societyId, userId),
   ]);
+  const t = await getTranslations("dues");
 
   return (
     <div className="space-y-4">
       {isRecentUpiChange(society?.upiChangedAt ?? null, new Date()) && (
         <div className="rounded-xl bg-amber-50 p-3 text-xs text-amber-900 ring-1 ring-amber-600/20">
-          <span className="font-semibold">The society&apos;s UPI ID was changed recently.</span> If you did not hear
-          about this from your committee, check with them before paying.
+          {t.rich("upiChanged", { b: (chunks) => <span className="font-semibold">{chunks}</span> })}
         </div>
       )}
       <ResidentDues

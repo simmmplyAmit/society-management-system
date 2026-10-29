@@ -37,6 +37,14 @@ Env (`.env`, see `.env.example`): `DATABASE_URL`, `AUTH_SECRET`, `CRON_SECRET`. 
 
 Roles and what each can do are listed in README.md. In short: ADMIN manages structure, users and charges. ADMIN and TREASURER manage dues, payments and expenses. OWNER and TENANT see their own dues.
 
+### Languages (English, Hindi, Marathi)
+- `next-intl` without locale prefixes in URLs. Locale = the `locale` cookie, else the signed-in user's `User.locale` (carried in the JWT and refreshed with it), else English (`resolveLocale` in `src/i18n/locale.ts`; outside a request it is always English). `setLocale` (`src/actions/locale.ts`, open to signed-out users) sets the cookie and the caller's own `User.locale`. Switchers: sign-in screens (`AuthShell`), the avatar menu (`TopBar`) and **More**.
+- Texts live in `messages/{en,hi,mr}.json`; hi/mr must have exactly the English keys, placeholders and tags (`src/__tests__/i18n/messages.test.ts`), and missing keys fall back to English (`getMessages`). Server components use `getTranslations`, client components `useTranslations`. `IntlProvider` wraps only the (auth), verify, dashboard and super-admin layouts, so the public website stays static and English.
+- Scope: everything owners/tenants see (sign-in, verify, home, dues and paying, notices, complaints, community, documents, help, navigation). Committee-only tools are still English (their help guides say so). Owner/tenant help guides are built from messages in `help/page.tsx`.
+- Formatting: `monthLabel`, `formatDate`, `dueTitle`, `flatLabel`/`flatOptionLabel` and `timeAgo` take an optional locale (English output unchanged). Amounts always use `formatCurrency` (en-IN grouping). Marathi uses Latin digits everywhere (`intlLocale`/`dateTag` → `mr-IN-u-nu-latn`), so compare languages with `baseLocale()`, never `=== "mr"` on a next-intl locale.
+- Action errors stay English on the server; `useErrorText()` shows known ones (listed under `errors` in `messages/en.json`, matched by exact text, checked by a test) in the user's language.
+- Emails follow the recipient's `User.locale`: dues, reminders, receipts, credit, notices, complaint updates and email codes (`src/lib/notify/email-text.ts`; `templates.ts` keeps English unchanged and swaps the email part only). **SMS stays English** (DLT templates). Devanagari text uses Noto Sans Devanagari (root layout font stack).
+
 ### Server actions vs queries (security rule)
 - `src/actions/*.ts` are `"use server"` files. **Every export becomes a public endpoint.** Each mutation must call `requireRole([...])` first, then scope every query by `session.user.societyId`. To delete or update by id, use `deleteMany` / `updateMany` with `{ id, societyId }` so one society can't change another's rows.
 - Never export read helpers from a `"use server"` file. Reads and shared server logic go in `src/lib/queries/*.ts`, which are plain modules. They take a `societyId` that the caller got from the session.

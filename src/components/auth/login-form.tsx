@@ -13,18 +13,21 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 
 const loginSchema = z.object({
-  email: z.string().email("Enter a valid email"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  email: z.string().email("invalidEmail"),
+  password: z.string().min(6, "shortPassword"),
 });
 
 type LoginInput = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
+  const t = useTranslations("auth");
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
 
+  // Schema messages are translation keys
   const {
     register,
     handleSubmit,
@@ -41,7 +44,7 @@ export function LoginForm() {
       });
 
       if (result?.error) {
-        toast.error("Invalid email or password");
+        toast.error(t("invalidLogin"));
       } else {
         router.push("/dashboard");
         router.refresh();
@@ -56,7 +59,7 @@ export function LoginForm() {
       <CardContent className="p-5 sm:p-6">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">{t("email")}</Label>
             <Input
               id="email"
               type="email"
@@ -65,15 +68,15 @@ export function LoginForm() {
               {...register("email")}
             />
             {errors.email && (
-              <p className="text-xs text-destructive">{errors.email.message}</p>
+              <p className="text-xs text-destructive">{t(errors.email.message as "invalidEmail")}</p>
             )}
           </div>
 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t("password")}</Label>
               <Link href="/forgot-password" className="text-xs font-medium text-primary hover:underline">
-                Forgot password?
+                {t("forgotPassword")}
               </Link>
             </div>
             <PasswordInput
@@ -83,12 +86,12 @@ export function LoginForm() {
               {...register("password")}
             />
             {errors.password && (
-              <p className="text-xs text-destructive">{errors.password.message}</p>
+              <p className="text-xs text-destructive">{t(errors.password.message as "shortPassword")}</p>
             )}
           </div>
 
           <Button type="submit" size="lg" className="h-11 w-full" disabled={isLoading}>
-            {isLoading ? "Signing in…" : "Sign in"}
+            {isLoading ? t("signingIn") : t("signIn")}
           </Button>
         </form>
       </CardContent>

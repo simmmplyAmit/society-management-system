@@ -16,7 +16,7 @@ export async function notifyExpenseCredit(
       societySender(societyId, "dues"),
       prisma.user.findMany({
         where: { id: { in: items.map((i) => i.userId) }, societyId, isActive: true, emailVerifiedAt: { not: null } },
-        select: { id: true, name: true, email: true },
+        select: { id: true, name: true, email: true, locale: true },
       }),
     ]);
     const byId = new Map(users.map((u) => [u.id, u]));
@@ -24,12 +24,10 @@ export async function notifyExpenseCredit(
       items.map((i) => {
         const u = byId.get(i.userId);
         if (!u) return Promise.resolve({ ok: true as const });
-        const msg = expenseCreditMessage({
-          societyName: society?.name ?? "Your society",
-          name: u.name,
-          amount: formatCurrency(i.amount),
-          expenseTitle: i.expenseTitle,
-        });
+        const msg = expenseCreditMessage(
+          { societyName: society?.name ?? "Your society", name: u.name, amount: formatCurrency(i.amount), expenseTitle: i.expenseTitle },
+          u.locale
+        );
         return sendEmail({ to: u.email, ...msg, ...sender });
       })
     );

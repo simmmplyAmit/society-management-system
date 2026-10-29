@@ -17,6 +17,7 @@ import {
   FileSpreadsheet,
 } from "lucide-react";
 import Link from "next/link";
+import { getLocale, getTranslations } from "next-intl/server";
 import { redirect } from "next/navigation";
 import { getPendingUpiRequestFor } from "@/lib/queries/upi";
 import { getMyFlats, type MyFlat } from "@/lib/queries/flats";
@@ -38,6 +39,7 @@ export default async function DashboardPage() {
   ]);
   const { role, societyId, id: userId } = session.user;
   if (role === "SUPER_ADMIN") redirect("/super-admin");
+  const t = await getTranslations("home");
 
   const now = new Date();
   const month = now.getMonth() + 1;
@@ -55,7 +57,7 @@ export default async function DashboardPage() {
 
     return (
       <div className="space-y-5">
-        <Greeting name={session.user.name} sub={WELCOME[role]} />
+        <Greeting hello={t("hello", { name: session.user.name.split(" ")[0] })} sub={t("yourHome")} />
 
         <Link
           href="/dashboard/maintenance"
@@ -67,17 +69,15 @@ export default async function DashboardPage() {
         >
           <div className="flex items-center gap-2 text-sm text-white/80">
             {totalDue > 0 ? <Clock className="size-4" /> : <CheckCircle2 className="size-4" />}
-            {totalDue > 0 ? "Maintenance due" : "You're all caught up"}
+            {totalDue > 0 ? t("maintenanceDue") : t("allCaughtUp")}
           </div>
           <p className="mt-2 text-4xl font-semibold tracking-tight">
-            {totalDue > 0 ? formatCurrency(totalDue) : "No dues"}
+            {totalDue > 0 ? formatCurrency(totalDue) : t("noDues")}
           </p>
           <div className="mt-4 flex items-center justify-between text-sm text-white/85">
-            <span>
-              {dueCount} pending payment{dueCount !== 1 ? "s" : ""}
-            </span>
+            <span>{t("pendingPayments", { count: dueCount })}</span>
             <span className="inline-flex items-center gap-1 font-medium">
-              {totalDue > 0 ? "Pay now" : "View history"} <ArrowRight className="size-4" />
+              {totalDue > 0 ? t("payNow") : t("viewHistory")} <ArrowRight className="size-4" />
             </span>
           </div>
         </Link>
@@ -134,7 +134,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-5">
-      <Greeting name={session.user.name} sub={WELCOME[role]} />
+      <Greeting hello={t("hello", { name: session.user.name.split(" ")[0] })} sub={WELCOME[role]} />
 
       {role === "ADMIN" && flatsCount === 0 && (
         <Link
@@ -256,17 +256,17 @@ export default async function DashboardPage() {
   );
 }
 
-function Greeting({ name, sub }: { name: string; sub: string }) {
+function Greeting({ hello, sub }: { hello: string; sub: string }) {
   return (
     <div>
-      <h2 className="text-2xl font-semibold">Hello, {name.split(" ")[0]} 👋</h2>
+      <h2 className="text-2xl font-semibold">{hello}</h2>
       <p className="text-sm text-muted-foreground">{sub}</p>
     </div>
   );
 }
 
 /** One row per flat the user is linked to, each opening that flat's dues. */
-function MyFlatsList({
+async function MyFlatsList({
   flats,
   hasWings,
   href = "/dashboard/maintenance",
@@ -276,11 +276,12 @@ function MyFlatsList({
   href?: string;
 }) {
   if (flats.length === 0) return null;
+  const [t, tr, locale] = await Promise.all([getTranslations("home"), getTranslations("roles"), getLocale()]);
   const sep = href.includes("?") ? "&" : "?";
   return (
     <div className="space-y-2">
       {flats.length > 1 && (
-        <h3 className="text-sm font-semibold">Your flats</h3>
+        <h3 className="text-sm font-semibold">{t("yourFlats")}</h3>
       )}
       {flats.map((f) => (
         <Link
@@ -292,18 +293,18 @@ function MyFlatsList({
             <Home className="size-5" />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-sm font-semibold">{flatLabel(f, hasWings)}</span>
-            <span className="block text-xs capitalize text-muted-foreground">
-              Floor {f.floor.number} · {f.type.toLowerCase()}
+            <span className="block text-sm font-semibold">{flatLabel(f, hasWings, locale)}</span>
+            <span className="block text-xs text-muted-foreground">
+              {t("floorType", { floor: f.floor.number, type: tr(f.type) })}
             </span>
           </span>
           <span className="shrink-0 text-right">
             <span className={`block text-sm font-semibold ${f.unpaidTotal > 0 ? "" : "text-emerald-600"}`}>
-              {f.unpaidTotal > 0 ? formatCurrency(f.unpaidTotal) : "All paid"}
+              {f.unpaidTotal > 0 ? formatCurrency(f.unpaidTotal) : t("allPaid")}
             </span>
             {f.unpaidCount > 0 && (
               <span className="block text-[11px] text-muted-foreground">
-                {f.unpaidCount} due{f.unpaidCount !== 1 ? "s" : ""}
+                {t("duesCount", { count: f.unpaidCount })}
               </span>
             )}
           </span>

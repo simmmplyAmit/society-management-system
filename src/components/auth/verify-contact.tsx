@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, Mail, Smartphone } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
+import { useErrorText } from "@/components/i18n/use-error-text";
 import {
   sendEmailCode,
   sendPhoneCode,
@@ -42,6 +44,7 @@ function StepCard({
   verified: boolean;
   children: React.ReactNode;
 }) {
+  const t = useTranslations("verify");
   return (
     <Card className="shadow-lg shadow-indigo-900/5">
       <CardContent className="space-y-3 p-5">
@@ -54,7 +57,7 @@ function StepCard({
             {verified ? <CheckCircle2 className="size-[18px]" /> : <Icon className="size-[18px]" />}
           </span>
           <span className="text-sm font-semibold">{title}</span>
-          {verified && <span className="ml-auto text-xs font-medium text-emerald-600">Verified</span>}
+          {verified && <span className="ml-auto text-xs font-medium text-emerald-600">{t("verified")}</span>}
         </div>
         {!verified && children}
       </CardContent>
@@ -76,10 +79,12 @@ function CodeEntry({
   onResend: () => void;
 }) {
   const [code, setCode] = useState("");
+  const t = useTranslations("verify");
+  const tc = useTranslations("common");
   if (!sent) return null;
   return (
     <div className="space-y-2">
-      <Label htmlFor="otp">Enter the 6-digit code</Label>
+      <Label htmlFor="otp">{t("enterCode")}</Label>
       <Input
         id="otp"
         inputMode="numeric"
@@ -91,14 +96,14 @@ function CodeEntry({
         onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
       />
       {devCode && (
-        <p className="text-xs text-amber-700">Dev mode, no provider configured. Code: {devCode}</p>
+        <p className="text-xs text-amber-700">{t("devCode", { code: devCode })}</p>
       )}
       <div className="flex gap-2">
         <Button type="button" className="flex-1" disabled={pending || code.length !== 6} onClick={() => onVerify(code)}>
-          {pending ? "Checking…" : "Verify"}
+          {pending ? tc("checking") : tc("verify")}
         </Button>
         <Button type="button" variant="ghost" disabled={pending} onClick={onResend}>
-          Resend
+          {tc("resend")}
         </Button>
       </div>
     </div>
@@ -106,6 +111,9 @@ function CodeEntry({
 }
 
 function EmailStep({ maskedEmail, verified }: { maskedEmail: string; verified: boolean }) {
+  const t = useTranslations("verify");
+  const tc = useTranslations("common");
+  const errorText = useErrorText();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [sent, setSent] = useState(false);
@@ -114,10 +122,10 @@ function EmailStep({ maskedEmail, verified }: { maskedEmail: string; verified: b
   function send() {
     startTransition(async () => {
       const r = await sendEmailCode();
-      if ("error" in r) return void toast.error(r.error);
+      if ("error" in r) return void toast.error(errorText(r.error));
       setSent(true);
       setDevCode(r.devCode);
-      toast.success("Code sent to your email");
+      toast.success(t("emailSent"));
     });
   }
 
@@ -126,18 +134,18 @@ function EmailStep({ maskedEmail, verified }: { maskedEmail: string; verified: b
     fd.set("code", code);
     startTransition(async () => {
       const r = await verifyEmailCode(fd);
-      if ("error" in r) return void toast.error(r.error);
-      toast.success("Email verified");
+      if ("error" in r) return void toast.error(errorText(r.error));
+      toast.success(t("emailVerified"));
       router.refresh();
     });
   }
 
   return (
-    <StepCard icon={Mail} title="Email" verified={verified}>
-      <p className="text-sm text-muted-foreground">We&apos;ll send a code to {maskedEmail}</p>
+    <StepCard icon={Mail} title={t("emailTitle")} verified={verified}>
+      <p className="text-sm text-muted-foreground">{t("emailHint", { email: maskedEmail })}</p>
       {!sent && (
         <Button type="button" className="w-full" disabled={pending} onClick={send}>
-          {pending ? "Sending…" : "Send code"}
+          {pending ? tc("sending") : tc("sendCode")}
         </Button>
       )}
       <CodeEntry sent={sent} devCode={devCode} pending={pending} onVerify={verify} onResend={send} />
@@ -146,6 +154,9 @@ function EmailStep({ maskedEmail, verified }: { maskedEmail: string; verified: b
 }
 
 function PhoneStep({ initialPhone, verified }: { initialPhone: string; verified: boolean }) {
+  const t = useTranslations("verify");
+  const tc = useTranslations("common");
+  const errorText = useErrorText();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [phone, setPhone] = useState(initialPhone);
@@ -157,10 +168,10 @@ function PhoneStep({ initialPhone, verified }: { initialPhone: string; verified:
     fd.set("phone", phone);
     startTransition(async () => {
       const r = await sendPhoneCode(fd);
-      if ("error" in r) return void toast.error(r.error);
+      if ("error" in r) return void toast.error(errorText(r.error));
       setSent(true);
       setDevCode(r.devCode);
-      toast.success("Code sent by SMS");
+      toast.success(t("phoneSent"));
     });
   }
 
@@ -170,16 +181,16 @@ function PhoneStep({ initialPhone, verified }: { initialPhone: string; verified:
     fd.set("code", code);
     startTransition(async () => {
       const r = await verifyPhoneCode(fd);
-      if ("error" in r) return void toast.error(r.error);
-      toast.success("Mobile number verified");
+      if ("error" in r) return void toast.error(errorText(r.error));
+      toast.success(t("phoneVerified"));
       router.refresh();
     });
   }
 
   return (
-    <StepCard icon={Smartphone} title="Mobile number" verified={verified}>
+    <StepCard icon={Smartphone} title={t("phoneTitle")} verified={verified}>
       <div className="space-y-1.5">
-        <Label htmlFor="phone">Mobile number</Label>
+        <Label htmlFor="phone">{t("phoneLabel")}</Label>
         <Input
           id="phone"
           type="tel"
@@ -193,11 +204,11 @@ function PhoneStep({ initialPhone, verified }: { initialPhone: string; verified:
       </div>
       {!sent ? (
         <Button type="button" className="w-full" disabled={pending || !phone.trim()} onClick={send}>
-          {pending ? "Sending…" : "Send code"}
+          {pending ? tc("sending") : tc("sendCode")}
         </Button>
       ) : (
         <button type="button" className="text-xs font-medium text-primary hover:underline" onClick={() => setSent(false)}>
-          Change number
+          {t("changeNumber")}
         </button>
       )}
       <CodeEntry sent={sent} devCode={devCode} pending={pending} onVerify={verify} onResend={send} />

@@ -1,8 +1,9 @@
 import Link from "next/link";
+import { getLocale, getTranslations } from "next-intl/server";
 import { getLatestNotices } from "@/lib/queries/notices";
 import { getComplaintCounts } from "@/lib/queries/complaints";
 import { COMMITTEE_ROLES } from "@/lib/queries/documents";
-import { NOTICE_LABELS, timeAgo } from "@/lib/utils/community";
+import { timeAgo } from "@/lib/utils/community";
 import { ChevronRight, LifeBuoy, Megaphone, Pin } from "lucide-react";
 import type { Role } from "@prisma/client";
 
@@ -11,6 +12,7 @@ export async function HomeCommunityCards({ societyId, role, userId }: { societyI
   const now = new Date();
   const [notices, counts] = await Promise.all([getLatestNotices(societyId, 3, now), getComplaintCounts(societyId, role, userId)]);
   const committee = COMMITTEE_ROLES.includes(role);
+  const [t, tn, tc, locale] = await Promise.all([getTranslations("home"), getTranslations("notices"), getTranslations("common"), getLocale()]);
   const active = counts.open + counts.inProgress;
 
   return (
@@ -18,8 +20,8 @@ export async function HomeCommunityCards({ societyId, role, userId }: { societyI
       {notices.length > 0 && (
         <div className="rounded-xl bg-card p-4 ring-1 ring-border shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
           <div className="mb-2 flex items-center justify-between">
-            <h3 className="flex items-center gap-2 text-sm font-semibold"><Megaphone className="size-4 text-primary" /> Notices</h3>
-            <Link href="/dashboard/notices" className="text-xs font-medium text-primary hover:underline">See all</Link>
+            <h3 className="flex items-center gap-2 text-sm font-semibold"><Megaphone className="size-4 text-primary" /> {t("notices")}</h3>
+            <Link href="/dashboard/notices" className="text-xs font-medium text-primary hover:underline">{tc("seeAll")}</Link>
           </div>
           <div className="divide-y divide-border">
             {notices.map((n) => (
@@ -27,7 +29,7 @@ export async function HomeCommunityCards({ societyId, role, userId }: { societyI
                 {n.pinned && <Pin className="size-3.5 shrink-0 text-amber-600" />}
                 <span className="min-w-0 flex-1 truncate font-medium">{n.title}</span>
                 <span className={`shrink-0 text-[11px] ${n.category === "EMERGENCY" ? "font-semibold text-red-600" : "text-muted-foreground"}`}>
-                  {n.category === "EMERGENCY" ? NOTICE_LABELS.EMERGENCY : timeAgo(n.createdAt, now)}
+                  {n.category === "EMERGENCY" ? tn("category.EMERGENCY") : timeAgo(n.createdAt, now, locale)}
                 </span>
               </Link>
             ))}
@@ -40,10 +42,10 @@ export async function HomeCommunityCards({ societyId, role, userId }: { societyI
           <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><LifeBuoy className="size-[18px]" /></span>
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-semibold">
-              {committee ? `${counts.open} open complaint${counts.open !== 1 ? "s" : ""}` : `${active} active complaint${active !== 1 ? "s" : ""}`}
+              {committee ? t("openComplaints", { count: counts.open }) : t("activeComplaints", { count: active })}
             </span>
             <span className="block text-xs text-muted-foreground">
-              {committee ? `${counts.inProgress} in progress · ${counts.resolved} awaiting confirmation` : "Track what the committee is doing about it"}
+              {committee ? t("complaintSummary", { inProgress: counts.inProgress, resolved: counts.resolved }) : t("trackComplaints")}
             </span>
           </span>
           <ChevronRight className="size-4 text-muted-foreground" />

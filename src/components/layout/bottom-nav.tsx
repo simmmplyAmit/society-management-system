@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { mobileItems, isNavActive } from "./nav-items";
 import type { Role } from "@prisma/client";
 
 export function BottomNav({ role }: { role: Role }) {
   const pathname = usePathname();
+  const t = useTranslations("nav");
   const { items } = mobileItems(role);
 
   return (
@@ -30,8 +32,8 @@ export function BottomNav({ role }: { role: Role }) {
               >
                 <Icon className="size-[18px]" strokeWidth={active ? 2.4 : 2} />
               </span>
-              <span className={active ? "text-primary" : "text-muted-foreground"}>
-                {item.label}
+              <span className={cn("max-w-full truncate", active ? "text-primary" : "text-muted-foreground")}>
+                {t(item.key)}
               </span>
             </Link>
           );

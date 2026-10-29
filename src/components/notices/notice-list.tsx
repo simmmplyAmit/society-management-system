@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { deleteNotice, setNoticePinned } from "@/actions/notices";
 import { NoticeForm } from "@/components/notices/notice-form";
 import { Button } from "@/components/ui/button";
 import { Pencil, Pin, PinOff, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/utils/month";
-import { NOTICE_LABELS } from "@/lib/utils/community";
 import type { NoticeCategory } from "@prisma/client";
 
 export interface NoticeRow {
@@ -24,6 +24,8 @@ export interface NoticeRow {
 function NoticeCard({ n, canManage, expired }: { n: NoticeRow; canManage: boolean; expired?: boolean }) {
   const [editing, setEditing] = useState(false);
   const [pending, startTransition] = useTransition();
+  const t = useTranslations("notices");
+  const locale = useLocale();
   const emergency = n.category === "EMERGENCY";
 
   if (editing) {
@@ -39,18 +41,18 @@ function NoticeCard({ n, canManage, expired }: { n: NoticeRow; canManage: boolea
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex flex-wrap items-center gap-1.5">
             <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset ${emergency ? "bg-red-50 text-red-700 ring-red-600/20" : "bg-primary/10 text-primary ring-transparent"}`}>
-              {NOTICE_LABELS[n.category]}
+              {t(`category.${n.category}`)}
             </span>
             {n.pinned && (
               <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-600/20">
-                <Pin className="size-3" /> Pinned
+                <Pin className="size-3" /> {t("pinned")}
               </span>
             )}
           </div>
           <h3 className="text-base font-semibold leading-snug">{n.title}</h3>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {formatDate(n.createdAt)} · {n.authorName}
-            {n.expiresOn ? ` · ${expired ? "ended" : "until"} ${formatDate(n.expiresOn)}` : ""}
+            {formatDate(n.createdAt, locale)} · {n.authorName}
+            {n.expiresOn ? ` · ${t(expired ? "ended" : "until", { date: formatDate(n.expiresOn, locale) })}` : ""}
           </p>
         </div>
         {canManage && (
@@ -78,10 +80,11 @@ function NoticeCard({ n, canManage, expired }: { n: NoticeRow; canManage: boolea
 }
 
 export function NoticeList({ notices, canManage, expired }: { notices: NoticeRow[]; canManage: boolean; expired?: boolean }) {
+  const t = useTranslations("notices");
   if (notices.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
-        {expired ? "No past notices." : "No notices right now."}
+        {expired ? t("nonePast") : t("none")}
       </div>
     );
   }

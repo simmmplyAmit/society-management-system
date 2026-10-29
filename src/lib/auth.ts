@@ -46,6 +46,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             avatarUrl: true,
             emailVerifiedAt: true,
             phoneVerifiedAt: true,
+            locale: true,
           },
         });
 
@@ -69,6 +70,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           societyId: user.societyId,
           image: user.avatarUrl,
           verified: isFullyVerified(user),
+          locale: user.locale,
         };
       },
     }),
@@ -80,6 +82,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.role = (user as { role: Role }).role;
         token.societyId = (user as { societyId: string | null }).societyId;
         token.verified = (user as { verified?: boolean }).verified ?? false;
+        token.locale = (user as { locale?: string | null }).locale ?? null;
         token.checkedAt = Date.now();
         return token;
       }
@@ -89,7 +92,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           where: { id },
           select: {
             isActive: true, role: true, societyId: true,
-            emailVerifiedAt: true, phoneVerifiedAt: true,
+            emailVerifiedAt: true, phoneVerifiedAt: true, locale: true,
           },
         })
       );
@@ -100,6 +103,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.role = token.role as Role;
         session.user.societyId = token.societyId as string | null;
         session.user.verified = Boolean(token.verified);
+        session.user.locale = (token.locale as string | null | undefined) ?? null;
       }
       return session;
     },

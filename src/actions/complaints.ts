@@ -187,7 +187,7 @@ export async function changeComplaintStatus(complaintId: string, status: string,
     await notifyComplaint({
       societyId, complaintId: found.c.id, title: found.c.title, kind: "status", actorId: userId,
       actorName: session.user.name ?? "Committee", detail: `Status: ${STATUS_LABELS[to]}${text ? `. ${text}` : ""}`,
-      raisedById: found.c.raisedById,
+      raisedById: found.c.raisedById, toStatus: to, note: text || null,
     });
   }
   paths(found.c.id);

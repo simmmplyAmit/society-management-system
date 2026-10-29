@@ -151,6 +151,7 @@ model User {
   isActive     Boolean  @default(true)
   emailVerifiedAt DateTime?
   phoneVerifiedAt DateTime?
+  locale       String?  // "en" | "hi" | "mr"; null = English. Language of the app and of emails to this user
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

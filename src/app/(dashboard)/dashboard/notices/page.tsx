@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { requireRole } from "@/lib/session";
 import { COMMITTEE_ROLES } from "@/lib/queries/documents";
 import { getExpiredNotices, getNotices } from "@/lib/queries/notices";
@@ -16,6 +17,7 @@ export default async function NoticesPage() {
     getNotices(societyId!, now),
     canManage ? getExpiredNotices(societyId!, now) : Promise.resolve([]),
   ]);
+  const t = await getTranslations("notices");
   const toRow = (n: (typeof live)[number]) => ({
     id: n.id, title: n.title, body: n.body, category: n.category, pinned: n.pinned,
     expiresOn: n.expiresOn, createdAt: n.createdAt, authorName: n.author.name,
@@ -23,8 +25,8 @@ export default async function NoticesPage() {
 
   return (
     <div className="space-y-5">
-      <h2 className="text-2xl font-semibold">Notices</h2>
-      <p className="-mt-3 text-sm text-muted-foreground">Official announcements from the committee.</p>
+      <h2 className="text-2xl font-semibold">{t("title")}</h2>
+      <p className="-mt-3 text-sm text-muted-foreground">{t("subtitle")}</p>
 
       {canManage && (
         <ToolSection title="Post a notice" description="Visible to every resident" icon={Megaphone}>

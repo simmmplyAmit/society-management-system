@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUnverified } from "@/lib/session";
 import { isFullyVerified } from "@/lib/verification";
@@ -15,11 +16,12 @@ export default async function VerifyPage() {
   });
   if (!user) redirect("/login");
   if (isFullyVerified(user)) redirect("/dashboard");
+  const t = await getTranslations("verify");
 
   return (
     <AuthShell
-      title="Verify your account"
-      subtitle="Confirm your email and mobile number to continue"
+      title={t("title")}
+      subtitle={t("subtitle")}
     >
       <VerifyContact
         maskedEmail={maskEmail(user.email)}

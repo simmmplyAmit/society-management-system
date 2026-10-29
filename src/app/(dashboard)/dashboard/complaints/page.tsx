@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getLocale, getTranslations } from "next-intl/server";
 import { requireRole } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { COMMITTEE_ROLES } from "@/lib/queries/documents";
@@ -6,16 +7,16 @@ import { getComplaintCounts, getMyFlatOptions, listComplaints } from "@/lib/quer
 import { RaiseComplaintForm } from "@/components/complaints/raise-complaint-form";
 import { PriorityBadge, StatusBadge } from "@/components/complaints/complaint-badges";
 import { ToolSection } from "@/components/ui/tool-section";
-import { COMPLAINT_LABELS, timeAgo } from "@/lib/utils/community";
+import { timeAgo } from "@/lib/utils/community";
 import { flatLabel, flatOptionLabel } from "@/lib/utils/flat";
 import { ChevronRight, LifeBuoy } from "lucide-react";
 import type { ComplaintStatus } from "@prisma/client";
 
-const FILTERS: { key: string; label: string; status?: ComplaintStatus | "ACTIVE" }[] = [
-  { key: "active", label: "Active", status: "ACTIVE" },
-  { key: "resolved", label: "Resolved", status: "RESOLVED" },
-  { key: "closed", label: "Closed", status: "CLOSED" },
-  { key: "all", label: "All" },
+const FILTERS: { key: "active" | "resolved" | "closed" | "all"; status?: ComplaintStatus | "ACTIVE" }[] = [
+  { key: "active", status: "ACTIVE" },
+  { key: "resolved", status: "RESOLVED" },
+  { key: "closed", status: "CLOSED" },
+  { key: "all" },
 ];
 
 export default async function ComplaintsPage({ searchParams }: { searchParams: Promise<{ f?: string }> }) {
@@ -33,22 +34,21 @@ export default async function ComplaintsPage({ searchParams }: { searchParams: P
     getMyFlatOptions(societyId!, userId),
   ]);
   const hasWings = society?.hasWings ?? true;
+  const [t, locale] = await Promise.all([getTranslations("complaints"), getLocale()]);
   const chip = (active: boolean) =>
     `shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ring-1 ring-inset ${active ? "bg-primary text-primary-foreground ring-primary" : "bg-card text-muted-foreground ring-border hover:bg-muted"}`;
 
   return (
     <div className="space-y-5">
-      <h2 className="text-2xl font-semibold">Complaints</h2>
-      <p className="-mt-3 text-sm text-muted-foreground">
-        {committee ? "Complaints raised by residents. Only you and the resident can see each one." : "Raise a problem with the committee. Only you and the committee can see your complaints."}
-      </p>
+      <h2 className="text-2xl font-semibold">{t("title")}</h2>
+      <p className="-mt-3 text-sm text-muted-foreground">{committee ? t("subtitleCommittee") : t("subtitleResident")}</p>
 
       {committee && (
         <div className="grid grid-cols-3 gap-3 text-center">
           {[
-            ["Open", counts.open, "text-amber-700"],
-            ["In progress", counts.inProgress, "text-sky-700"],
-            ["Resolved", counts.resolved, "text-emerald-700"],
+            [t("status.OPEN"), counts.open, "text-amber-700"],
+            [t("status.IN_PROGRESS"), counts.inProgress, "text-sky-700"],
+            [t("status.RESOLVED"), counts.resolved, "text-emerald-700"],
           ].map(([label, n, tone]) => (
             <div key={String(label)} className="rounded-xl bg-card p-3 ring-1 ring-border">
               <p className={`text-xl font-semibold ${tone}`}>{n}</p>
@@ -58,19 +58,19 @@ export default async function ComplaintsPage({ searchParams }: { searchParams: P
         </div>
       )}
 
-      <ToolSection title="Raise a complaint" description="Tell the committee about a problem" icon={LifeBuoy} defaultOpen={!committee && rows.length === 0}>
-        <RaiseComplaintForm flats={myFlats.map((f) => ({ id: f.id, label: flatOptionLabel(f, hasWings) }))} />
+      <ToolSection title={t("raise")} description={t("raiseHint")} icon={LifeBuoy} defaultOpen={!committee && rows.length === 0}>
+        <RaiseComplaintForm flats={myFlats.map((f) => ({ id: f.id, label: flatOptionLabel(f, hasWings, locale) }))} />
       </ToolSection>
 
       <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
         {FILTERS.map((f) => (
-          <Link key={f.key} href={`/dashboard/complaints?f=${f.key}`} className={chip(f.key === filter.key)}>{f.label}</Link>
+          <Link key={f.key} href={`/dashboard/complaints?f=${f.key}`} className={chip(f.key === filter.key)}>{t(`filter.${f.key}`)}</Link>
         ))}
       </div>
 
       {rows.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
-          {filter.key === "active" ? "No active complaints." : "Nothing here."}
+          {filter.key === "active" ? t("noneActive") : t("nothingHere")}
         </div>
       ) : (
         <div className="divide-y divide-border overflow-hidden rounded-xl bg-card ring-1 ring-border shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
@@ -79,10 +79,10 @@ export default async function ComplaintsPage({ searchParams }: { searchParams: P
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{c.title}</p>
                 <p className="truncate text-xs text-muted-foreground">
-                  {COMPLAINT_LABELS[c.category]}
+                  {t(`category.${c.category}`)}
                   {committee ? ` · ${c.raisedBy.name}` : ""}
-                  {c.flat ? ` · ${flatLabel(c.flat, hasWings)}` : ""}
-                  {" · "}{timeAgo(c.createdAt, now)}
+                  {c.flat ? ` · ${flatLabel(c.flat, hasWings, locale)}` : ""}
+                  {" · "}{timeAgo(c.createdAt, now, locale)}
                   {c.assignedTo ? ` · ${c.assignedTo.name}` : ""}
                 </p>
                 <div className="mt-1 flex gap-1"><StatusBadge status={c.status} /><PriorityBadge priority={c.priority} /></div>

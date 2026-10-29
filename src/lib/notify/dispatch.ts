@@ -3,7 +3,7 @@
 // (cron retries, double clicks) never message the same person twice.
 import { prisma } from "@/lib/prisma";
 import { flatLabel } from "@/lib/utils/flat";
-import { formatCurrency, formatDate, MONTHS } from "@/lib/utils/month";
+import { formatCurrency, formatDate, monthLabel, MONTHS } from "@/lib/utils/month";
 import { sendEmail } from "./email";
 import { senderCache } from "./sender";
 import { sendSms } from "./sms";
@@ -88,7 +88,7 @@ export async function notifyPayments(
             include: {
               user: {
                 select: {
-                  id: true, name: true, email: true, phone: true,
+                  id: true, name: true, email: true, phone: true, locale: true,
                   emailVerifiedAt: true, phoneVerifiedAt: true, isActive: true,
                 },
               },
@@ -134,11 +134,26 @@ export async function notifyPayments(
     };
 
     const sender = await senderFor(p.societyId);
+    const render = (info: DueInfo, locale?: string | null): Rendered =>
+      kind === "PAYMENT_RECEIPT" ? receiptMessage(info, locale) : dueMessage(info, kind !== "DUE_CREATED", locale);
+
     for (const user of recipients) {
-      const rendered: Rendered =
-        kind === "PAYMENT_RECEIPT"
-          ? receiptMessage({ ...base, name: user.name })
-          : dueMessage({ ...base, name: user.name }, kind !== "DUE_CREATED");
+      // SMS templates are DLT-approved in English; the email follows the member's language
+      const sms = render({ ...base, name: user.name }).sms;
+      const localised = user.locale === "hi" || user.locale === "mr";
+      const email = render(
+        localised
+          ? {
+              ...base,
+              name: user.name,
+              period: monthLabel(p.month, p.year, user.locale),
+              flat: flatLabel(p.flat, p.society.hasWings, user.locale),
+              paidOn: p.paidAt ? formatDate(p.paidAt, user.locale) : undefined,
+            }
+          : { ...base, name: user.name },
+        user.locale
+      ).email;
+      const rendered: Rendered = { email, sms };
 
       const targets: { channel: Channel; to: string; send: () => Promise<{ ok: boolean; error?: string }> }[] = [];
       if (user.emailVerifiedAt) {

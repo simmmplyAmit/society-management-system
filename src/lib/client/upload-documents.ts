@@ -5,10 +5,18 @@ import { ALLOWED_TYPES, MAX_DOCUMENT_BYTES } from "@/lib/utils/documents";
 
 export type AttachTarget = { expenseId: string } | { incomeId: string } | { claimId: string } | { complaintId: string };
 
+/** Why a file can't be uploaded, as a key under "files" in the messages (for translated screens). */
+export function fileProblemKey(f: File): "badType" | "tooBig" | null {
+  if (!ALLOWED_TYPES[f.type]) return "badType";
+  if (f.size > MAX_DOCUMENT_BYTES) return "tooBig";
+  return null;
+}
+
 /** Why a file can't be uploaded, or null if it looks fine. */
 export function fileProblem(f: File): string | null {
-  if (!ALLOWED_TYPES[f.type]) return `${f.name}: only PDF, JPG, PNG or WebP files can be uploaded`;
-  if (f.size > MAX_DOCUMENT_BYTES) return `${f.name}: files can be at most 10 MB`;
+  const key = fileProblemKey(f);
+  if (key === "badType") return `${f.name}: only PDF, JPG, PNG or WebP files can be uploaded`;
+  if (key === "tooBig") return `${f.name}: files can be at most 10 MB`;
   return null;
 }
 

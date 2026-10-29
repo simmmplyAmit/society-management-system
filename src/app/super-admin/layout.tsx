@@ -1,5 +1,6 @@
 import { requireRole } from "@/lib/session";
 import { TopBar } from "@/components/layout/top-bar";
+import { IntlProvider } from "@/components/i18n/intl-provider";
 
 export default async function SuperAdminLayout({
   children,
@@ -9,9 +10,9 @@ export default async function SuperAdminLayout({
   const session = await requireRole(["SUPER_ADMIN"]);
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <IntlProvider className="flex min-h-screen flex-col bg-background">
       <TopBar user={session.user} />
       {children}
-    </div>
+    </IntlProvider>
   );
 }

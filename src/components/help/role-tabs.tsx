@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { RoleGuideCard } from "./role-guide";
 import type { RoleGuide } from "@/lib/help-content";
 import type { Role } from "@prisma/client";
@@ -11,6 +12,7 @@ interface RoleTabsProps {
 }
 
 export function RoleTabs({ guides, currentRole }: RoleTabsProps) {
+  const t = useTranslations("help");
   const [activeRole, setActiveRole] = useState<Role>(currentRole);
   const activeGuide = guides.find((g) => g.role === activeRole) ?? guides[0];
 
@@ -33,7 +35,7 @@ export function RoleTabs({ guides, currentRole }: RoleTabsProps) {
             >
               {guide.label}
               {isCurrent && !isActive && (
-                <span className="ml-1 text-[9px] opacity-60">(you)</span>
+                <span className="ml-1 text-[9px] opacity-60">{t("youShort")}</span>
               )}
             </button>
           );

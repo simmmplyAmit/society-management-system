@@ -25,7 +25,7 @@ export async function sendEmailCode(): Promise<SendResult> {
   const session = await getSessionUnverified();
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { id: true, email: true, emailVerifiedAt: true },
+    select: { id: true, email: true, emailVerifiedAt: true, locale: true },
   });
   if (!user) return { error: "User not found" };
   if (user.emailVerifiedAt) return { error: "Email is already verified" };
@@ -34,7 +34,7 @@ export async function sendEmailCode(): Promise<SendResult> {
   const issued = await issueOtp({ userId: user.id, purpose: "VERIFY_EMAIL", channel: "EMAIL", target });
   if (!issued.ok) return { error: issued.error };
 
-  const msg = otpMessage(issued.code, "Verify your email address");
+  const msg = otpMessage(issued.code, "Verify your email address", user.locale);
   const sent = await sendEmail({ to: user.email, ...msg.email });
   if (!sent.ok) {
     console.error("[verify-email] send failed:", sent.error);

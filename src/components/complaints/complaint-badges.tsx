@@ -1,4 +1,6 @@
-import { PRIORITY_LABELS, STATUS_LABELS } from "@/lib/utils/community";
+"use client";
+
+import { useTranslations } from "next-intl";
 import type { ComplaintPriority, ComplaintStatus } from "@prisma/client";
 
 const STATUS_STYLE: Record<ComplaintStatus, string> = {
@@ -9,10 +11,12 @@ const STATUS_STYLE: Record<ComplaintStatus, string> = {
 };
 
 export function StatusBadge({ status }: { status: ComplaintStatus }) {
-  return <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset ${STATUS_STYLE[status]}`}>{STATUS_LABELS[status]}</span>;
+  const t = useTranslations("complaints.status");
+  return <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset ${STATUS_STYLE[status]}`}>{t(status)}</span>;
 }
 
 export function PriorityBadge({ priority }: { priority: ComplaintPriority }) {
+  const t = useTranslations("complaints.priority");
   if (priority !== "URGENT") return null;
-  return <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-700 ring-1 ring-inset ring-red-600/20">{PRIORITY_LABELS[priority]}</span>;
+  return <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-700 ring-1 ring-inset ring-red-600/20">{t(priority)}</span>;
 }

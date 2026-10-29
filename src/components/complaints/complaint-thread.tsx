@@ -2,12 +2,14 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { addComplaintUpdate, assignComplaint, changeComplaintStatus } from "@/actions/complaints";
+import { useErrorText } from "@/components/i18n/use-error-text";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Lock } from "lucide-react";
-import { STATUS_LABELS, UPDATE_BODY_MAX, timeAgo } from "@/lib/utils/community";
+import { UPDATE_BODY_MAX, timeAgo } from "@/lib/utils/community";
 import type { ComplaintStatus } from "@prisma/client";
 
 export interface ThreadItem {
@@ -42,6 +44,10 @@ export function ComplaintThread({
   assignees: { id: string; name: string }[];
   assignedToId: string | null;
 }) {
+  const t = useTranslations("complaints");
+  const tc = useTranslations("common");
+  const locale = useLocale();
+  const errorText = useErrorText();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [resolving, setResolving] = useState(false);
@@ -49,7 +55,7 @@ export function ComplaintThread({
   function run(fn: () => Promise<{ error?: string } | { success: true }>, ok?: string) {
     startTransition(async () => {
       const r = await fn();
-      if ("error" in r && r.error) return void toast.error(r.error);
+      if ("error" in r && r.error) return void toast.error(errorText(r.error));
       if (ok) toast.success(ok);
       router.refresh();
     });
@@ -61,7 +67,7 @@ export function ComplaintThread({
     const fd = new FormData(form);
     startTransition(async () => {
       const r = await addComplaintUpdate(complaintId, fd);
-      if ("error" in r && r.error) return void toast.error(r.error);
+      if ("error" in r && r.error) return void toast.error(errorText(r.error));
       form.reset();
       router.refresh();
     });
@@ -70,7 +76,7 @@ export function ComplaintThread({
   function resolve(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const note = String(new FormData(e.currentTarget).get("note") ?? "");
-    run(() => changeComplaintStatus(complaintId, "RESOLVED", note), "Marked resolved");
+    run(() => changeComplaintStatus(complaintId, "RESOLVED", note), t("thread.markedResolved"));
     setResolving(false);
   }
 
@@ -78,28 +84,28 @@ export function ComplaintThread({
     <div className="space-y-4">
       {isCommittee && status !== "CLOSED" && (
         <div className="space-y-3 rounded-xl bg-card p-4 ring-1 ring-border">
-          <p className="text-sm font-semibold">Handle this complaint</p>
+          <p className="text-sm font-semibold">{t("thread.handle")}</p>
           <div className="flex flex-wrap gap-2">
-            {status === "OPEN" && <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => changeComplaintStatus(complaintId, "IN_PROGRESS"), "Marked in progress")}>Start work</Button>}
-            {status === "RESOLVED" && <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => changeComplaintStatus(complaintId, "IN_PROGRESS"), "Back in progress")}>More work needed</Button>}
-            {(status === "OPEN" || status === "IN_PROGRESS") && <Button size="sm" disabled={pending} onClick={() => setResolving((r) => !r)}>Mark resolved</Button>}
+            {status === "OPEN" && <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => changeComplaintStatus(complaintId, "IN_PROGRESS"), t("thread.markedInProgress"))}>{t("thread.startWork")}</Button>}
+            {status === "RESOLVED" && <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => changeComplaintStatus(complaintId, "IN_PROGRESS"), t("thread.backInProgress"))}>{t("thread.moreWork")}</Button>}
+            {(status === "OPEN" || status === "IN_PROGRESS") && <Button size="sm" disabled={pending} onClick={() => setResolving((r) => !r)}>{t("thread.markResolved")}</Button>}
           </div>
           {resolving && (
             <form onSubmit={resolve} className="space-y-2">
-              <Textarea name="note" required maxLength={UPDATE_BODY_MAX} rows={3} placeholder="What was done? The resident will see this." />
-              <Button type="submit" size="sm" disabled={pending}>Confirm resolved</Button>
+              <Textarea name="note" required maxLength={UPDATE_BODY_MAX} rows={3} placeholder={t("thread.resolvePlaceholder")} />
+              <Button type="submit" size="sm" disabled={pending}>{t("thread.confirmResolved")}</Button>
             </form>
           )}
           <div className="flex items-center gap-2 text-sm">
-            <label htmlFor="assignee" className="text-muted-foreground">Assigned to</label>
+            <label htmlFor="assignee" className="text-muted-foreground">{t("thread.assignedTo")}</label>
             <select
               id="assignee"
               defaultValue={assignedToId ?? ""}
               disabled={pending}
-              onChange={(e) => run(() => assignComplaint(complaintId, e.target.value), "Assignment updated")}
+              onChange={(e) => run(() => assignComplaint(complaintId, e.target.value), t("thread.assignmentUpdated"))}
               className="h-9 flex-1 rounded-lg border border-input bg-white px-2 text-sm"
             >
-              <option value="">Nobody yet</option>
+              <option value="">{t("thread.nobody")}</option>
               {assignees.map((a) => (
                 <option key={a.id} value={a.id}>{a.name}</option>
               ))}
@@ -110,19 +116,19 @@ export function ComplaintThread({
 
       {isRaiser && status === "RESOLVED" && (
         <div className="space-y-2 rounded-xl bg-emerald-50 p-4 ring-1 ring-emerald-600/20">
-          <p className="text-sm font-semibold text-emerald-800">The committee says this is fixed. Is it?</p>
+          <p className="text-sm font-semibold text-emerald-800">{t("thread.isItFixed")}</p>
           <div className="flex gap-2">
-            <Button size="sm" disabled={pending} onClick={() => run(() => changeComplaintStatus(complaintId, "CLOSED"), "Thanks, closed")}>Yes, close it</Button>
-            <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => changeComplaintStatus(complaintId, "OPEN", "Still not fixed"), "Reopened")}>No, reopen</Button>
+            <Button size="sm" disabled={pending} onClick={() => run(() => changeComplaintStatus(complaintId, "CLOSED"), t("thread.closedThanks"))}>{t("thread.yesClose")}</Button>
+            <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => changeComplaintStatus(complaintId, "OPEN", t("thread.stillNotFixed")), t("thread.reopened"))}>{t("thread.noReopen")}</Button>
           </div>
         </div>
       )}
       {isRaiser && status === "CLOSED" && canReopen && (
-        <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => changeComplaintStatus(complaintId, "OPEN", "Problem came back"), "Reopened")}>Problem came back? Reopen</Button>
+        <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => changeComplaintStatus(complaintId, "OPEN", t("thread.cameBackNote")), t("thread.reopened"))}>{t("thread.cameBack")}</Button>
       )}
 
       <div className="space-y-2">
-        {items.length === 0 && <p className="text-sm text-muted-foreground">No messages yet.</p>}
+        {items.length === 0 && <p className="text-sm text-muted-foreground">{t("thread.noMessages")}</p>}
         {items.map((u) => (
           <div
             key={u.id}
@@ -132,12 +138,12 @@ export function ComplaintThread({
           >
             <p className="text-xs font-semibold">
               {u.authorName}
-              {u.authorIsCommittee && <span className="ml-1 font-normal text-primary">· Committee</span>}
-              <span className="font-normal text-muted-foreground"> · {timeAgo(u.createdAt, now)}</span>
-              {u.internal && <span className="ml-1 inline-flex items-center gap-0.5 font-medium text-amber-700"><Lock className="size-3" /> Committee only</span>}
+              {u.authorIsCommittee && <span className="ml-1 font-normal text-primary">· {tc("committee")}</span>}
+              <span className="font-normal text-muted-foreground"> · {timeAgo(u.createdAt, now, locale)}</span>
+              {u.internal && <span className="ml-1 inline-flex items-center gap-0.5 font-medium text-amber-700"><Lock className="size-3" /> {t("thread.committeeOnly")}</span>}
             </p>
             <p className="whitespace-pre-line">
-              {u.kind === "STATUS" && u.toStatus ? <b>{STATUS_LABELS[u.toStatus]}. </b> : null}
+              {u.kind === "STATUS" && u.toStatus ? <b>{t(`status.${u.toStatus}`)}. </b> : null}
               {u.body}
             </p>
           </div>
@@ -146,14 +152,14 @@ export function ComplaintThread({
 
       {status !== "CLOSED" && (
         <form onSubmit={reply} className="space-y-2">
-          <Textarea name="body" required maxLength={UPDATE_BODY_MAX} rows={3} placeholder={isCommittee ? "Reply to the resident" : "Add a message for the committee"} aria-label="Message" />
+          <Textarea name="body" required maxLength={UPDATE_BODY_MAX} rows={3} placeholder={isCommittee ? t("thread.replyResident") : t("thread.messageCommittee")} aria-label={t("thread.message")} />
           <div className="flex items-center gap-3">
             {isCommittee && (
               <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                <input type="checkbox" name="internal" className="size-4 rounded border-input" /> Committee-only note
+                <input type="checkbox" name="internal" className="size-4 rounded border-input" /> {t("thread.internalNote")}
               </label>
             )}
-            <Button type="submit" size="sm" className="ml-auto" disabled={pending}>Send</Button>
+            <Button type="submit" size="sm" className="ml-auto" disabled={pending}>{tc("send")}</Button>
           </div>
         </form>
       )}

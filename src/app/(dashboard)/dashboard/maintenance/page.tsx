@@ -1,5 +1,6 @@
 import { requireRole } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { getTranslations } from "next-intl/server";
 import {
   getMaintenanceCharges,
   getPayments,
@@ -57,9 +58,10 @@ export default async function MaintenancePage({
 
   // ─── Resident view ───────────────────────────────
   if (role === "OWNER" || role === "TENANT") {
+    const t = await getTranslations("dues");
     return (
       <div className="space-y-4">
-        <h2 className="text-2xl font-semibold">My maintenance</h2>
+        <h2 className="text-2xl font-semibold">{t("title")}</h2>
         <MyDues societyId={societyId!} userId={userId} initialFlatId={sp.flat} />
       </div>
     );

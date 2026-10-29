@@ -9,6 +9,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { RoleGuide } from "@/lib/help-content";
 
 interface RoleGuideCardProps {
@@ -18,6 +19,7 @@ interface RoleGuideCardProps {
 }
 
 export function RoleGuideCard({ guide, isCurrentRole, defaultOpen }: RoleGuideCardProps) {
+  const t = useTranslations("help");
   return (
     <div className={`rounded-xl bg-card ring-1 ring-border p-4 space-y-3`}>
       {/* Header */}
@@ -28,10 +30,11 @@ export function RoleGuideCard({ guide, isCurrentRole, defaultOpen }: RoleGuideCa
               {guide.label}
             </h3>
             {isCurrentRole && (
-              <Badge variant="secondary" className="text-[10px] px-1.5">You</Badge>
+              <Badge variant="secondary" className="text-[10px] px-1.5">{t("you")}</Badge>
             )}
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">{guide.tagline}</p>
+          {guide.note && <p className="mt-1 text-[11px] text-amber-700">{guide.note}</p>}
         </div>
       </div>
 

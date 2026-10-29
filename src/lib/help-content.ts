@@ -23,6 +23,8 @@ export interface RoleGuide {
   color: string; // tailwind bg class
   textColor: string;
   sections: JourneySection[];
+  /** Shown under the tagline, e.g. that a guide has not been translated. */
+  note?: string;
 }
 
 export const ROLE_GUIDES: RoleGuide[] = [

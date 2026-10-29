@@ -4,8 +4,10 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { submitPaymentClaim } from "@/actions/claims";
-import { fileProblem, uploadAttachments } from "@/lib/client/upload-documents";
+import { useErrorText } from "@/components/i18n/use-error-text";
+import { fileProblemKey, uploadAttachments } from "@/lib/client/upload-documents";
 import { MAX_PROOFS_PER_CLAIM } from "@/lib/utils/documents";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +22,10 @@ export function ReportPaymentForm({
   paymentIds: string[];
   total: number;
 }) {
+  const t = useTranslations("dues.report");
+  const tf = useTranslations("files");
+  const tc = useTranslations("common");
+  const errorText = useErrorText();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -32,15 +38,15 @@ export function ReportPaymentForm({
     for (const id of paymentIds) fd.append("paymentId", id);
     startTransition(async () => {
       const r = await submitPaymentClaim(fd);
-      if ("error" in r && r.error) return void toast.error(r.error);
-      toast.success("Sent for verification");
+      if ("error" in r && r.error) return void toast.error(errorText(r.error));
+      toast.success(t("sent"));
       setOpen(false);
       // The report is saved; the proof is a bonus, so a failed upload never undoes it
       const claimId = (r as { claimId?: string }).claimId;
       if (proofs.length > 0 && claimId) {
         const up = await uploadAttachments(proofs, { claimId }, { category: "OTHER", titlePrefix: "Payment proof" });
-        if (up.uploaded) toast.success(`${up.uploaded} proof file${up.uploaded !== 1 ? "s" : ""} attached`);
-        up.errors.forEach((m) => toast.error(`${m}. Tell your treasurer the payment details if they ask`));
+        if (up.uploaded) toast.success(t("proofsAttached", { count: up.uploaded }));
+        up.errors.forEach((m) => toast.error(t("proofFailed", { message: m })));
       }
       setProofs([]);
       router.refresh();
@@ -58,22 +64,22 @@ export function ReportPaymentForm({
         className="flex w-full items-center gap-3 p-4 text-left disabled:opacity-50"
       >
         <span className="min-w-0 flex-1">
-          <span className="block text-sm font-semibold">I&apos;ve paid. Enter the UPI reference</span>
-          <span className="block text-xs text-muted-foreground">
-            Your society confirms it and marks the dues paid
-          </span>
+          <span className="block text-sm font-semibold">{t("toggle")}</span>
+          <span className="block text-xs text-muted-foreground">{t("toggleHint")}</span>
         </span>
         <ChevronDown className={`size-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
         <form onSubmit={submit} className="space-y-3 border-t border-border p-4">
           <p className="text-xs text-muted-foreground">
-            The {paymentIds.length} selected due{paymentIds.length !== 1 ? "s" : ""} come to{" "}
-            <span className="font-semibold text-foreground">{formatCurrency(total)}</span>. You can report any amount you paid:
-            it clears the dues you selected first, then the oldest, and any extra stays as your credit.
+            {t.rich("intro", {
+              count: paymentIds.length,
+              amount: formatCurrency(total),
+              b: (chunks) => <span className="font-semibold text-foreground">{chunks}</span>,
+            })}
           </p>
           <div className="space-y-1.5">
-            <Label htmlFor="amount">Amount you paid (₹)</Label>
+            <Label htmlFor="amount">{t("amount")}</Label>
             <Input
               id="amount"
               name="amount"
@@ -87,26 +93,24 @@ export function ReportPaymentForm({
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="utrNumber">UTR / transaction ID</Label>
-            <p className="text-[11px] text-muted-foreground">Find it in your UPI app&apos;s payment details.</p>
+            <Label htmlFor="utrNumber">{t("utr")}</Label>
+            <p className="text-[11px] text-muted-foreground">{t("utrHint")}</p>
             <Input
               id="utrNumber"
               name="utrNumber"
-              placeholder="e.g. 412345678901"
+              placeholder={t("utrPlaceholder")}
               autoComplete="off"
               inputMode="text"
               required
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="paidOn">Paid on</Label>
+            <Label htmlFor="paidOn">{t("paidOn")}</Label>
             <Input id="paidOn" name="paidOn" type="date" defaultValue={today} max={today} required />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="proof">Screenshot of the payment (optional)</Label>
-            <p className="text-[11px] text-muted-foreground">
-              Helps your treasurer confirm it faster. Only the committee can see it. Up to {MAX_PROOFS_PER_CLAIM} files.
-            </p>
+            <Label htmlFor="proof">{t("proof")}</Label>
+            <p className="text-[11px] text-muted-foreground">{t("proofHint", { max: MAX_PROOFS_PER_CLAIM })}</p>
             <input
               id="proof"
               type="file"
@@ -114,15 +118,15 @@ export function ReportPaymentForm({
               accept="application/pdf,image/jpeg,image/png,image/webp"
               onChange={(e) => {
                 const picked = Array.from(e.target.files ?? []);
-                const bad = picked.map(fileProblem).find(Boolean);
-                if (bad) toast.error(bad);
-                setProofs(picked.filter((f) => !fileProblem(f)).slice(0, MAX_PROOFS_PER_CLAIM));
+                const bad = picked.find((f) => fileProblemKey(f));
+                if (bad) toast.error(tf(fileProblemKey(bad)!, { name: bad.name }));
+                setProofs(picked.filter((f) => !fileProblemKey(f)).slice(0, MAX_PROOFS_PER_CLAIM));
               }}
               className="block w-full rounded-lg border border-input bg-white text-sm file:mr-3 file:h-10 file:border-0 file:bg-primary/10 file:px-3 file:text-sm file:font-medium file:text-primary"
             />
           </div>
           <Button type="submit" className="w-full" disabled={pending}>
-            {pending ? "Sending…" : "Send for verification"}
+            {pending ? tc("sending") : t("submit")}
           </Button>
         </form>
       )}

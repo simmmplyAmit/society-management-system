@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getLocale, getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
@@ -6,7 +7,7 @@ import { COMMITTEE_ROLES } from "@/lib/queries/documents";
 import { getAssignees, getComplaint } from "@/lib/queries/complaints";
 import { ComplaintThread } from "@/components/complaints/complaint-thread";
 import { PriorityBadge, StatusBadge } from "@/components/complaints/complaint-badges";
-import { COMPLAINT_LABELS, withinReopenWindow } from "@/lib/utils/community";
+import { withinReopenWindow } from "@/lib/utils/community";
 import { flatLabel } from "@/lib/utils/flat";
 import { formatDate } from "@/lib/utils/month";
 import { ChevronLeft, Paperclip } from "lucide-react";
@@ -27,23 +28,24 @@ export default async function ComplaintPage({ params }: { params: Promise<{ id: 
 
   const isRaiser = complaint.raisedById === userId;
   const hasWings = society?.hasWings ?? true;
+  const [t, locale] = await Promise.all([getTranslations("complaints"), getLocale()]);
   const since = complaint.status === "CLOSED" ? complaint.closedAt : complaint.resolvedAt;
 
   return (
     <div className="space-y-5">
       <Link href="/dashboard/complaints" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-        <ChevronLeft className="size-4" /> Complaints
+        <ChevronLeft className="size-4" /> {t("back")}
       </Link>
 
       <div className="rounded-xl bg-card p-4 ring-1 ring-border shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
         <div className="mb-1 flex flex-wrap gap-1.5"><StatusBadge status={complaint.status} /><PriorityBadge priority={complaint.priority} /></div>
         <h2 className="text-lg font-semibold leading-snug">{complaint.title}</h2>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          {COMPLAINT_LABELS[complaint.category]} · raised by {complaint.raisedBy.name} on {formatDate(complaint.createdAt)}
-          {complaint.flat ? ` · ${flatLabel(complaint.flat, hasWings)}` : ""}
-          {complaint.assignedTo ? ` · handled by ${complaint.assignedTo.name}` : ""}
+          {t(`category.${complaint.category}`)} · {t("raisedBy", { name: complaint.raisedBy.name, date: formatDate(complaint.createdAt, locale) })}
+          {complaint.flat ? ` · ${flatLabel(complaint.flat, hasWings, locale)}` : ""}
+          {complaint.assignedTo ? ` · ${t("handledBy", { name: complaint.assignedTo.name })}` : ""}
         </p>
-        {committee && complaint.raisedBy.phone && <p className="mt-0.5 text-xs text-muted-foreground">Phone: {complaint.raisedBy.phone}</p>}
+        {committee && complaint.raisedBy.phone && <p className="mt-0.5 text-xs text-muted-foreground">{t("phone", { phone: complaint.raisedBy.phone })}</p>}
         <p className="mt-3 whitespace-pre-line text-sm">{complaint.description}</p>
         {complaint.documents.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1.5">
@@ -56,7 +58,7 @@ export default async function ComplaintPage({ params }: { params: Promise<{ id: 
         )}
         {complaint.resolutionNote && complaint.status !== "OPEN" && complaint.status !== "IN_PROGRESS" && (
           <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            <b>Resolution:</b> {complaint.resolutionNote}
+            {t.rich("resolution", { note: complaint.resolutionNote, b: (chunks) => <b>{chunks}</b> })}
           </p>
         )}
       </div>

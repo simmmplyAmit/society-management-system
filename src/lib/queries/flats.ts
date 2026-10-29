@@ -23,10 +23,15 @@ export async function getMyFlats(societyId: string, userId: string): Promise<MyF
   const unpaid = await prisma.maintenancePayment.groupBy({
     by: ["flatId"],
     where: { societyId, flatId: { in: links.map((l) => l.flatId) }, status: { in: ["PENDING", "OVERDUE"] } },
-    _sum: { amount: true },
+    _sum: { amount: true, amountPaid: true },
     _count: { _all: true },
   });
   const byFlat = new Map(unpaid.map((u) => [u.flatId, u]));
+  // What is still owed: part-payments reduce it (same rule as dueBalance)
+  const owed = (flatId: string) => {
+    const s = byFlat.get(flatId)?._sum;
+    return s ? Math.max(Math.round((Number(s.amount ?? 0) - Number(s.amountPaid ?? 0)) * 100) / 100, 0) : 0;
+  };
 
   return links
     .map((l) => ({
@@ -34,7 +39,7 @@ export async function getMyFlats(societyId: string, userId: string): Promise<MyF
       number: l.flat.number,
       floor: { number: l.flat.floor.number, wing: { name: l.flat.floor.wing.name } },
       type: l.type,
-      unpaidTotal: Number(byFlat.get(l.flatId)?._sum.amount ?? 0),
+      unpaidTotal: owed(l.flatId),
       unpaidCount: byFlat.get(l.flatId)?._count._all ?? 0,
     }))
     .sort(

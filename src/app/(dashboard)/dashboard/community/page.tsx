@@ -1,10 +1,11 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { requireRole } from "@/lib/session";
 import { COMMITTEE_ROLES } from "@/lib/queries/documents";
 import { getPosts } from "@/lib/queries/community";
 import { PostComposer } from "@/components/community/post-composer";
 import { PostCard } from "@/components/community/post-card";
-import { POST_CATEGORIES, POST_LABELS } from "@/lib/utils/community";
+import { POST_CATEGORIES } from "@/lib/utils/community";
 import type { PostCategory } from "@prisma/client";
 
 export default async function CommunityPage({ searchParams }: { searchParams: Promise<{ cat?: string }> }) {
@@ -15,27 +16,27 @@ export default async function CommunityPage({ searchParams }: { searchParams: Pr
   const isCommittee = COMMITTEE_ROLES.includes(role);
   const now = new Date();
 
-  const posts = await getPosts(societyId!, role, { category });
+  const [posts, t, tc] = await Promise.all([getPosts(societyId!, role, { category }), getTranslations("community"), getTranslations("common")]);
   const chip = (active: boolean) =>
     `shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ring-1 ring-inset ${active ? "bg-primary text-primary-foreground ring-primary" : "bg-card text-muted-foreground ring-border hover:bg-muted"}`;
 
   return (
     <div className="space-y-5">
-      <h2 className="text-2xl font-semibold">Community</h2>
-      <p className="-mt-3 text-sm text-muted-foreground">Talk to your neighbours: recommendations, lost and found, events and more.</p>
+      <h2 className="text-2xl font-semibold">{t("title")}</h2>
+      <p className="-mt-3 text-sm text-muted-foreground">{t("subtitle")}</p>
 
       <PostComposer />
 
       <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
-        <Link href="/dashboard/community" className={chip(!category)}>All</Link>
+        <Link href="/dashboard/community" className={chip(!category)}>{tc("all")}</Link>
         {POST_CATEGORIES.map((c) => (
-          <Link key={c} href={`/dashboard/community?cat=${c}`} className={chip(c === category)}>{POST_LABELS[c]}</Link>
+          <Link key={c} href={`/dashboard/community?cat=${c}`} className={chip(c === category)}>{t(`category.${c}`)}</Link>
         ))}
       </div>
 
       {posts.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
-          Nothing here yet. Be the first to post.
+          {t("empty")}
         </div>
       ) : (
         <div className="space-y-3">

@@ -11,8 +11,9 @@ interface DueLike {
 const isMaintenance = (label?: string | null) => !label || label === "Maintenance";
 
 /** "October 2026" for monthly maintenance, "Sinking fund · October 2026" for other charges. */
-export function dueTitle(d: Pick<DueLike, "label" | "month" | "year">): string {
-  return isMaintenance(d.label) ? monthLabel(d.month, d.year) : `${d.label} · ${monthLabel(d.month, d.year)}`;
+export function dueTitle(d: Pick<DueLike, "label" | "month" | "year">, locale?: string | null): string {
+  const month = monthLabel(d.month, d.year, locale);
+  return isMaintenance(d.label) ? month : `${d.label} · ${month}`;
 }
 
 /** What is still owed on a due (part-payments reduce it). */

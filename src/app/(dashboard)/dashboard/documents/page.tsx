@@ -1,7 +1,8 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { requireRole } from "@/lib/session";
 import { COMMITTEE_ROLES, getCategoryCounts, getStorageUsed, getTagCounts, listDocuments, quotaBytes } from "@/lib/queries/documents";
-import { CATEGORIES, CATEGORY_LABELS, formatBytes, normalizeTags, type LibraryCategory } from "@/lib/utils/documents";
+import { CATEGORIES, formatBytes, normalizeTags, type LibraryCategory } from "@/lib/utils/documents";
 import { DocumentsList } from "@/components/documents/documents-list";
 import { DocumentUploadForm } from "@/components/documents/upload-form";
 import { ToolSection } from "@/components/ui/tool-section";
@@ -28,6 +29,7 @@ export default async function DocumentsPage({
     getTagCounts(societyId!, role, userId),
     isCommittee ? getStorageUsed(societyId!) : Promise.resolve(0),
   ]);
+  const [t, tc] = await Promise.all([getTranslations("documents"), getTranslations("common")]);
   const total = Object.values(counts).reduce((n, c) => n + (c ?? 0), 0);
   const docs = rows.map((d) => ({
     id: d.id, title: d.title, category: d.category, visibility: d.visibility, tags: d.tags, fileName: d.fileName,
@@ -50,12 +52,8 @@ export default async function DocumentsPage({
 
   return (
     <div className="space-y-5">
-      <h2 className="text-2xl font-semibold">Documents</h2>
-      <p className="-mt-3 text-sm text-muted-foreground">
-        {isCommittee
-          ? "Bills, tax receipts, agreements, minutes and more. Mark a file for all residents when it should be shared."
-          : "Documents your committee has shared with residents."}
-      </p>
+      <h2 className="text-2xl font-semibold">{t("title")}</h2>
+      <p className="-mt-3 text-sm text-muted-foreground">{isCommittee ? t("subtitleCommittee") : t("subtitleResident")}</p>
 
       {isCommittee && !storageConfigured() && (
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 ring-1 ring-amber-600/20">
@@ -74,7 +72,7 @@ export default async function DocumentsPage({
         <input
           name="q"
           defaultValue={q}
-          placeholder="Search title, file name or tag"
+          placeholder={t("search")}
           maxLength={60}
           className="h-10 w-full rounded-lg border border-input bg-white pl-9 pr-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
         />
@@ -83,10 +81,10 @@ export default async function DocumentsPage({
       </form>
 
       <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
-        <Link href={href({ tag, q })} className={chip(!category)}>All ({total})</Link>
+        <Link href={href({ tag, q })} className={chip(!category)}>{t("allCount", { count: total })}</Link>
         {CATEGORIES.filter((c) => (counts[c] ?? 0) > 0 || c === category).map((c) => (
           <Link key={c} href={href({ cat: c, tag, q })} className={chip(c === category)}>
-            {CATEGORY_LABELS[c]} ({counts[c] ?? 0})
+            {t(`category.${c}`)} ({counts[c] ?? 0})
           </Link>
         ))}
       </div>
@@ -107,11 +105,11 @@ export default async function DocumentsPage({
 
       {filtered && (
         <p className="flex items-center gap-2 text-xs text-muted-foreground">
-          {docs.length} result{docs.length !== 1 ? "s" : ""}
-          {q && <> for &ldquo;{q}&rdquo;</>}
-          {tag && <> tagged #{tag}</>}
+          {t("results", { count: docs.length })}
+          {q && <> {t("resultsFor", { q })}</>}
+          {tag && <> {t("taggedWith", { tag })}</>}
           <Link href="/dashboard/documents" className="inline-flex items-center gap-0.5 font-medium text-primary hover:underline">
-            <X className="size-3" /> Clear
+            <X className="size-3" /> {tc("clear")}
           </Link>
         </p>
       )}

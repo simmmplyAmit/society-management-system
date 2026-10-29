@@ -25,7 +25,7 @@ export async function requestPasswordReset(formData: FormData) {
 
   const user = await prisma.user.findFirst({
     where: emailWhere(parsed.data.email),
-    select: { id: true, email: true, isActive: true },
+    select: { id: true, email: true, isActive: true, locale: true },
   });
 
   if (user?.isActive) {
@@ -37,7 +37,7 @@ export async function requestPasswordReset(formData: FormData) {
       target: user.email.toLowerCase(),
     });
     if (issued.ok) {
-      const msg = otpMessage(issued.code, "Reset your password");
+      const msg = otpMessage(issued.code, "Reset your password", user.locale);
       const sent = await sendEmail({ to: user.email, ...msg.email });
       if (!sent.ok) console.error("[password-reset] send failed:", sent.error);
     }

@@ -2,13 +2,14 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import { deleteDocument, updateDocumentTags } from "@/actions/documents";
 import { TagInput } from "@/components/documents/tag-input";
 import { Button } from "@/components/ui/button";
 import { FileText, Image as ImageIcon, Tag, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/utils/month";
-import { CATEGORY_LABELS, expiryState, formatBytes } from "@/lib/utils/documents";
+import { expiryState, formatBytes } from "@/lib/utils/documents";
 import type { DocumentCategory } from "@prisma/client";
 
 export interface DocRow {
@@ -86,6 +87,8 @@ const hrefForTag = (t: string) => `/dashboard/documents?tag=${encodeURIComponent
 
 function DocRowView({ d, now, suggestions }: { d: DocRow; now: Date; suggestions: string[] }) {
   const [editing, setEditing] = useState(false);
+  const t = useTranslations("documents");
+  const locale = useLocale();
   const Icon = d.mimeType === "application/pdf" ? FileText : ImageIcon;
   const exp = expiryState(d.expiresOn, now);
   return (
@@ -98,12 +101,12 @@ function DocRowView({ d, now, suggestions }: { d: DocRow; now: Date; suggestions
           {d.title}
         </a>
         <p className="truncate text-xs text-muted-foreground">
-          {CATEGORY_LABELS[d.category]} · {formatDate(d.createdAt)} · {formatBytes(d.sizeBytes)} · {d.uploadedByName}
+          {t(`category.${d.category}`)} · {formatDate(d.createdAt, locale)} · {formatBytes(d.sizeBytes)} · {d.uploadedByName}
         </p>
         <div className="mt-1 flex flex-wrap gap-1">
           {d.visibility === "RESIDENTS" && (
             <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-medium text-sky-700 ring-1 ring-inset ring-sky-600/20">
-              <Users className="size-3" /> Residents
+              <Users className="size-3" /> {t("residents")}
             </span>
           )}
           {d.expiresOn && (
@@ -112,12 +115,12 @@ function DocRowView({ d, now, suggestions }: { d: DocRow; now: Date; suggestions
                 exp === "expired" ? "bg-red-50 text-red-700 ring-red-600/20" : exp === "soon" ? "bg-amber-50 text-amber-700 ring-amber-600/20" : "bg-muted text-muted-foreground ring-border"
               }`}
             >
-              {exp === "expired" ? "Expired" : "Renews"} {formatDate(d.expiresOn)}
+              {t(exp === "expired" ? "expired" : "renews", { date: formatDate(d.expiresOn, locale) })}
             </span>
           )}
           {d.retainUntil && d.retainUntil.getTime() > now.getTime() && (
             <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground ring-1 ring-inset ring-border">
-              Kept until {formatDate(d.retainUntil)}
+              {t("keptUntil", { date: formatDate(d.retainUntil, locale) })}
             </span>
           )}
           {d.tags.map((t) => (
@@ -147,10 +150,11 @@ export function DocumentsList({
   now: Date;
   suggestions?: string[];
 }) {
+  const t = useTranslations("documents");
   if (docs.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
-        No documents here yet.
+        {t("empty")}
       </div>
     );
   }

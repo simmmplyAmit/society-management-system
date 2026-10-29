@@ -126,6 +126,16 @@ Built: record bank interest, rent, donations etc. with category, date and bank r
 - [ ] Check in Vercel that the daily cron is registered and that `/api/cron/generate-maintenance` returns 401 without the token.
 - [ ] First deploy only announces dues created in the last 2 days, so no blast to existing dues is expected. Confirm.
 
+## 6aa. Languages follow-ups (Hindi and Marathi v1 built for residents)
+
+- [ ] **Native-speaker review** of `messages/hi.json`, `messages/mr.json` and `src/lib/notify/email-text.ts` before launch (written by the developer; wording such as "थकबाकी" vs "बाकी रक्कम" should be checked with real residents).
+- [ ] Committee screens (treasurer tabs, import, bank, expenses, income, society, residents, UPI) and committee help guides are English only.
+- [ ] Server action error messages are translated only when listed under `errors` in the messages; most validation messages still come back in English.
+- [ ] SMS in Hindi/Marathi needs separately DLT-registered templates per language.
+- [ ] The public website and policies are English only (a Marathi landing page would help marketing in Maharashtra).
+- [ ] The browser's own file picker text ("Choose files") follows the phone's language, not the app's.
+- [ ] Onboarding: choose the language per resident in the import file (a `Language` column).
+
 ## 6a. Import wizard follow-ups (v1 built: flats, residents, past dues, past expenses)
 
 - [ ] Undo an import batch (dues and expenses already carry `importBatchId`; only rows untouched since the import should be removable).

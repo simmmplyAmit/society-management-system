@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { ResetPasswordForm } from "@/components/auth/reset-password-form";
 
@@ -7,8 +8,9 @@ export default async function ResetPasswordPage({
   searchParams: Promise<{ email?: string }>;
 }) {
   const { email } = await searchParams;
+  const t = await getTranslations("auth");
   return (
-    <AuthShell title="Set a new password" subtitle="Enter the code we emailed you">
+    <AuthShell title={t("resetTitle")} subtitle={t("resetSubtitle")}>
       <ResetPasswordForm defaultEmail={email ?? ""} />
     </AuthShell>
   );

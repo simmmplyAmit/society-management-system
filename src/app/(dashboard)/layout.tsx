@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { Sidebar } from "@/components/layout/sidebar";
 import { TopBar } from "@/components/layout/top-bar";
+import { IntlProvider } from "@/components/i18n/intl-provider";
 
 export default async function DashboardLayout({
   children,
@@ -24,7 +25,7 @@ export default async function DashboardLayout({
   const societyName = society?.name ?? "Society MS";
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <IntlProvider className="flex min-h-screen bg-background">
       <Sidebar role={session.user.role} societyName={societyName} />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar user={session.user} societyName={societyName} />
@@ -33,6 +34,6 @@ export default async function DashboardLayout({
         </main>
         <BottomNav role={session.user.role} />
       </div>
-    </div>
+    </IntlProvider>
   );
 }

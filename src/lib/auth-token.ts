@@ -10,6 +10,7 @@ export interface TokenUserState {
   societyId: string | null;
   emailVerifiedAt?: Date | null;
   phoneVerifiedAt?: Date | null;
+  locale?: string | null;
 }
 
 interface RefreshableToken {
@@ -24,7 +25,7 @@ interface RefreshableToken {
 /**
  * Re-validates a JWT against the database at most every REVALIDATE_MS.
  * Returns null (=> session invalidated) when the user was deleted or deactivated,
- * and refreshes role / societyId / verification so admin changes take effect without re-login.
+ * and refreshes role / societyId / verification / language so changes take effect without re-login.
  */
 export async function refreshToken<T extends RefreshableToken>(
   token: T,
@@ -42,5 +43,5 @@ export async function refreshToken<T extends RefreshableToken>(
     emailVerifiedAt: user.emailVerifiedAt ?? null,
     phoneVerifiedAt: user.phoneVerifiedAt ?? null,
   });
-  return { ...token, role: user.role, societyId: user.societyId, verified, checkedAt: now };
+  return { ...token, role: user.role, societyId: user.societyId, verified, locale: user.locale ?? null, checkedAt: now };
 }

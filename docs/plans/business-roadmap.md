@@ -53,7 +53,7 @@ per month.
 ### Phase 1 — ₹50k MRR (months 3–9, ~60 societies)
 - Start charging; referral offer (one free month for both societies).
 - WhatsApp messages (reminders, receipts, notices).
-- Marathi and Hindi UI, plus the launch city's language.
+- Marathi and Hindi UI (resident screens and emails done; committee screens, SMS and the website next), plus the launch city's language.
 - Accountant (CA) partner pilot with 3–5 CAs.
 
 ### Phase 2 — ₹2 lakh MRR (months 9–18, ~220 societies)

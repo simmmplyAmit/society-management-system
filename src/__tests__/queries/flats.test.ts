@@ -29,7 +29,8 @@ describe("getMyFlats", () => {
       link("f1", "A-101", "A", 1),
     ] as never);
     vi.mocked(prisma.maintenancePayment.groupBy).mockResolvedValue([
-      { flatId: "f1", _sum: { amount: "5500.50" }, _count: { _all: 2 } },
+      // ₹1,000 already paid on one of the two dues (a part-payment)
+      { flatId: "f1", _sum: { amount: "5500.50", amountPaid: "1000" }, _count: { _all: 2 } },
     ] as never);
 
     const flats = await getMyFlats("s1", "u1");
@@ -39,7 +40,7 @@ describe("getMyFlats", () => {
       societyId: "s1", flatId: { in: ["f2", "f1"] }, status: { in: ["PENDING", "OVERDUE"] },
     });
     expect(flats.map((f) => [f.number, f.unpaidTotal, f.unpaidCount, f.type])).toEqual([
-      ["A-101", 5500.5, 2, "OWNER"],
+      ["A-101", 4500.5, 2, "OWNER"],
       ["B-202", 0, 0, "TENANT"],
     ]);
   });

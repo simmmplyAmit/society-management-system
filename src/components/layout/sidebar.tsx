@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { BrandMark } from "./brand-mark";
 import { NAV_ITEMS, isNavActive } from "./nav-items";
@@ -9,6 +10,7 @@ import type { Role } from "@prisma/client";
 
 export function Sidebar({ role, societyName }: { role: Role; societyName: string }) {
   const pathname = usePathname();
+  const t = useTranslations("nav");
   const items = NAV_ITEMS.filter((i) => i.roles.includes(role));
 
   return (
@@ -17,7 +19,7 @@ export function Sidebar({ role, societyName }: { role: Role; societyName: string
         <BrandMark />
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold leading-tight">{societyName}</p>
-          <p className="text-xs text-muted-foreground">Society manager</p>
+          <p className="text-xs text-muted-foreground">{t("societyManager")}</p>
         </div>
       </div>
       <nav className="mt-8 space-y-1">
@@ -36,7 +38,7 @@ export function Sidebar({ role, societyName }: { role: Role; societyName: string
               )}
             >
               <Icon className="size-[18px]" strokeWidth={active ? 2.4 : 2} />
-              {item.label}
+              {t(item.key)}
             </Link>
           );
         })}

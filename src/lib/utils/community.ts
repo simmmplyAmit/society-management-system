@@ -1,4 +1,5 @@
 // Labels and pure rules for notices, community posts and complaints.
+import { baseLocale, dateTag } from "@/i18n/config";
 import type {
   ComplaintCategory,
   ComplaintPriority,
@@ -104,8 +105,19 @@ export function cleanText(s: string): string {
 }
 
 /** "5 min ago", "3 h ago", "2 d ago", then the date. */
-export function timeAgo(date: Date, now: Date): string {
+const JUST_NOW: Record<string, string> = { hi: "अभी", mr: "आत्ताच" };
+
+export function timeAgo(date: Date, now: Date, locale?: string | null): string {
   const s = Math.max(0, Math.round((now.getTime() - date.getTime()) / 1000));
+  const lang = baseLocale(locale);
+  if (lang !== "en") {
+    if (s < 60) return JUST_NOW[lang];
+    const rtf = new Intl.RelativeTimeFormat(dateTag(locale), { style: "short" });
+    if (s < 3600) return rtf.format(-Math.floor(s / 60), "minute");
+    if (s < 86_400) return rtf.format(-Math.floor(s / 3600), "hour");
+    if (s < 7 * 86_400) return rtf.format(-Math.floor(s / 86_400), "day");
+    return date.toLocaleDateString(dateTag(locale), { day: "2-digit", month: "short", year: "numeric" });
+  }
   if (s < 60) return "just now";
   if (s < 3600) return `${Math.floor(s / 60)} min ago`;
   if (s < 86_400) return `${Math.floor(s / 3600)} h ago`;

@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -11,16 +12,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { BrandMark } from "@/components/layout/brand-mark";
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { LanguageSwitcher } from "@/components/i18n/language-switcher";
 import type { Role } from "@prisma/client";
-
-const ROLE_LABELS: Record<Role, string> = {
-  SUPER_ADMIN: "Super Admin",
-  ADMIN: "Admin",
-  SECRETARY: "Secretary",
-  TREASURER: "Treasurer",
-  OWNER: "Owner",
-  TENANT: "Tenant",
-};
 
 interface TopBarProps {
   societyName?: string;
@@ -32,7 +25,8 @@ interface TopBarProps {
   };
 }
 
-export function TopBar({ user, societyName }: TopBarProps) {
+export async function TopBar({ user, societyName }: TopBarProps) {
+  const t = await getTranslations();
   const initials = user.name
     .split(" ")
     .map((n) => n[0])
@@ -58,7 +52,7 @@ export function TopBar({ user, societyName }: TopBarProps) {
             </Avatar>
           </span>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuContent align="end" className="w-64">
           <DropdownMenuGroup>
           <DropdownMenuLabel className="pb-1">
             <p className="font-medium truncate">{user.name}</p>
@@ -66,10 +60,15 @@ export function TopBar({ user, societyName }: TopBarProps) {
               {user.email}
             </p>
             <Badge variant="secondary" className="mt-1 text-xs">
-              {ROLE_LABELS[user.role]}
+              {t(`roles.${user.role}`)}
             </Badge>
           </DropdownMenuLabel>
           </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <div className="px-2 py-1.5">
+            <p className="mb-1 text-xs text-muted-foreground">{t("common.language")}</p>
+            <LanguageSwitcher compact />
+          </div>
           <DropdownMenuSeparator />
           <DropdownMenuItem>
             <SignOutButton />

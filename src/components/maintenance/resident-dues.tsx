@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -47,14 +48,6 @@ export interface FlatChip {
   type: "OWNER" | "TENANT";
 }
 
-const CREDIT_LABEL: Record<CreditMove["type"], string> = {
-  DEPOSIT: "Payment received",
-  APPLIED: "Applied to dues",
-  REVERSAL: "Returned to credit",
-  EXPENSE_CREDIT: "Credited for an expense you paid",
-  EXPENSE_CREDIT_REVERSAL: "Expense credit taken back",
-};
-
 export interface CreditMove {
   id: string;
   type: "DEPOSIT" | "APPLIED" | "REVERSAL" | "EXPENSE_CREDIT" | "EXPENSE_CREDIT_REVERSAL";
@@ -88,6 +81,11 @@ export function ResidentDues({
   societyName,
   hasWings = true,
 }: ResidentDuesProps) {
+  const t = useTranslations("dues");
+  const tr = useTranslations("roles");
+  const locale = useLocale();
+  const flat = (f: Parameters<typeof flatLabel>[0]) => flatLabel(f, hasWings, locale);
+  const title = (p: Payment) => dueTitle(p, locale);
   const multiFlat = flats.length > 1;
   const [activeFlat, setActiveFlat] = useState<string>(
     multiFlat && initialFlatId && flats.some((f) => f.id === initialFlatId) ? initialFlatId : "all"
@@ -146,21 +144,19 @@ export function ResidentDues({
     <div className="space-y-4">
       {(creditBalance > 0 || creditActivity.length > 0) && (
         <div className="rounded-xl bg-emerald-50 p-4 ring-1 ring-emerald-600/15">
-          <p className="text-xs font-medium text-emerald-700">Your credit</p>
+          <p className="text-xs font-medium text-emerald-700">{t("yourCredit")}</p>
           <p className="text-2xl font-semibold text-emerald-800">{formatCurrency(creditBalance)}</p>
-          <p className="mt-1 text-xs text-emerald-800/80">
-            Spare money you have paid in. It is applied to your dues automatically, oldest first, and can only be used for dues.
-          </p>
+          <p className="mt-1 text-xs text-emerald-800/80">{t("creditHelp")}</p>
         </div>
       )}
 
       {multiFlat && (
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
-          {[{ id: "all", label: "All flats", amount: unpaidAll, sub: `${flats.length} flats` }, ...flats.map((f) => ({
+          {[{ id: "all", label: t("allFlats"), amount: unpaidAll, sub: t("flatsCount", { count: flats.length }) }, ...flats.map((f) => ({
             id: f.id,
-            label: flatLabel(f, hasWings),
+            label: flat(f),
             amount: unpaidByFlat.get(f.id) ?? 0,
-            sub: f.type === "OWNER" ? "Owner" : "Tenant",
+            sub: tr(f.type),
           }))].map((c) => (
             <button
               key={c.id}
@@ -176,7 +172,7 @@ export function ResidentDues({
             >
               <span className="block text-xs font-semibold">{c.label}</span>
               <span className={cn("block text-[11px]", activeFlat === c.id ? "text-primary-foreground/80" : "text-muted-foreground")}>
-                {c.amount > 0 ? `${formatCurrency(c.amount)} due` : "All paid"} · {c.sub}
+                {c.amount > 0 ? t("amountDue", { amount: formatCurrency(c.amount) }) : t("allPaid")} · {c.sub}
               </span>
             </button>
           ))}
@@ -187,15 +183,17 @@ export function ResidentDues({
         <div className="space-y-3">
         <div className="rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-700 p-5 text-white shadow-lg shadow-indigo-500/20">
           <p className="text-sm text-white/80">
-            {allSelected ? (activeFlatInfo ? `Due for ${flatLabel(activeFlatInfo, hasWings)}` : "Total due") : `Paying ${selected.length} of ${pending.length} dues`}
+            {allSelected
+              ? activeFlatInfo ? t("dueFor", { flat: flat(activeFlatInfo) }) : t("totalDue")
+              : t("payingSome", { selected: selected.length, total: pending.length })}
           </p>
           <p className="mt-1 text-4xl font-semibold tracking-tight">{formatCurrency(payTotal)}</p>
           {!allSelected && (
-            <p className="mt-1 text-xs text-white/70">Total outstanding {formatCurrency(totalDue)}</p>
+            <p className="mt-1 text-xs text-white/70">{t("totalOutstanding", { amount: formatCurrency(totalDue) })}</p>
           )}
           {societyUpiId && (
             <p className="mt-3 text-xs text-white/80">
-              Pay to: <span className="font-semibold text-white">{societyUpiId}</span>
+              {t.rich("payTo", { upi: societyUpiId, b: (chunks) => <span className="font-semibold text-white">{chunks}</span> })}
             </p>
           )}
           {upiLink && selected.length > 0 ? (
@@ -203,18 +201,16 @@ export function ResidentDues({
               href={upiLink}
               className="mt-4 flex h-11 w-full items-center justify-center rounded-lg bg-white text-sm font-semibold text-indigo-700 transition hover:bg-indigo-50"
             >
-              Pay {formatCurrency(payTotal)} via UPI
+              {t("payViaUpi", { amount: formatCurrency(payTotal) })}
             </a>
           ) : (
             selected.length === 0 && (
               <p className="mt-4 rounded-lg bg-white/15 px-3 py-2 text-center text-sm">
-                Select at least one due to pay
+                {t("selectOne")}
               </p>
             )
           )}
-          <p className="mt-3 text-[11px] leading-snug text-white/70">
-            After paying, enter the UPI reference below so your society can confirm it.
-          </p>
+          <p className="mt-3 text-[11px] leading-snug text-white/70">{t("afterPaying")}</p>
         </div>
         <ReportPaymentForm paymentIds={selected.map((p) => p.id)} total={payTotal} />
         </div>
@@ -222,17 +218,17 @@ export function ResidentDues({
 
       {underReview.length > 0 && (
         <div>
-          <h3 className="mb-2 text-sm font-semibold">Awaiting verification</h3>
+          <h3 className="mb-2 text-sm font-semibold">{t("awaitingVerification")}</h3>
           <div className="divide-y divide-border overflow-hidden rounded-xl bg-card ring-1 ring-border">
             {underReview.map((p) => (
               <div key={p.id} className="flex items-center gap-3 px-4 py-3">
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium">{dueTitle(p)}</p>
-                  <p className="text-xs text-muted-foreground">{flatLabel(p.flat, hasWings)}</p>
+                  <p className="text-sm font-medium">{title(p)}</p>
+                  <p className="text-xs text-muted-foreground">{flat(p.flat)}</p>
                 </div>
                 <div className="shrink-0 text-right">
                   <p className="text-sm font-semibold">{formatCurrency(dueBalance(p))}</p>
-                  <Badge variant="info" className="mt-0.5">Awaiting verification</Badge>
+                  <Badge variant="info" className="mt-0.5">{t("awaitingVerification")}</Badge>
                 </div>
               </div>
             ))}
@@ -244,7 +240,7 @@ export function ResidentDues({
         <Card className="border-emerald-200 bg-emerald-50">
           <CardContent className="flex items-center gap-2 p-4">
             <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-            <p className="text-sm font-medium text-emerald-700">All dues cleared!</p>
+            <p className="text-sm font-medium text-emerald-700">{t("allCleared")}</p>
           </CardContent>
         </Card>
       )}
@@ -252,13 +248,13 @@ export function ResidentDues({
       {pending.length > 0 && (
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <h3 className="text-sm font-semibold">Pending dues</h3>
+            <h3 className="text-sm font-semibold">{t("pendingDues")}</h3>
             <button
               type="button"
               className="text-xs font-semibold text-primary hover:underline"
               onClick={() => setSelectedIds(allSelected ? new Set() : new Set(pending.map((p) => p.id)))}
             >
-              {allSelected ? "Clear all" : "Select all"}
+              {allSelected ? t("clearAll") : t("selectAll")}
             </button>
           </div>
           <div className="divide-y divide-border overflow-hidden rounded-xl bg-card ring-1 ring-border shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
@@ -279,21 +275,21 @@ export function ResidentDues({
                     className="size-4 shrink-0 accent-primary"
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">{dueTitle(p)}</p>
-                    <p className="text-xs text-muted-foreground">{flatLabel(p.flat, hasWings)}</p>
+                    <p className="text-sm font-medium">{title(p)}</p>
+                    <p className="text-xs text-muted-foreground">{flat(p.flat)}</p>
                   </div>
                   <div className="shrink-0 text-right">
                     <p className="text-sm font-semibold">{formatCurrency(dueBalance(p))}</p>
                     {Number(p.amountPaid ?? 0) > 0 && (
                       <p className="text-[11px] text-muted-foreground">
-                        {formatCurrency(Number(p.amountPaid))} of {formatCurrency(p.amount)} paid
+                        {t("partOf", { paid: formatCurrency(Number(p.amountPaid)), total: formatCurrency(p.amount) })}
                       </p>
                     )}
                     <Badge
                       variant={Number(p.amountPaid ?? 0) > 0 ? "info" : p.status === "OVERDUE" ? "danger" : "warning"}
                       className="mt-0.5"
                     >
-                      {Number(p.amountPaid ?? 0) > 0 ? "Part paid" : p.status === "OVERDUE" ? "Overdue" : "Pending"}
+                      {Number(p.amountPaid ?? 0) > 0 ? t("partPaid") : p.status === "OVERDUE" ? t("overdue") : t("pending")}
                     </Badge>
                   </div>
                 </label>
@@ -306,18 +302,18 @@ export function ResidentDues({
       {claims[0]?.status === "REJECTED" && (
         <div className="rounded-xl bg-rose-50 p-3 text-sm ring-1 ring-rose-600/15">
           <p className="font-semibold text-rose-700">
-            Your report {claims[0].utrNumber} for {formatCurrency(claims[0].amount)} was not accepted
+            {t("reportRejected", { utr: claims[0].utrNumber, amount: formatCurrency(claims[0].amount) })}
           </p>
           <p className="mt-0.5 text-xs text-rose-700/80">
-            {claims[0].reviewNote ? `Reason: ${claims[0].reviewNote}. ` : ""}The dues are open again. Check the
-            reference and report it again.
+            {claims[0].reviewNote ? `${t("rejectedReason", { reason: claims[0].reviewNote })} ` : ""}
+            {t("rejectedHelp")}
           </p>
         </div>
       )}
 
       {creditActivity.length > 0 && (
         <div>
-          <h3 className="mb-2 text-sm font-semibold text-muted-foreground">Credit activity</h3>
+          <h3 className="mb-2 text-sm font-semibold text-muted-foreground">{t("creditActivity")}</h3>
           <div className="divide-y divide-border overflow-hidden rounded-xl bg-card ring-1 ring-border">
             {creditActivity.map((m) => {
               const amt = Number(m.amount);
@@ -325,10 +321,10 @@ export function ResidentDues({
                 <div key={m.id} className="flex items-center gap-3 px-4 py-3">
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium">
-                      {CREDIT_LABEL[m.type]}
+                      {t(`credit.${m.type}`)}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {formatDate(m.createdAt)}
+                      {formatDate(m.createdAt, locale)}
                       {m.note ? ` · ${m.note}` : ""}
                     </p>
                   </div>
@@ -344,15 +340,15 @@ export function ResidentDues({
 
       {paid.length > 0 && (
         <div>
-          <h3 className="mb-2 text-sm font-semibold text-muted-foreground">Payment history</h3>
+          <h3 className="mb-2 text-sm font-semibold text-muted-foreground">{t("paymentHistory")}</h3>
           <div className="divide-y divide-border overflow-hidden rounded-xl bg-card ring-1 ring-border">
             {paid.slice(0, 12).map((p) => (
               <div key={p.id} className="flex items-center gap-3 px-4 py-3">
                 <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium">{dueTitle(p)}</p>
+                  <p className="text-sm font-medium">{title(p)}</p>
                   <p className="text-xs text-muted-foreground">
-                    Paid {formatDate(p.paidAt)}
+                    {t("paidOn", { date: formatDate(p.paidAt, locale) })}
                     {p.utrNumber && ` · UTR: ${p.utrNumber}`}
                   </p>
                 </div>
@@ -368,7 +364,7 @@ export function ResidentDues({
       {payments.length === 0 && (
         <Card>
           <CardContent className="p-6 text-center text-sm text-muted-foreground">
-            No maintenance records yet.
+            {t("noRecords")}
           </CardContent>
         </Card>
       )}

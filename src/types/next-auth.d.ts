@@ -10,6 +10,7 @@ declare module "next-auth" {
       role: Role;
       societyId: string | null;
       verified: boolean;
+      locale?: string | null;
     };
   }
 
@@ -17,6 +18,7 @@ declare module "next-auth" {
     role: Role;
     societyId: string | null;
     verified?: boolean;
+    locale?: string | null;
   }
 }
 
@@ -26,6 +28,7 @@ declare module "next-auth/jwt" {
     role: Role;
     societyId: string | null;
     verified?: boolean;
+    locale?: string | null;
     checkedAt?: number;
   }
 }
