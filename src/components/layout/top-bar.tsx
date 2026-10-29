@@ -42,7 +42,7 @@ export function TopBar({ user, societyName }: TopBarProps) {
     .slice(0, 2);
 
   return (
-    <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-white/90 px-4 py-2.5 backdrop-blur lg:px-8">
+    <header className="safe-area-pt sticky top-0 z-40 flex items-center justify-between border-b border-border bg-white/90 px-4 py-2.5 backdrop-blur lg:px-8">
       <div className="flex items-center gap-2.5 lg:hidden">
         <BrandMark className="size-8" />
         <h1 className="text-sm font-semibold">{societyName ?? "Society MS"}</h1>

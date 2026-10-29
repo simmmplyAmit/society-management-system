@@ -1,19 +1,19 @@
 import type { NextConfig } from "next";
-import withPWAInit from "@ducanh2912/next-pwa";
-
-const withPWA = withPWAInit({
-  dest: "public",
-  cacheOnFrontEndNav: true,
-  aggressiveFrontEndNavCaching: true,
-  reloadOnOnline: true,
-  disable: process.env.NODE_ENV === "development",
-  workboxOptions: {
-    disableDevLogs: true,
-  },
-});
 
 const nextConfig: NextConfig = {
   turbopack: {},
+  async headers() {
+    return [
+      {
+        // The service worker must always be re-checked so updates reach people promptly
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Service-Worker-Allowed", value: "/" },
+        ],
+      },
+    ];
+  },
 };
 
-export default withPWA(nextConfig);
+export default nextConfig;

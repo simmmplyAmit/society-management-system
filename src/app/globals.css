@@ -212,3 +212,7 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Phones with a notch or a gesture bar: keep content clear of them (viewport-fit=cover) */
+.safe-area-pb { padding-bottom: env(safe-area-inset-bottom); }
+.safe-area-pt { padding-top: env(safe-area-inset-top); }

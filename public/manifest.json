@@ -1,24 +1,25 @@
 {
+  "id": "/dashboard",
   "name": "Society Management System",
-  "short_name": "SocietyMS",
-  "description": "Manage your housing society — maintenance, expenses, residents",
-  "start_url": "/dashboard",
+  "short_name": "Society MS",
+  "description": "Run your housing society: maintenance dues, expenses, notices and complaints",
+  "lang": "en-IN",
+  "start_url": "/dashboard?source=pwa",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#0f172a",
   "orientation": "portrait",
+  "background_color": "#f5f6fa",
+  "theme_color": "#4f46e5",
+  "categories": ["productivity", "business", "lifestyle"],
   "icons": [
-    {
-      "src": "/icons/icon-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icons/icon-512x512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
+    { "src": "/icons/icon-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/icon-maskable-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Maintenance dues", "short_name": "Dues", "url": "/dashboard/maintenance?source=shortcut", "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Notices", "short_name": "Notices", "url": "/dashboard/notices?source=shortcut", "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Raise a complaint", "short_name": "Complaint", "url": "/dashboard/complaints?source=shortcut", "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192", "type": "image/png" }] }
   ]
 }

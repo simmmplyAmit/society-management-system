@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { Sidebar } from "@/components/layout/sidebar";
 import { TopBar } from "@/components/layout/top-bar";
+import { InstallPrompt } from "@/components/pwa/install-prompt";
 
 export default async function DashboardLayout({
   children,
@@ -32,6 +33,7 @@ export default async function DashboardLayout({
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar user={session.user} societyName={societyName} />
         <main className="mx-auto w-full max-w-2xl flex-1 px-4 pb-24 pt-5 lg:max-w-5xl lg:px-8 lg:pb-10 lg:pt-8">
+          <InstallPrompt />
           {children}
         </main>
         <BottomNav role={session.user.role} />
