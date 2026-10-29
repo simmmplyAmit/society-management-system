@@ -18,6 +18,13 @@ if (env === "production") {
     console.error("Neither DIRECT_URL nor DATABASE_URL is set; cannot run migrations.");
     process.exit(1);
   }
+  if (!process.env.FIELD_ENCRYPTION_KEY) {
+    console.error(
+      "FIELD_ENCRYPTION_KEY is not set. Phone numbers and UPI IDs are stored encrypted and the app refuses to run without the key.\n" +
+        "Generate one with `openssl rand -base64 32`, add it to the Production environment variables in Vercel, and keep a backup."
+    );
+    process.exit(1);
+  }
   console.log("Production build: applying database migrations…");
   run("npx", ["prisma", "migrate", "deploy"]);
 } else {

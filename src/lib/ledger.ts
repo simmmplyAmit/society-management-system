@@ -3,10 +3,9 @@
 // Credit is an append-only list of CreditEntry rows (balance = their sum). It is only ever
 // spent against dues of flats the user is linked to, oldest first. Every mutation runs in a
 // transaction that first locks the user's row, so two requests can never spend the same credit.
-import { prisma } from "@/lib/prisma";
-import type { Prisma } from "@prisma/client";
+import { prisma, type DbTransaction } from "@/lib/prisma";
 
-type Tx = Prisma.TransactionClient;
+type Tx = DbTransaction;
 
 // All arithmetic is in whole paise so floating point never drifts.
 const toPaise = (v: unknown) => Math.round(Number(v) * 100);
@@ -133,7 +132,7 @@ type DepositOptions = ApplyOptions & {
   /** DEPOSIT only: which bank account received it; null = the primary account. */
   bankAccountId?: string | null;
   /** Runs inside the same transaction, right after the deposit entry is written. */
-  inTx?: (tx: Prisma.TransactionClient) => Promise<void>;
+  inTx?: (tx: DbTransaction) => Promise<void>;
 };
 
 /**

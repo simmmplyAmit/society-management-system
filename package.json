@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "lint": "eslint",
     "seed": "tsx prisma/seed.ts",
+    "encrypt-fields": "tsx scripts/encrypt-fields.ts",
     "postinstall": "prisma generate"
   },
   "prisma": {

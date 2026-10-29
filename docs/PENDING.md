@@ -102,6 +102,9 @@ Built: record bank interest, rent, donations etc. with category, date and bank r
 
 ## 5. Security and operations
 
+- [ ] **Field encryption go-live:** generate `FIELD_ENCRYPTION_KEY` (`openssl rand -base64 32`), store a backup in a password manager, add it to Vercel (Production), deploy, then run `FIELD_ENCRYPTION_KEY=… DATABASE_URL=<direct url> npm run encrypt-fields -- --dry-run` and without `--dry-run`. Until the script has run, existing phone numbers and UPI IDs stay plain (they are encrypted as they are next written).
+- [ ] Encrypting more columns (email needs a blind index for login lookups; UTRs are used for duplicate checks) and a documented key-rotation drill.
+
 - [ ] **UPI ID break-glass:** a society whose only admin loses access cannot change its UPI ID. Add a super-admin override, or document the manual database fix.
 - [ ] Login rate limiting is in memory (per serverless instance). Move to a shared store (for example Upstash) before real traffic.
 - [ ] A real second factor, or lockout alerts, for admin accounts (email and mobile verification helps but is not a second factor).
