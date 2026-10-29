@@ -75,6 +75,7 @@ model Society {
   cashCollections     CashCollection[]
   expenseContributions ExpenseContribution[]
   cashDeposits        CashDeposit[]
+  importBatches       ImportBatch[]
 
   @@index([isActive])
 }
@@ -183,6 +184,7 @@ model User {
   cashDepositsConfirmed CashDeposit[]  @relation("CashConfirmer")
   upiChangesRequested UpiChangeRequest[] @relation("UpiChangeRequester")
   upiChangesReviewed  UpiChangeRequest[] @relation("UpiChangeReviewer")
+  importBatches       ImportBatch[]
 
   @@index([societyId])
   @@index([email])
@@ -294,6 +296,7 @@ model MaintenancePayment {
   utrNumber String?           // UPI transaction reference
   notes     String?
   claimId   String?           // resident-reported payment awaiting/after review
+  importBatchId String?       // set when the due came from the import wizard (never announced as new)
   amountPaid Decimal          @default(0) @db.Decimal(10, 2) // part-payments accumulate here; PAID once it reaches amount
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
@@ -310,6 +313,7 @@ model MaintenancePayment {
   @@index([status])
   @@index([claimId])
   @@index([specialChargeId])
+  @@index([importBatchId])
 }
 
 // ─────────────────────────────────────────────
@@ -328,6 +332,7 @@ model Expense {
   addedById   String   // userId of TREASURER who added it
   paidVia     MoneyChannel @default(BANK) // how the society's own share was paid (member-paid parts are in contributions)
   bankAccountId String?    // null = the primary account
+  importBatchId String?    // set when the expense came from the import wizard
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -975,4 +980,35 @@ model ExpenseContribution {
   @@index([societyId, status])
   @@index([expenseId])
   @@index([userId])
+}
+
+// ─────────────────────────────────────────────
+// Import wizard (moving a society off registers / Excel)
+// ─────────────────────────────────────────────
+
+enum ImportKind {
+  FLATS
+  RESIDENTS
+  DUES
+  EXPENSES
+}
+
+// One row per completed import, as a log of who brought in what.
+// Dues and expenses created by an import carry its id (importBatchId).
+model ImportBatch {
+  id          String     @id @default(cuid())
+  societyId   String
+  kind        ImportKind
+  createdById String
+  fileName    String?
+  rowCount    Int        // data rows in the file
+  created     Int        // records created
+  updated     Int        @default(0)
+  skipped     Int        @default(0)
+  createdAt   DateTime   @default(now())
+
+  society   Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  createdBy User    @relation(fields: [createdById], references: [id])
+
+  @@index([societyId, createdAt])
 }

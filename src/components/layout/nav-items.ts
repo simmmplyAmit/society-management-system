@@ -11,6 +11,7 @@ import {
   LifeBuoy,
   Menu,
   HelpCircle,
+  FileSpreadsheet,
 } from "lucide-react";
 import type { Role } from "@prisma/client";
 
@@ -36,7 +37,8 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard/expenses", label: "Expenses", icon: TrendingDown, roles: ["ADMIN", "SECRETARY", "TREASURER"], rank: 4 },
   { href: "/dashboard/documents", label: "Documents", icon: FolderOpen, roles: ["ADMIN", "SECRETARY", "TREASURER", "OWNER", "TENANT"], rank: 6 },
   { href: "/dashboard/income", label: "Income", icon: TrendingUp, roles: ["ADMIN", "SECRETARY", "TREASURER"], rank: 9 },
-  { href: "/dashboard/help", label: "Help", icon: HelpCircle, roles: ALL, rank: 10 },
+  { href: "/dashboard/import", label: "Import data", icon: FileSpreadsheet, roles: ["ADMIN", "TREASURER"], rank: 10 },
+  { href: "/dashboard/help", label: "Help", icon: HelpCircle, roles: ALL, rank: 11 },
 ];
 
 export function isNavActive(href: string, pathname: string) {

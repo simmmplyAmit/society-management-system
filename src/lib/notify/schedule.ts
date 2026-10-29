@@ -26,7 +26,7 @@ export function dayKey(now: Date): string {
 
 /**
  * "New due" notices for dues generated in the last 2 days for the current or previous
- * month. Older periods (e.g. a bulk back-fill) are never announced automatically.
+ * month. Older periods (e.g. a bulk back-fill) and imported dues are never announced automatically.
  */
 export async function sendNewDueNotices(opts: { societyId?: string; now?: Date } = {}): Promise<NotifyResult> {
   const now = opts.now ?? new Date();
@@ -34,6 +34,7 @@ export async function sendNewDueNotices(opts: { societyId?: string; now?: Date }
   const payments = await prisma.maintenancePayment.findMany({
     where: {
       status: "PENDING",
+      importBatchId: null,
       ...(opts.societyId ? { societyId: opts.societyId } : { society: { isActive: true } }),
       createdAt: { gte: new Date(now.getTime() - 2 * DAY_MS) },
       OR: [

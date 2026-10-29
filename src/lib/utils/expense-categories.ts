@@ -1,0 +1,15 @@
+export const EXPENSE_CATEGORIES = [
+  "Electricity",
+  "Water",
+  "Security",
+  "Cleaning",
+  "Repairs & Maintenance",
+  "Gardening",
+  "Lift Maintenance",
+  "Generator",
+  "Insurance",
+  "Salary",
+  "Stationery",
+  "Bank Charges",
+  "Other",
+];

@@ -122,6 +122,7 @@ export async function getMaintenanceCharges(societyId: string) {
     where: { societyId },
     include: {
       flat: {
+        omit: { areaSqFt: true }, // Decimal can't be passed to client components
         include: {
           floor: { include: { wing: { select: { name: true } } } },
         },
@@ -169,6 +170,7 @@ export async function getPayments(societyId: string, filters: PaymentFilters = {
     include: {
       claim: { select: { status: true, utrNumber: true } },
       flat: {
+        omit: { areaSqFt: true }, // Decimal can't be passed to client components
         include: {
           floor: { include: { wing: { select: { name: true } } } },
           residents: {
@@ -201,6 +203,7 @@ export async function getResidentPayments(societyId: string, userId: string) {
     include: {
       claim: { select: { id: true, status: true } },
       flat: {
+        omit: { areaSqFt: true }, // Decimal can't be passed to client components
         include: {
           floor: { include: { wing: { select: { name: true } } } },
         },

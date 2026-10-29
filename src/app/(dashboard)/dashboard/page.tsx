@@ -14,6 +14,7 @@ import {
   ArrowRight,
   ShieldAlert,
   Landmark,
+  FileSpreadsheet,
 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -134,6 +135,20 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-5">
       <Greeting name={session.user.name} sub={WELCOME[role]} />
+
+      {role === "ADMIN" && flatsCount === 0 && (
+        <Link
+          href="/dashboard/import"
+          className="flex items-center gap-3 rounded-xl bg-primary/5 p-4 ring-1 ring-primary/20"
+        >
+          <FileSpreadsheet className="size-5 shrink-0 text-primary" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold">Set up your society from Excel</span>
+            <span className="block text-xs text-muted-foreground">Import flats, residents, past dues and expenses in a few steps.</span>
+          </span>
+          <ArrowRight className="size-4 text-primary" />
+        </Link>
+      )}
 
       {pendingUpi && (
         <Link

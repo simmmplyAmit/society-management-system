@@ -12,22 +12,7 @@ import { AttachmentsField } from "@/components/documents/attachments";
 import { uploadAttachments } from "@/lib/client/upload-documents";
 import { AccountFields, type AccountOption } from "@/components/bank/account-fields";
 import type { MemberOption } from "@/components/maintenance/record-deposit-form";
-
-export const EXPENSE_CATEGORIES = [
-  "Electricity",
-  "Water",
-  "Security",
-  "Cleaning",
-  "Repairs & Maintenance",
-  "Gardening",
-  "Lift Maintenance",
-  "Generator",
-  "Insurance",
-  "Salary",
-  "Stationery",
-  "Bank Charges",
-  "Other",
-];
+import { EXPENSE_CATEGORIES } from "@/lib/utils/expense-categories";
 
 interface Row {
   userId: string;

@@ -34,12 +34,13 @@ describe("dayKey", () => {
 
 describe("sendNewDueNotices", () => {
   const now = new Date(2026, 9, 18);
-  it("targets only recent, pending dues of the current or previous month", async () => {
+  it("targets only recent, pending, non-imported dues of the current or previous month", async () => {
     find.mockResolvedValue([{ id: "p1" }] as never);
     await sendNewDueNotices({ societyId: "s1", now });
     const where = find.mock.calls[0][0]!.where as Record<string, unknown>;
     expect(where).toMatchObject({
       status: "PENDING",
+      importBatchId: null,
       societyId: "s1",
       createdAt: { gte: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000) },
       OR: [{ month: 10, year: 2026 }, { month: 9, year: 2026 }],

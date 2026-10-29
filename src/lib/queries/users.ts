@@ -16,6 +16,7 @@ export async function getSocietyUsers(societyId: string) {
       flatResidents: {
         include: {
           flat: {
+            omit: { areaSqFt: true }, // Decimal can't be passed to client components
             include: {
               floor: { include: { wing: { select: { name: true } } } },
             },

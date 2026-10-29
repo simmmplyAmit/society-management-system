@@ -16,7 +16,8 @@ import { deleteFlat } from "@/actions/flats";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Building2, ChevronRight, Ruler } from "lucide-react";
+import { Building2, ChevronRight, FileSpreadsheet, Ruler } from "lucide-react";
+import Link from "next/link";
 
 export default async function SocietyPage() {
   const session = await requireRole(["ADMIN", "SECRETARY"]);
@@ -56,6 +57,11 @@ export default async function SocietyPage() {
         <p className="text-xs text-muted-foreground">
           {[society.city, society.state].filter(Boolean).join(", ")}
         </p>
+        {isAdmin && (
+          <Link href="/dashboard/import" className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-primary">
+            <FileSpreadsheet className="size-3.5" /> Import flats and residents from Excel
+          </Link>
+        )}
       </div>
 
       {/* Stats */}

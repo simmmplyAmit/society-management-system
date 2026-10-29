@@ -121,6 +121,16 @@ Built: record bank interest, rent, donations etc. with category, date and bank r
 - [ ] Check in Vercel that the daily cron is registered and that `/api/cron/generate-maintenance` returns 401 without the token.
 - [ ] First deploy only announces dues created in the last 2 days, so no blast to existing dues is expected. Confirm.
 
+## 6a. Import wizard follow-ups (v1 built: flats, residents, past dues, past expenses)
+
+- [ ] Undo an import batch (dues and expenses already carry `importBatchId`; only rows untouched since the import should be removable).
+- [ ] Read `.xlsx` files directly (today: CSV upload, or copy cells from Excel and paste).
+- [ ] Opening credit / advance payments per member, and opening cash in hand (needs ledger `DEPOSIT` entries and a decision on how they count in the bank tally).
+- [ ] Import other income, and bank opening balances.
+- [ ] Email or SMS invites to imported residents (today the wizard shows a WhatsApp message to share; residents use "Forgot password").
+- [ ] Residents without an email can't be imported (email is required to sign in); decide on mobile-only accounts.
+- [ ] Login is case-sensitive on email (`loginSchema` doesn't lowercase) while password reset lowercases; imports store emails lowercase. Make sign-in case-insensitive.
+
 ## 6b. Public website and policies (built)
 
 - [ ] Fill in the placeholders in `src/lib/site.ts` before launch: legal name, registered address, jurisdiction city, contact/support emails, Grievance Officer name and email, WhatsApp number, GSTIN, and the price once decided.
@@ -139,7 +149,7 @@ Built: record bank interest, rent, donations etc. with category, date and bank r
 - [ ] Only unit tests exist (node environment, mocked database). Add component and end-to-end tests (Playwright) for the money flows: report, approve, part-payment, credit, UPI change.
 - [ ] Update `README.md` (roles, new flows, env vars) to match `CLAUDE.md`.
 - [ ] Expense analytics: optional stacked category-by-year chart.
-- [ ] The imported expenses (245 rows from `Society Maintainance.xlsx`) live only in the developer's database; the spreadsheet is git-ignored.
+- [ ] The imported expenses (245 rows from `Society Maintainance.xlsx`) live only in the developer's database; the spreadsheet is git-ignored. They can now be brought in through the import wizard (save the sheet as CSV).
 
 ## 8. Decisions already made (for reference)
 
