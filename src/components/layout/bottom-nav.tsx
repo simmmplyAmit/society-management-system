@@ -20,7 +20,7 @@ export function BottomNav({ role }: { role: Role }) {
             <Link
               key={item.href}
               href={item.href}
-              className="flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[10px] font-medium"
+              className="group flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[10px] font-medium active:scale-95 transition-transform"
             >
               <span
                 className={cn(
@@ -28,7 +28,7 @@ export function BottomNav({ role }: { role: Role }) {
                   active ? "bg-primary/10 text-primary" : "text-muted-foreground"
                 )}
               >
-                <Icon className="size-[18px]" strokeWidth={active ? 2.4 : 2} />
+                <Icon className={cn("size-[18px] transition-transform duration-200", active && "scale-110")} strokeWidth={active ? 2.4 : 2} />
               </span>
               <span className={active ? "text-primary" : "text-muted-foreground"}>
                 {item.label}

@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Building2, ChevronRight, Ruler } from "lucide-react";
+import { PageTitle } from "@/components/ui/page-title";
 
 export default async function SocietyPage() {
   const session = await requireRole(["ADMIN", "SECRETARY"]);
@@ -52,7 +53,7 @@ export default async function SocietyPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-2xl font-semibold">{society.name}</h2>
+        <PageTitle emoji="🏢">{society.name}</PageTitle>
         <p className="text-xs text-muted-foreground">
           {[society.city, society.state].filter(Boolean).join(", ")}
         </p>

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MONTHS, formatCurrency } from "@/lib/utils/month";
 import { FREQUENCY_LABEL, ruleSummary, type ChargeBasis, type ChargeFrequency } from "@/lib/utils/special-charges";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export interface SpecialChargeRow {
   id: string;
@@ -36,9 +37,7 @@ const ym = (m: number, y: number) => `${MONTHS[m - 1].slice(0, 3)} ${y}`;
 export function SpecialChargesList({ charges, canManage }: { charges: SpecialChargeRow[]; canManage: boolean }) {
   if (charges.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-border bg-card px-4 py-8 text-center text-sm text-muted-foreground">
-        No other charges yet.
-      </div>
+      <EmptyState emoji="🪙">No other charges yet.</EmptyState>
     );
   }
   return (

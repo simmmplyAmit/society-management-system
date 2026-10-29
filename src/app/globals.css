@@ -136,3 +136,79 @@
     letter-spacing: -0.015em;
   }
 }
+/* ─────────────────────────────────────────────
+   Playful motion: small and quick. Everything below is switched off for people who
+   ask their device for reduced motion (see the last block).
+   ───────────────────────────────────────────── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes pop {
+  0% { opacity: 0; transform: scale(0.6); }
+  60% { opacity: 1; transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+@keyframes wave {
+  0%, 60%, 100% { transform: rotate(0deg); }
+  10%, 30% { transform: rotate(14deg); }
+  20% { transform: rotate(-8deg); }
+  40% { transform: rotate(-4deg); }
+  50% { transform: rotate(10deg); }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}
+@keyframes ring-ping {
+  0% { box-shadow: 0 0 0 0 color-mix(in oklch, var(--primary) 35%, transparent); }
+  100% { box-shadow: 0 0 0 10px transparent; }
+}
+
+.animate-fade-up { animation: fade-up 0.38s cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
+.animate-pop { animation: pop 0.45s cubic-bezier(0.3, 1.4, 0.5, 1) backwards; }
+.emoji-wave { display: inline-block; transform-origin: 70% 70%; animation: wave 2s ease-in-out 0.5s 1; }
+.emoji-float { display: inline-block; animation: float 3.2s ease-in-out infinite; }
+.emoji-pop { display: inline-block; animation: pop 0.5s cubic-bezier(0.3, 1.4, 0.5, 1) 0.1s backwards; }
+.attention-ping { animation: ring-ping 1.8s ease-out 2; }
+
+/* Children of a list slide in one after another */
+.stagger > * { animation: fade-up 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
+.stagger > :nth-child(2) { animation-delay: 50ms; }
+.stagger > :nth-child(3) { animation-delay: 100ms; }
+.stagger > :nth-child(4) { animation-delay: 150ms; }
+.stagger > :nth-child(5) { animation-delay: 200ms; }
+.stagger > :nth-child(6) { animation-delay: 250ms; }
+.stagger > :nth-child(7) { animation-delay: 300ms; }
+.stagger > :nth-child(n + 8) { animation-delay: 350ms; }
+
+/* Cards that rise a little under the pointer (not on touch screens) */
+.lift { transition: transform 0.18s ease, box-shadow 0.18s ease, --tw-ring-color 0.18s ease; }
+@media (hover: hover) {
+  .lift:hover { transform: translateY(-2px); box-shadow: 0 6px 16px -6px rgb(16 24 40 / 0.18); }
+}
+.lift:active { transform: scale(0.99); }
+
+/* Placeholder blocks while a page loads */
+.skeleton { position: relative; overflow: hidden; background: var(--muted); border-radius: var(--radius-lg); }
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.55), transparent);
+  animation: shimmer 1.4s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

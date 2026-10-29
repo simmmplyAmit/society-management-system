@@ -4,6 +4,7 @@ import { formatCurrency, formatDate } from "@/lib/utils/month";
 import { AddBankAccountForm, BalanceCheckForm, MakePrimaryButton } from "@/components/bank/bank-forms";
 import { ToolSection } from "@/components/ui/tool-section";
 import { Landmark, Plus, Scale } from "lucide-react";
+import { PageTitle } from "@/components/ui/page-title";
 
 const card = "rounded-xl bg-card p-4 ring-1 ring-border shadow-[0_1px_2px_rgba(16,24,40,0.04)]";
 
@@ -31,7 +32,7 @@ export default async function BankPage() {
 
   return (
     <div className="space-y-5">
-      <h2 className="text-2xl font-semibold">Bank balance</h2>
+      <PageTitle emoji="🏦">Bank balance</PageTitle>
       <p className="-mt-3 text-sm text-muted-foreground">
         What the bank account should hold according to the app, so you can tally it against the bank statement.
       </p>

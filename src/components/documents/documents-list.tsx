@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import { formatDate } from "@/lib/utils/month";
 import { CATEGORY_LABELS, expiryState, formatBytes } from "@/lib/utils/documents";
 import type { DocumentCategory } from "@prisma/client";
+import { EmptyState } from "@/components/ui/empty-state";
+import { DOCUMENT_EMOJI } from "@/lib/utils/emoji";
 
 export interface DocRow {
   id: string;
@@ -98,7 +100,7 @@ function DocRowView({ d, now, suggestions }: { d: DocRow; now: Date; suggestions
           {d.title}
         </a>
         <p className="truncate text-xs text-muted-foreground">
-          {CATEGORY_LABELS[d.category]} · {formatDate(d.createdAt)} · {formatBytes(d.sizeBytes)} · {d.uploadedByName}
+          <span aria-hidden="true">{DOCUMENT_EMOJI[d.category]}</span> {CATEGORY_LABELS[d.category]} · {formatDate(d.createdAt)} · {formatBytes(d.sizeBytes)} · {d.uploadedByName}
         </p>
         <div className="mt-1 flex flex-wrap gap-1">
           {d.visibility === "RESIDENTS" && (
@@ -149,13 +151,11 @@ export function DocumentsList({
 }) {
   if (docs.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
-        No documents here yet.
-      </div>
+      <EmptyState emoji="📂">No documents here yet.</EmptyState>
     );
   }
   return (
-    <div className="divide-y divide-border overflow-hidden rounded-xl bg-card ring-1 ring-border shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+    <div className="stagger divide-y divide-border overflow-hidden rounded-xl bg-card ring-1 ring-border shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
       {docs.map((d) => (
         <DocRowView key={d.id} d={d} now={now} suggestions={suggestions} />
       ))}

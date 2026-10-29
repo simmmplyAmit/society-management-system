@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { NOTICE_BODY_MAX, NOTICE_CATEGORIES, NOTICE_LABELS, NOTICE_TITLE_MAX } from "@/lib/utils/community";
 import type { NoticeCategory } from "@prisma/client";
+import { NOTICE_EMOJI } from "@/lib/utils/emoji";
 
 const field =
   "h-10 w-full rounded-lg border border-input bg-white px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
@@ -66,7 +67,7 @@ export function NoticeForm({ initial, onDone }: { initial?: NoticeInitial; onDon
           <Label>Type</Label>
           <select name="category" defaultValue={initial?.category ?? "GENERAL"} className={field}>
             {NOTICE_CATEGORIES.map((c) => (
-              <option key={c} value={c}>{NOTICE_LABELS[c]}</option>
+              <option key={c} value={c}>{NOTICE_EMOJI[c]} {NOTICE_LABELS[c]}</option>
             ))}
           </select>
         </div>

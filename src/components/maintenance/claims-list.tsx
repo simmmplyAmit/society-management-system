@@ -10,6 +10,7 @@ import { flatLabel } from "@/lib/utils/flat";
 import { dueBalance } from "@/lib/utils/dues";
 import { Paperclip } from "lucide-react";
 import { formatCurrency, formatDate, MONTHS } from "@/lib/utils/month";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface Claim {
   id: string;
@@ -33,12 +34,9 @@ interface Claim {
 export function ClaimsList({ claims, hasWings }: { claims: Claim[]; hasWings: boolean }) {
   if (claims.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-border bg-card px-4 py-10 text-center">
-        <p className="text-sm font-medium">Nothing to verify</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          When a resident reports a UPI payment it shows up here.
-        </p>
-      </div>
+      <EmptyState emoji="🎉" hint="When a resident reports a UPI payment it shows up here.">
+        Nothing to verify
+      </EmptyState>
     );
   }
   return (

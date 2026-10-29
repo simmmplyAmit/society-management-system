@@ -5,6 +5,7 @@ import { PendingUpiRequest } from "@/components/upi/pending-upi-request";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils/month";
 import { AlertTriangle, ShieldCheck } from "lucide-react";
+import { PageTitle } from "@/components/ui/page-title";
 
 const STATUS_BADGE = {
   APPROVED: { label: "Approved", variant: "success" },
@@ -23,7 +24,7 @@ export default async function UpiSettingsPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-2xl font-semibold">Payment settings</h2>
+        <PageTitle emoji="💳">Payment settings</PageTitle>
         <p className="text-sm text-muted-foreground">Where residents&apos; maintenance payments go</p>
       </div>
 

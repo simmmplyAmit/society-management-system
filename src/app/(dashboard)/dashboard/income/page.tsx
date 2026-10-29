@@ -8,6 +8,7 @@ import { getBankAccounts } from "@/lib/queries/bank";
 import { ToolSection } from "@/components/ui/tool-section";
 import Link from "next/link";
 import { Plus, FileText, Landmark } from "lucide-react";
+import { PageTitle } from "@/components/ui/page-title";
 
 export default async function IncomePage({
   searchParams,
@@ -33,7 +34,7 @@ export default async function IncomePage({
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-semibold">Other income</h2>
+        <PageTitle emoji="💰">Other income</PageTitle>
         <YearSelector year={year} />
       </div>
       <p className="-mt-3 text-sm text-muted-foreground">

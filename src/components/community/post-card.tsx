@@ -8,6 +8,7 @@ import { EyeOff, MessageCircle, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { COMMENT_BODY_MAX, POST_LABELS, timeAgo } from "@/lib/utils/community";
 import type { PostCategory } from "@prisma/client";
+import { POST_EMOJI } from "@/lib/utils/emoji";
 
 export interface PostView {
   id: string;
@@ -60,7 +61,7 @@ export function PostCard({ post, now, userId, isCommittee }: { post: PostView; n
             {post.author.isCommittee && <span className="ml-1.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">Committee</span>}
           </p>
           <p className="text-xs text-muted-foreground">
-            {timeAgo(post.createdAt, now)} · <span className="font-medium">{POST_LABELS[post.category]}</span>
+            {timeAgo(post.createdAt, now)} · <span className="font-medium"><span aria-hidden="true">{POST_EMOJI[post.category]}</span> {POST_LABELS[post.category]}</span>
           </p>
         </div>
         {(mine || (isCommittee && !post.hidden)) && (

@@ -2,13 +2,14 @@ import Link from "next/link";
 import { getSession } from "@/lib/session";
 import { NAV_ITEMS } from "@/components/layout/nav-items";
 import { ChevronRight } from "lucide-react";
+import { PageTitle } from "@/components/ui/page-title";
 
 export default async function MorePage() {
   const session = await getSession();
   const items = NAV_ITEMS.filter((i) => i.roles.includes(session.user.role));
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-semibold">Menu</h2>
+      <PageTitle emoji="🧭">Menu</PageTitle>
       <div className="divide-y divide-border overflow-hidden rounded-xl bg-card ring-1 ring-border">
         {items.map((item) => {
           const Icon = item.icon;

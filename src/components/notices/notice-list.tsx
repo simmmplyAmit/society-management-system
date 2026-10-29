@@ -9,6 +9,8 @@ import { toast } from "sonner";
 import { formatDate } from "@/lib/utils/month";
 import { NOTICE_LABELS } from "@/lib/utils/community";
 import type { NoticeCategory } from "@prisma/client";
+import { EmptyState } from "@/components/ui/empty-state";
+import { NOTICE_EMOJI } from "@/lib/utils/emoji";
 
 export interface NoticeRow {
   id: string;
@@ -39,7 +41,7 @@ function NoticeCard({ n, canManage, expired }: { n: NoticeRow; canManage: boolea
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex flex-wrap items-center gap-1.5">
             <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset ${emergency ? "bg-red-50 text-red-700 ring-red-600/20" : "bg-primary/10 text-primary ring-transparent"}`}>
-              {NOTICE_LABELS[n.category]}
+              <span aria-hidden="true">{NOTICE_EMOJI[n.category]}</span> {NOTICE_LABELS[n.category]}
             </span>
             {n.pinned && (
               <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-600/20">
@@ -80,13 +82,11 @@ function NoticeCard({ n, canManage, expired }: { n: NoticeRow; canManage: boolea
 export function NoticeList({ notices, canManage, expired }: { notices: NoticeRow[]; canManage: boolean; expired?: boolean }) {
   if (notices.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
-        {expired ? "No past notices." : "No notices right now."}
-      </div>
+      <EmptyState emoji={expired ? "🗂️" : "📭"}>{expired ? "No past notices." : "No notices right now."}</EmptyState>
     );
   }
   return (
-    <div className="space-y-3">
+    <div className="stagger space-y-3">
       {notices.map((n) => (
         <NoticeCard key={n.id} n={n} canManage={canManage} expired={expired} />
       ))}

@@ -7,6 +7,8 @@ import { DocumentUploadForm } from "@/components/documents/upload-form";
 import { ToolSection } from "@/components/ui/tool-section";
 import { storageConfigured } from "@/lib/storage";
 import { Search, Upload, X } from "lucide-react";
+import { PageTitle } from "@/components/ui/page-title";
+import { DOCUMENT_EMOJI } from "@/lib/utils/emoji";
 
 export default async function DocumentsPage({
   searchParams,
@@ -50,7 +52,7 @@ export default async function DocumentsPage({
 
   return (
     <div className="space-y-5">
-      <h2 className="text-2xl font-semibold">Documents</h2>
+      <PageTitle emoji="📁">Documents</PageTitle>
       <p className="-mt-3 text-sm text-muted-foreground">
         {isCommittee
           ? "Bills, tax receipts, agreements, minutes and more. Mark a file for all residents when it should be shared."
@@ -86,7 +88,7 @@ export default async function DocumentsPage({
         <Link href={href({ tag, q })} className={chip(!category)}>All ({total})</Link>
         {CATEGORIES.filter((c) => (counts[c] ?? 0) > 0 || c === category).map((c) => (
           <Link key={c} href={href({ cat: c, tag, q })} className={chip(c === category)}>
-            {CATEGORY_LABELS[c]} ({counts[c] ?? 0})
+            {DOCUMENT_EMOJI[c]} {CATEGORY_LABELS[c]} ({counts[c] ?? 0})
           </Link>
         ))}
       </div>

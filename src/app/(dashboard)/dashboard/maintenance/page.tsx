@@ -28,6 +28,7 @@ import { ToolSection } from "@/components/ui/tool-section";
 import { Banknote, Plus, Wallet } from "lucide-react";
 import { ClaimsList } from "@/components/maintenance/claims-list";
 import { countPendingClaims, getPendingClaims } from "@/lib/queries/claims";
+import { PageTitle } from "@/components/ui/page-title";
 
 interface SearchParams {
   tab?: string;
@@ -59,7 +60,7 @@ export default async function MaintenancePage({
   if (role === "OWNER" || role === "TENANT") {
     return (
       <div className="space-y-4">
-        <h2 className="text-2xl font-semibold">My maintenance</h2>
+        <PageTitle emoji="🏠">My maintenance</PageTitle>
         <MyDues societyId={societyId!} userId={userId} initialFlatId={sp.flat} />
       </div>
     );
@@ -121,7 +122,7 @@ export default async function MaintenancePage({
 
   return (
     <div className="space-y-5">
-      <h2 className="text-2xl font-semibold">Maintenance</h2>
+      <PageTitle emoji="🧾">Maintenance</PageTitle>
       <DuesTabs tabs={tabs} active={tab} counts={{ verify: verifyCount, mine: myDueCount }} />
 
       {tab === "pending" && (

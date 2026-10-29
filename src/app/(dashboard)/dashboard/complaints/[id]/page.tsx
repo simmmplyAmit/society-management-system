@@ -10,6 +10,7 @@ import { COMPLAINT_LABELS, withinReopenWindow } from "@/lib/utils/community";
 import { flatLabel } from "@/lib/utils/flat";
 import { formatDate } from "@/lib/utils/month";
 import { ChevronLeft, Paperclip } from "lucide-react";
+import { COMPLAINT_EMOJI } from "@/lib/utils/emoji";
 
 export default async function ComplaintPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await requireRole(["ADMIN", "SECRETARY", "TREASURER", "OWNER", "TENANT"]);
@@ -39,7 +40,7 @@ export default async function ComplaintPage({ params }: { params: Promise<{ id: 
         <div className="mb-1 flex flex-wrap gap-1.5"><StatusBadge status={complaint.status} /><PriorityBadge priority={complaint.priority} /></div>
         <h2 className="text-lg font-semibold leading-snug">{complaint.title}</h2>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          {COMPLAINT_LABELS[complaint.category]} · raised by {complaint.raisedBy.name} on {formatDate(complaint.createdAt)}
+          <span aria-hidden="true">{COMPLAINT_EMOJI[complaint.category]}</span> {COMPLAINT_LABELS[complaint.category]} · raised by {complaint.raisedBy.name} on {formatDate(complaint.createdAt)}
           {complaint.flat ? ` · ${flatLabel(complaint.flat, hasWings)}` : ""}
           {complaint.assignedTo ? ` · handled by ${complaint.assignedTo.name}` : ""}
         </p>

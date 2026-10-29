@@ -10,6 +10,9 @@ import { COMPLAINT_LABELS, timeAgo } from "@/lib/utils/community";
 import { flatLabel, flatOptionLabel } from "@/lib/utils/flat";
 import { ChevronRight, LifeBuoy } from "lucide-react";
 import type { ComplaintStatus } from "@prisma/client";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageTitle } from "@/components/ui/page-title";
+import { COMPLAINT_EMOJI } from "@/lib/utils/emoji";
 
 const FILTERS: { key: string; label: string; status?: ComplaintStatus | "ACTIVE" }[] = [
   { key: "active", label: "Active", status: "ACTIVE" },
@@ -38,7 +41,7 @@ export default async function ComplaintsPage({ searchParams }: { searchParams: P
 
   return (
     <div className="space-y-5">
-      <h2 className="text-2xl font-semibold">Complaints</h2>
+      <PageTitle emoji="🛠️">Complaints</PageTitle>
       <p className="-mt-3 text-sm text-muted-foreground">
         {committee ? "Complaints raised by residents. Only you and the resident can see each one." : "Raise a problem with the committee. Only you and the committee can see your complaints."}
       </p>
@@ -69,17 +72,17 @@ export default async function ComplaintsPage({ searchParams }: { searchParams: P
       </div>
 
       {rows.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
-          {filter.key === "active" ? "No active complaints." : "Nothing here."}
-        </div>
+        <EmptyState emoji={filter.key === "active" ? "🙌" : "🗂️"}>
+          {filter.key === "active" ? "No active complaints. All good!" : "Nothing here."}
+        </EmptyState>
       ) : (
-        <div className="divide-y divide-border overflow-hidden rounded-xl bg-card ring-1 ring-border shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+        <div className="stagger divide-y divide-border overflow-hidden rounded-xl bg-card ring-1 ring-border shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
           {rows.map((c) => (
             <Link key={c.id} href={`/dashboard/complaints/${c.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/40">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{c.title}</p>
                 <p className="truncate text-xs text-muted-foreground">
-                  {COMPLAINT_LABELS[c.category]}
+                  <span aria-hidden="true">{COMPLAINT_EMOJI[c.category]}</span> {COMPLAINT_LABELS[c.category]}
                   {committee ? ` · ${c.raisedBy.name}` : ""}
                   {c.flat ? ` · ${flatLabel(c.flat, hasWings)}` : ""}
                   {" · "}{timeAgo(c.createdAt, now)}

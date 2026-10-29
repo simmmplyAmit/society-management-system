@@ -1,5 +1,6 @@
 import { PRIORITY_LABELS, STATUS_LABELS } from "@/lib/utils/community";
 import type { ComplaintPriority, ComplaintStatus } from "@prisma/client";
+import { STATUS_EMOJI } from "@/lib/utils/emoji";
 
 const STATUS_STYLE: Record<ComplaintStatus, string> = {
   OPEN: "bg-amber-50 text-amber-700 ring-amber-600/20",
@@ -9,10 +10,10 @@ const STATUS_STYLE: Record<ComplaintStatus, string> = {
 };
 
 export function StatusBadge({ status }: { status: ComplaintStatus }) {
-  return <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset ${STATUS_STYLE[status]}`}>{STATUS_LABELS[status]}</span>;
+  return <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset ${STATUS_STYLE[status]}`}><span aria-hidden="true">{STATUS_EMOJI[status]}</span> {STATUS_LABELS[status]}</span>;
 }
 
 export function PriorityBadge({ priority }: { priority: ComplaintPriority }) {
   if (priority !== "URGENT") return null;
-  return <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-700 ring-1 ring-inset ring-red-600/20">{PRIORITY_LABELS[priority]}</span>;
+  return <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-700 ring-1 ring-inset ring-red-600/20"><span aria-hidden="true">🚨</span> {PRIORITY_LABELS[priority]}</span>;
 }

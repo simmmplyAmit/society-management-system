@@ -16,6 +16,7 @@ import {
   type LibraryCategory,
 } from "@/lib/utils/documents";
 import { TagInput } from "@/components/documents/tag-input";
+import { DOCUMENT_EMOJI } from "@/lib/utils/emoji";
 
 const field =
   "h-10 w-full rounded-lg border border-input bg-white px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
@@ -106,7 +107,7 @@ export function DocumentUploadForm({ defaultCategory, tagSuggestions = [] }: { d
           <Label>Type *</Label>
           <select name="category" value={category} onChange={(e) => onCategory(e.target.value as LibraryCategory)} className={field}>
             {CATEGORIES.map((c) => (
-              <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
+              <option key={c} value={c}>{DOCUMENT_EMOJI[c]} {CATEGORY_LABELS[c]}</option>
             ))}
           </select>
         </div>

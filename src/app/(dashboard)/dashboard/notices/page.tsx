@@ -5,6 +5,7 @@ import { NoticeForm } from "@/components/notices/notice-form";
 import { NoticeList } from "@/components/notices/notice-list";
 import { ToolSection } from "@/components/ui/tool-section";
 import { Megaphone } from "lucide-react";
+import { PageTitle } from "@/components/ui/page-title";
 
 export default async function NoticesPage() {
   const session = await requireRole(["ADMIN", "SECRETARY", "TREASURER", "OWNER", "TENANT"]);
@@ -23,7 +24,7 @@ export default async function NoticesPage() {
 
   return (
     <div className="space-y-5">
-      <h2 className="text-2xl font-semibold">Notices</h2>
+      <PageTitle emoji="📢">Notices</PageTitle>
       <p className="-mt-3 text-sm text-muted-foreground">Official announcements from the committee.</p>
 
       {canManage && (

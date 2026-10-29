@@ -6,6 +6,7 @@ import { UserList } from "@/components/society/user-list";
 import { prisma } from "@/lib/prisma";
 import { ToolSection } from "@/components/ui/tool-section";
 import { UserPlus, Link2 } from "lucide-react";
+import { PageTitle } from "@/components/ui/page-title";
 
 export default async function ResidentsPage() {
   const session = await requireRole(["ADMIN", "SECRETARY"]);
@@ -28,7 +29,7 @@ export default async function ResidentsPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-2xl font-semibold">Residents</h2>
+        <PageTitle emoji="👥">Residents</PageTitle>
         <p className="text-sm text-muted-foreground">{users.length} users in this society</p>
       </div>
 

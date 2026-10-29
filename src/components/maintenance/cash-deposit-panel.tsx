@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { formatCurrency, formatDate } from "@/lib/utils/month";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export interface InHandRow {
   id: string;
@@ -155,9 +156,7 @@ export function CashDepositPanel({
       )}
 
       {inHand.length === 0 && (
-        <div className="rounded-xl border border-dashed border-border bg-card px-4 py-8 text-center text-sm text-muted-foreground">
-          No cash waiting to be deposited.
-        </div>
+        <EmptyState emoji="💵">No cash waiting to be deposited.</EmptyState>
       )}
 
       {deposits.length > 0 && (

@@ -7,6 +7,7 @@ import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency, formatDate } from "@/lib/utils/month";
 import { Attachments, type AttachmentRow } from "@/components/documents/attachments";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface Expense {
   id: string;
@@ -51,9 +52,7 @@ function DeleteExpenseButton({ id }: { id: string }) {
 export function ExpensesList({ expenses, canDelete }: ExpensesListProps) {
   if (expenses.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
-        No expenses recorded for this period.
-      </div>
+      <EmptyState emoji="🧾">No expenses recorded for this period.</EmptyState>
     );
   }
 

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency, formatDate } from "@/lib/utils/month";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface Income {
   id: string;
@@ -88,13 +89,11 @@ function IncomeRow({ i, canEdit, accounts }: { i: Income; canEdit: boolean; acco
 export function IncomeList({ incomes, canDelete, accounts = [] }: { incomes: Income[]; canDelete: boolean; accounts?: AccountOption[] }) {
   if (incomes.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
-        No other income recorded for this year.
-      </div>
+      <EmptyState emoji="💰">No other income recorded for this year.</EmptyState>
     );
   }
   return (
-    <div className="divide-y divide-border overflow-hidden rounded-xl bg-card ring-1 ring-border shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+    <div className="stagger divide-y divide-border overflow-hidden rounded-xl bg-card ring-1 ring-border shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
       {incomes.map((i) => (
         <IncomeRow key={i.id} i={i} canEdit={canDelete} accounts={accounts} />
       ))}

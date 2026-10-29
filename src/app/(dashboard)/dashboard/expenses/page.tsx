@@ -10,6 +10,7 @@ import { YearSelector } from "@/components/expenses/year-selector";
 import { getBankAccounts } from "@/lib/queries/bank";
 import { ToolSection } from "@/components/ui/tool-section";
 import { Plus } from "lucide-react";
+import { PageTitle } from "@/components/ui/page-title";
 
 interface SearchParams {
   year?: string;
@@ -47,7 +48,7 @@ export default async function ExpensesPage({
 
   return (
     <div className="space-y-5">
-      <h2 className="text-2xl font-semibold">Expenses</h2>
+      <PageTitle emoji="💸">Expenses</PageTitle>
 
       <ExpenseAnalyticsView data={analytics} />
 

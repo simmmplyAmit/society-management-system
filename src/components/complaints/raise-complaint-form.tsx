@@ -16,6 +16,7 @@ import {
   COMPLAINT_TITLE_MAX,
   MAX_COMPLAINT_PHOTOS,
 } from "@/lib/utils/community";
+import { COMPLAINT_EMOJI } from "@/lib/utils/emoji";
 
 const field =
   "h-10 w-full rounded-lg border border-input bg-white px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
@@ -52,7 +53,7 @@ export function RaiseComplaintForm({ flats }: { flats: { id: string; label: stri
           <select name="category" required defaultValue="" className={field}>
             <option value="" disabled>Choose</option>
             {COMPLAINT_CATEGORIES.map((c) => (
-              <option key={c} value={c}>{COMPLAINT_LABELS[c]}</option>
+              <option key={c} value={c}>{COMPLAINT_EMOJI[c]} {COMPLAINT_LABELS[c]}</option>
             ))}
           </select>
         </div>
@@ -60,7 +61,7 @@ export function RaiseComplaintForm({ flats }: { flats: { id: string; label: stri
           <Label>How urgent?</Label>
           <select name="priority" defaultValue="NORMAL" className={field}>
             <option value="NORMAL">Normal</option>
-            <option value="URGENT">Urgent</option>
+            <option value="URGENT">🚨 Urgent</option>
           </select>
         </div>
       </div>

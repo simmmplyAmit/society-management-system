@@ -4,6 +4,7 @@ import { getStatement } from "@/lib/queries/income";
 import { formatCurrency, MONTHS } from "@/lib/utils/month";
 import { YearSelector } from "@/components/expenses/year-selector";
 import { ChevronLeft } from "lucide-react";
+import { PageTitle } from "@/components/ui/page-title";
 
 const card = "rounded-xl bg-card p-4 ring-1 ring-border shadow-[0_1px_2px_rgba(16,24,40,0.04)]";
 
@@ -28,7 +29,7 @@ export default async function StatementPage({
         <ChevronLeft className="size-4" /> Other income
       </Link>
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-semibold">Statement</h2>
+        <PageTitle emoji="📊">Statement</PageTitle>
         <YearSelector year={year} />
       </div>
       <p className="-mt-3 text-sm text-muted-foreground">

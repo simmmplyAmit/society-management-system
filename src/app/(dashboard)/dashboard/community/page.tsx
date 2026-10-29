@@ -6,6 +6,9 @@ import { PostComposer } from "@/components/community/post-composer";
 import { PostCard } from "@/components/community/post-card";
 import { POST_CATEGORIES, POST_LABELS } from "@/lib/utils/community";
 import type { PostCategory } from "@prisma/client";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageTitle } from "@/components/ui/page-title";
+import { POST_EMOJI } from "@/lib/utils/emoji";
 
 export default async function CommunityPage({ searchParams }: { searchParams: Promise<{ cat?: string }> }) {
   const session = await requireRole(["ADMIN", "SECRETARY", "TREASURER", "OWNER", "TENANT"]);
@@ -21,7 +24,7 @@ export default async function CommunityPage({ searchParams }: { searchParams: Pr
 
   return (
     <div className="space-y-5">
-      <h2 className="text-2xl font-semibold">Community</h2>
+      <PageTitle emoji="💬">Community</PageTitle>
       <p className="-mt-3 text-sm text-muted-foreground">Talk to your neighbours: recommendations, lost and found, events and more.</p>
 
       <PostComposer />
@@ -29,16 +32,14 @@ export default async function CommunityPage({ searchParams }: { searchParams: Pr
       <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
         <Link href="/dashboard/community" className={chip(!category)}>All</Link>
         {POST_CATEGORIES.map((c) => (
-          <Link key={c} href={`/dashboard/community?cat=${c}`} className={chip(c === category)}>{POST_LABELS[c]}</Link>
+          <Link key={c} href={`/dashboard/community?cat=${c}`} className={chip(c === category)}>{POST_EMOJI[c]} {POST_LABELS[c]}</Link>
         ))}
       </div>
 
       {posts.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
-          Nothing here yet. Be the first to post.
-        </div>
+        <EmptyState emoji="🌱">Nothing here yet. Be the first to post.</EmptyState>
       ) : (
-        <div className="space-y-3">
+        <div className="stagger space-y-3">
           {posts.map((p) => (
             <PostCard
               key={p.id}

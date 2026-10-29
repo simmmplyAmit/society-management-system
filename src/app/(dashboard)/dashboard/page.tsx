@@ -21,6 +21,7 @@ import { getPendingUpiRequestFor } from "@/lib/queries/upi";
 import { getMyFlats, type MyFlat } from "@/lib/queries/flats";
 import { flatLabel } from "@/lib/utils/flat";
 import type { Role } from "@prisma/client";
+import { greetingFor } from "@/lib/utils/emoji";
 
 const WELCOME: Record<Role, string> = {
   SUPER_ADMIN: "Platform overview",
@@ -58,7 +59,7 @@ export default async function DashboardPage() {
 
         <Link
           href="/dashboard/maintenance"
-          className={`block rounded-3xl p-5 text-white shadow-lg ${
+          className={`lift block rounded-3xl p-5 text-white shadow-lg ${
             totalDue > 0
               ? "bg-gradient-to-br from-indigo-600 to-violet-700 shadow-indigo-500/20"
               : "bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-500/20"
@@ -66,7 +67,7 @@ export default async function DashboardPage() {
         >
           <div className="flex items-center gap-2 text-sm text-white/80">
             {totalDue > 0 ? <Clock className="size-4" /> : <CheckCircle2 className="size-4" />}
-            {totalDue > 0 ? "Maintenance due" : "You're all caught up"}
+            {totalDue > 0 ? "Maintenance due" : <>You&apos;re all caught up <span className="emoji-pop" aria-hidden="true">🎉</span></>}
           </div>
           <p className="mt-2 text-4xl font-semibold tracking-tight">
             {totalDue > 0 ? formatCurrency(totalDue) : "No dues"}
@@ -242,10 +243,15 @@ export default async function DashboardPage() {
 }
 
 function Greeting({ name, sub }: { name: string; sub: string }) {
+  const g = greetingFor(new Date());
   return (
     <div>
-      <h2 className="text-2xl font-semibold">Hello, {name.split(" ")[0]} 👋</h2>
-      <p className="text-sm text-muted-foreground">{sub}</p>
+      <h2 className="text-2xl font-semibold">
+        {g.text}, {name.split(" ")[0]} <span className="emoji-wave" aria-hidden="true">👋</span>
+      </h2>
+      <p className="text-sm text-muted-foreground">
+        <span aria-hidden="true">{g.emoji}</span> {sub}
+      </p>
     </div>
   );
 }

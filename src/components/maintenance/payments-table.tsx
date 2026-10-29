@@ -7,6 +7,7 @@ import { MarkPaidForm } from "./mark-paid-form";
 import { RemindButton } from "./remind-button";
 import { formatCurrency, formatDate } from "@/lib/utils/month";
 import { flatLabel } from "@/lib/utils/flat";
+import { EmptyState } from "@/components/ui/empty-state";
 
 
 type PaymentStatus = "PENDING" | "PAID" | "OVERDUE";
@@ -52,12 +53,9 @@ interface PaymentsTableProps {
 export function PaymentsTable({ payments, canManage, societyUpiId, hasWings, limit }: PaymentsTableProps) {
   if (payments.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-border bg-card px-4 py-10 text-center">
-        <p className="text-sm font-medium">No dues match these filters</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Try another month or flat, or generate dues from the &ldquo;Generate&rdquo; tab.
-        </p>
-      </div>
+      <EmptyState emoji="🔍" hint={<>Try another month or flat, or generate dues from the &ldquo;Generate&rdquo; tab.</>}>
+        No dues match these filters
+      </EmptyState>
     );
   }
 

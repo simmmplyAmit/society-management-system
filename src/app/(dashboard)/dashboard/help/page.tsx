@@ -3,6 +3,7 @@ import { ROLE_GUIDES } from "@/lib/help-content";
 import { RoleTabs } from "@/components/help/role-tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { HelpCircle, MessageCircle } from "lucide-react";
+import { PageTitle } from "@/components/ui/page-title";
 
 export default async function HelpPage() {
   const session = await requireRole([
@@ -20,7 +21,7 @@ export default async function HelpPage() {
       <div>
         <div className="flex items-center gap-2">
           <HelpCircle className="h-5 w-5 text-slate-500" />
-          <h2 className="text-2xl font-semibold">Help & User Guide</h2>
+          <PageTitle emoji="📖">Help & User Guide</PageTitle>
         </div>
         <p className="text-xs text-muted-foreground mt-0.5">
           Step-by-step journeys for every role in Society MS
