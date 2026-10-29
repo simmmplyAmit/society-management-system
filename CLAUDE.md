@@ -44,6 +44,7 @@ Roles and what each can do are listed in README.md. In short: ADMIN manages stru
 ### Pages
 - Server components under `src/app/(dashboard)/dashboard/*` call `requireRole`, fetch through `src/lib/queries/*` or Prisma, and render different sections depending on the role. `searchParams` is a `Promise` (Next 16), so it must be awaited.
 - `/super-admin` handles society onboarding (`src/actions/super-admin.ts`).
+- The public website is the `(marketing)` route group: landing page `/`, `/contact`, `/privacy`, `/terms`, `/refund-policy` (static pages). Business details shown there (legal name, address, emails, grievance officer, pricing) live in `src/lib/site.ts`; `PUBLIC_PAGES` there also feeds `src/proxy.ts`'s public routes and `sitemap.ts`. Signed-in users visiting `/` are sent to `/dashboard` by the proxy. Keep the policy text in step with what the app actually does (data collected, providers, retention) and bump `policiesUpdated` when it changes.
 - Navigation is mobile-first (`components/layout/bottom-nav.tsx`, `top-bar.tsx`).
 
 ### Domain model

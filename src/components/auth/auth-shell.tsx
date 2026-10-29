@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { BrandMark } from "@/components/layout/brand-mark";
 import { IndianRupee, ShieldCheck, Smartphone } from "lucide-react";
 
@@ -48,6 +49,11 @@ export function AuthShell({
             <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
           </div>
           {children}
+          <p className="mt-8 text-center text-xs text-muted-foreground lg:text-left">
+            By signing in you agree to our{" "}
+            <Link href="/terms" className="underline underline-offset-2 hover:text-foreground">Terms</Link> and{" "}
+            <Link href="/privacy" className="underline underline-offset-2 hover:text-foreground">Privacy Policy</Link>.
+          </p>
         </div>
       </section>
     </main>

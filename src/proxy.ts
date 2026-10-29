@@ -1,9 +1,10 @@
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import type { Role } from "@prisma/client";
+import { PUBLIC_PAGES } from "@/lib/site";
 
-// Routes accessible without authentication
-const PUBLIC_ROUTES = ["/login", "/forgot-password", "/reset-password", "/"];
+// Routes accessible without authentication (the website pages come from PUBLIC_PAGES)
+const PUBLIC_ROUTES = ["/login", "/forgot-password", "/reset-password", ...PUBLIC_PAGES.map((p) => p.href)];
 
 // Role → allowed route prefixes
 const ROLE_ROUTES: Record<Role, string[]> = {
@@ -28,8 +29,8 @@ export default auth((req) => {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Authenticated on login page → redirect to dashboard
-  if (session?.user && nextUrl.pathname === "/login") {
+  // Authenticated on the login page or the website's home page → redirect to dashboard
+  if (session?.user && (nextUrl.pathname === "/login" || nextUrl.pathname === "/")) {
     return NextResponse.redirect(new URL("/dashboard", nextUrl.origin));
   }
 

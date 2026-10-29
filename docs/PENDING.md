@@ -121,6 +121,14 @@ Built: record bank interest, rent, donations etc. with category, date and bank r
 - [ ] Check in Vercel that the daily cron is registered and that `/api/cron/generate-maintenance` returns 401 without the token.
 - [ ] First deploy only announces dues created in the last 2 days, so no blast to existing dues is expected. Confirm.
 
+## 6b. Public website and policies (built)
+
+- [ ] Fill in the placeholders in `src/lib/site.ts` before launch: legal name, registered address, jurisdiction city, contact/support emails, Grievance Officer name and email, WhatsApp number, GSTIN, and the price once decided.
+- [ ] Have a lawyer or CA review the Privacy Policy, Terms and Refund policy (written as a starting point; the refund rules for yearly plans and the ₹1,000 liability floor are business choices).
+- [ ] The Terms and FAQ promise a data export when a society leaves; there is no export feature yet, so it is manual until one is built.
+- [ ] Consent checkbox at signup once self-serve signup exists (today a notice under the sign-in form links the Terms and Privacy Policy).
+- [ ] Open Graph image and real logo for link previews.
+
 ## 7. Housekeeping and quality
 
 - [ ] Lint warning: unused `ROLE_ROUTES` in `src/proxy.ts`.
