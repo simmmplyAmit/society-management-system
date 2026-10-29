@@ -63,6 +63,8 @@ model Society {
   bankBalanceChecks   BankBalanceCheck[]
   documents           Document[]
   notices             Notice[]
+  consentRecords      ConsentRecord[]
+  dataRequests        DataRequest[]
   posts               Post[]
   postComments        PostComment[]
   complaints          Complaint[]
@@ -150,10 +152,15 @@ model User {
   isActive     Boolean  @default(true)
   emailVerifiedAt DateTime?
   phoneVerifiedAt DateTime?
+  privacyAcceptedAt DateTime?  // latest privacy notice the person agreed to
+  privacyVersion    String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   society       Society?       @relation(fields: [societyId], references: [id])
+  consentRecords ConsentRecord[]
+  dataRequests   DataRequest[]  @relation("DataRequester")
+  dataRequestsHandled DataRequest[] @relation("DataRequestHandler")
   flatResidents FlatResident[]
   tenantRecords TenantRecord[]
   expenses      Expense[]
@@ -656,6 +663,56 @@ model ComplaintUpdate {
   author    User      @relation("ComplaintUpdateAuthor", fields: [authorId], references: [id], onDelete: Cascade)
 
   @@index([complaintId, createdAt])
+}
+
+// ─────────────────────────────────────────────
+// Privacy: consent log and requests to correct or erase personal data
+// ─────────────────────────────────────────────
+
+// Append-only proof of what each person agreed to and when.
+model ConsentRecord {
+  id         String   @id @default(cuid())
+  societyId  String?
+  userId     String
+  version    String   // privacy notice version, e.g. "2026-10-30"
+  acceptedAt DateTime @default(now())
+
+  society Society? @relation(fields: [societyId], references: [id], onDelete: SetNull)
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, acceptedAt])
+}
+
+enum DataRequestType {
+  CORRECTION
+  ERASURE
+}
+
+enum DataRequestStatus {
+  OPEN
+  DONE
+  REJECTED
+}
+
+model DataRequest {
+  id             String            @id @default(cuid())
+  societyId      String
+  userId         String
+  type           DataRequestType
+  note           String?
+  status         DataRequestStatus @default(OPEN)
+  handledById    String?
+  handledAt      DateTime?
+  resolutionNote String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  society   Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  user      User    @relation("DataRequester", fields: [userId], references: [id], onDelete: Cascade)
+  handledBy User?   @relation("DataRequestHandler", fields: [handledById], references: [id])
+
+  @@index([societyId, status])
+  @@index([userId])
 }
 
 // ─────────────────────────────────────────────

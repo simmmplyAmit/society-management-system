@@ -102,6 +102,9 @@ Built: record bank interest, rent, donations etc. with category, date and bank r
 
 ## 5. Security and operations
 
+- [ ] **Privacy go-live:** set `PRIVACY_OPERATOR_NAME`, `PRIVACY_CONTACT_EMAIL`, `PRIVACY_GRIEVANCE_OFFICER` in Vercel; have a lawyer review `/privacy`, the consent wording and the retention periods (questions in `docs/PRIVACY-AND-COMPLIANCE.md`); add Terms of Service and a data-processing agreement for societies.
+- [ ] Not automated: retention enforcement (8-year records, inactive accounts), a separate consent-withdrawal button, an age check, an audit log of who viewed personal data, and a rehearsed incident drill (`docs/SECURITY-INCIDENT-RESPONSE.md`).
+
 - [ ] **Field encryption go-live:** generate `FIELD_ENCRYPTION_KEY` (`openssl rand -base64 32`), store a backup in a password manager, add it to Vercel (Production), deploy, then run `FIELD_ENCRYPTION_KEY=… DATABASE_URL=<direct url> npm run encrypt-fields -- --dry-run` and without `--dry-run`. Until the script has run, existing phone numbers and UPI IDs stay plain (they are encrypted as they are next written).
 - [ ] Encrypting more columns (email needs a blind index for login lookups; UTRs are used for duplicate checks) and a documented key-rotation drill.
 

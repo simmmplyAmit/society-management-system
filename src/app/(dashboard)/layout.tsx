@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ensureVerified } from "@/lib/session";
+import { needsConsent } from "@/lib/privacy";
 import { redirect } from "next/navigation";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { Sidebar } from "@/components/layout/sidebar";
@@ -15,12 +16,14 @@ export default async function DashboardLayout({
   if (!session?.user) redirect("/login");
   await ensureVerified(session);
 
-  const society = session.user.societyId
-    ? await prisma.society.findUnique({
-        where: { id: session.user.societyId },
-        select: { name: true },
-      })
-    : null;
+  const [society, me] = await Promise.all([
+    session.user.societyId
+      ? prisma.society.findUnique({ where: { id: session.user.societyId }, select: { name: true } })
+      : Promise.resolve(null),
+    prisma.user.findUnique({ where: { id: session.user.id }, select: { role: true, privacyVersion: true } }),
+  ]);
+  // Everyone agrees to the current privacy notice before using the app (the platform team is exempt)
+  if (me && needsConsent(me)) redirect("/consent");
   const societyName = society?.name ?? "Society MS";
 
   return (

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { BrandMark } from "@/components/layout/brand-mark";
 import { IndianRupee, ShieldCheck, Smartphone } from "lucide-react";
 
@@ -48,6 +49,9 @@ export function AuthShell({
             <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
           </div>
           {children}
+          <p className="mt-8 text-center text-xs text-muted-foreground">
+            <Link href="/privacy" className="hover:text-foreground hover:underline">Privacy Notice</Link>
+          </p>
         </div>
       </section>
     </main>

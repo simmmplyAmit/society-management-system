@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -71,6 +72,11 @@ export function TopBar({ user, societyName }: TopBarProps) {
           </DropdownMenuLabel>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
+          {user.role !== "SUPER_ADMIN" && (
+            <DropdownMenuItem>
+              <Link href="/dashboard/privacy" className="w-full">🔐 Privacy &amp; my data</Link>
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem>
             <SignOutButton />
           </DropdownMenuItem>
