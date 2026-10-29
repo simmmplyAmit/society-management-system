@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Society MS</string>
+    <string name="title_activity_main">Society MS</string>
+    <string name="package_name">com.societyms.app</string>
+    <string name="custom_url_scheme">com.societyms.app</string>
+    <string name="downloading">Downloading %1$s…</string>
+    <string name="download_failed">Could not download the file</string>
+</resources>

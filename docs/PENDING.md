@@ -102,6 +102,8 @@ Built: record bank interest, rent, donations etc. with category, date and bank r
 
 ## 5. Security and operations
 
+- [ ] **Mobile app:** choose the final `appId`, build and test the Android app on real phones (UPI, camera, downloads; checklist in `docs/MOBILE-APP.md`; the cloud session cannot build it unless Google's Android hosts are allowed), create the signing key, Play Console listing and data-safety form. Then iPhone (needs a Mac or cloud macOS build), and push notifications.
+
 - [ ] **Privacy go-live:** set `PRIVACY_OPERATOR_NAME`, `PRIVACY_CONTACT_EMAIL`, `PRIVACY_GRIEVANCE_OFFICER` in Vercel; have a lawyer review `/privacy`, the consent wording and the retention periods (questions in `docs/PRIVACY-AND-COMPLIANCE.md`); add Terms of Service and a data-processing agreement for societies.
 - [ ] Not automated: retention enforcement (8-year records, inactive accounts), a separate consent-withdrawal button, an age check, an audit log of who viewed personal data, and a rehearsed incident drill (`docs/SECURITY-INCIDENT-RESPONSE.md`).
 
